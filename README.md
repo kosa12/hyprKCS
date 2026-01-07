@@ -43,6 +43,11 @@ windowrulev2 = center, class:(com.github.hyprkcs|hyprKCS)
 - **Edit:** Double-click a row to edit its modifiers, key, dispatcher, or arguments.
 - **Close:** Press `Escape` or the window close button.
 
+## Maintainer
+
+**kosa12** (kosa03matyas@gmail.com)
+- **PGP Fingerprint:** `D205 9131 FDE2 EECC 7C90 A549 F2CB 939C 8AA6 7892`
+
 ## License
 
 MIT
