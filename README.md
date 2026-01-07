@@ -18,6 +18,12 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 yay -S hyprkcs-git
 ```
 
+### Nix
+Run directly without installing:
+```bash
+nix run github:kosa12/hyprKCS
+```
+
 ### Manual Build
 Ensure you have `rust`, `cargo`, and `gtk4` development headers installed.
 ```bash
