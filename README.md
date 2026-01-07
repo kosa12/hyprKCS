@@ -13,7 +13,7 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 
 ## Installation
 
-### AUR (Arch Linux) // not yet available
+### AUR (Arch Linux)
 ```bash
 yay -S hyprkcs-git
 ```
