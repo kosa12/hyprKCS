@@ -37,6 +37,11 @@
               pkgs.libadwaita
             ];
 
+            # Rename binary to match pname (lowercase)
+            postInstall = ''
+              mv $out/bin/hyprKCS $out/bin/hyprkcs
+            '';
+
             meta = with pkgs.lib; {
               description = "A fast, minimal Hyprland keybind cheat sheet written in Rust/GTK4";
               homepage = "https://github.com/kosa12/hyprKCS";
