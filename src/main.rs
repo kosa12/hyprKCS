@@ -54,6 +54,10 @@ fn load_css() {
         .args-label {
             color: alpha(currentColor, 0.7);
         }
+        .conflicted {
+            color: @error_color;
+            font-weight: bold;
+        }
         columnview row:selected .key-label, 
         columnview row:selected .mod-label {
             background-color: alpha(white, 0.2);
@@ -75,9 +79,18 @@ fn build_ui(app: &adw::Application) {
         vec![]
     });
 
+    // Detect conflicts
+    let mut counts = std::collections::HashMap::new();
+    for kb in &keybinds {
+        let key = (kb.mods.clone(), kb.key.clone());
+        *counts.entry(key).or_insert(0) += 1;
+    }
+
     let model = gio::ListStore::new::<KeybindObject>();
     for kb in keybinds {
-        model.append(&KeybindObject::new(kb));
+        let count = counts.get(&(kb.mods.clone(), kb.key.clone())).unwrap_or(&0);
+        let is_conflicted = *count > 1;
+        model.append(&KeybindObject::new(kb, is_conflicted));
     }
 
     let filter = gtk::CustomFilter::new(|_obj| {
@@ -102,8 +115,8 @@ fn build_ui(app: &adw::Application) {
         factory.connect_setup(move |_, list_item| {
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
-                .margin_start(12)
-                .margin_end(12)
+                .margin_start(4)
+                .margin_end(4)
                 .margin_top(8)
                 .margin_bottom(8)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -117,7 +130,22 @@ fn build_ui(app: &adw::Application) {
                 _ => {}
             }
 
-            list_item.set_child(Some(&label));
+            if prop_name_css == "mods" {
+                let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+                let warning_icon = gtk::Image::builder()
+                    .icon_name("dialog-warning-symbolic")
+                    .visible(false) // Hidden by default
+                    .css_classes(["error"])
+                    .tooltip_text("Conflicting keybind")
+                    .build();
+                
+                box_layout.append(&warning_icon);
+                box_layout.append(&label);
+                
+                list_item.set_child(Some(&box_layout));
+            } else {
+                list_item.set_child(Some(&label));
+            }
         });
 
         factory.connect_bind(move |_, list_item| {
@@ -125,10 +153,17 @@ fn build_ui(app: &adw::Application) {
                 .item()
                 .and_downcast::<KeybindObject>()
                 .expect("The item has to be an `KeybindObject`.");
-            let label = list_item
-                .child()
-                .and_downcast::<gtk::Label>()
-                .expect("The child has to be a `Label`.");
+            
+            // Logic to handle both complex (Mods) and simple (others) columns
+            let (label, icon_opt) = if prop_name == "mods" {
+                 let box_layout = list_item.child().and_downcast::<gtk::Box>().expect("Child is not a Box");
+                 let icon = box_layout.first_child().and_downcast::<gtk::Image>().expect("First child is not an Image");
+                 let label = icon.next_sibling().and_downcast::<gtk::Label>().expect("Second child is not a Label");
+                 (label, Some(icon))
+            } else {
+                 let label = list_item.child().and_downcast::<gtk::Label>().expect("Child is not a Label");
+                 (label, None)
+            };
             
             let mut binding_label_builder = keybind.bind_property(&prop_name, &label, "label")
                 .sync_create();
@@ -151,9 +186,24 @@ fn build_ui(app: &adw::Application) {
 
             let binding_label = binding_label_builder.build();
             let binding_tooltip = binding_tooltip_builder.build();
+            
+            let mut bindings = vec![binding_label, binding_tooltip];
+            
+            if let Some(icon) = icon_opt {
+                // Manually update the icon visibility based on conflict property
+                // Since it's boolean, we can bind it directly?
+                // bind_property handles the sync.
+                let binding_icon = keybind.bind_property("is-conflicted", &icon, "visible")
+                    .sync_create()
+                    .build();
+                bindings.push(binding_icon);
+                
+                // Also add .conflicted class to label if conflicted?
+                // Let's stick to the icon for now, simpler and cleaner.
+            }
 
             unsafe {
-                list_item.set_data("bindings", vec![binding_label, binding_tooltip]);
+                list_item.set_data("bindings", bindings);
             }
         });
         
@@ -398,5 +448,3 @@ fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current
 
     dialog.present();
 }
-
-    

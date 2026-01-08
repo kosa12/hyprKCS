@@ -8,13 +8,14 @@ glib::wrapper! {
 }
 
 impl KeybindObject {
-    pub fn new(keybind: Keybind) -> Self {
+    pub fn new(keybind: Keybind, is_conflicted: bool) -> Self {
         Object::builder()
             .property("mods", keybind.mods)
             .property("key", keybind.key)
             .property("dispatcher", keybind.dispatcher)
             .property("args", keybind.args)
             .property("line-number", keybind.line_number as u64)
+            .property("is-conflicted", is_conflicted)
             .build()
     }
 }
@@ -33,6 +34,7 @@ mod imp {
         pub dispatcher: RefCell<String>,
         pub args: RefCell<String>,
         pub line_number: Cell<u64>,
+        pub is_conflicted: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -51,6 +53,7 @@ mod imp {
                     glib::ParamSpecString::builder("dispatcher").build(),
                     glib::ParamSpecString::builder("args").build(),
                     glib::ParamSpecUInt64::builder("line-number").build(),
+                    glib::ParamSpecBoolean::builder("is-conflicted").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -63,6 +66,7 @@ mod imp {
                 "dispatcher" => { self.dispatcher.replace(value.get().unwrap()); },
                 "args" => { self.args.replace(value.get().unwrap()); },
                 "line-number" => { self.line_number.replace(value.get().unwrap()); },
+                "is-conflicted" => { self.is_conflicted.replace(value.get().unwrap()); },
                 _ => unimplemented!(),
             }
         }
@@ -74,6 +78,7 @@ mod imp {
                 "dispatcher" => self.dispatcher.borrow().clone().to_value(),
                 "args" => self.args.borrow().clone().to_value(),
                 "line-number" => self.line_number.get().to_value(),
+                "is-conflicted" => self.is_conflicted.get().to_value(),
                 _ => unimplemented!(),
             }
         }
