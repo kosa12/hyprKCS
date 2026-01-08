@@ -1,5 +1,9 @@
 # hyprKCS
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
 
 ![hyprKCS Screenshot](./assets/screenshot.png)
@@ -8,12 +12,13 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 
 - **Blazing Fast (lol):** Written in Rust.
 - **Native Look:** Uses GTK4 and Libadwaita to match your system theme (supports Dark/Light mode and Matugen).
-- **Interactive:** Search through your keybinds in real-time.
-- **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon.
-- **Toast Notifications:** Non-intrusive feedback when saving or deleting.
-- **Key Recorder:** Press a key combo to automatically fill in modifiers and keys.
-- **Add & Delete:** Easily add new keybinds or remove existing ones directly from the UI.
-- **Editable:** Double-click any row to modify your keybinds directly from the UI. Changes are persisted to your `hyprland.conf`.
+- **Interactive Search:** Filter through your keybinds in real-time as you type.
+- **Key Recorder:** Click "Record" and press a combination to automatically fill in modifiers and keys.
+- **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon, resolving Hyprland variables (like `$mainMod`) for accuracy.
+- **Sourced File Support:** Recursively parses files included via `source = ...`, allowing you to edit binds across your entire configuration.
+- **Add, Edit & Delete:** Full CRUD support for your keybinds directly from the UI.
+- **Toast Notifications:** Provides smooth, non-intrusive feedback for every action.
+- **Safe Persistence:** Changes are written back to the correct configuration files automatically.
 
 ## Installation
 
@@ -46,12 +51,6 @@ windowrulev2 = float, class:(com.github.hyprkcs|hyprKCS)
 windowrulev2 = size 700 500, class:(com.github.hyprkcs|hyprKCS)
 windowrulev2 = center, class:(com.github.hyprkcs|hyprKCS)
 ```
-
-## Usage
-
-- **Search:** Type in the top bar to filter keybinds by any field.
-- **Edit:** Double-click a row to edit its modifiers, key, dispatcher, or arguments.
-- **Close:** Press `Escape` or the window close button.
 
 ## Maintainer
 
