@@ -1,6 +1,7 @@
 use gtk4 as gtk;
-use gtk::{gio, prelude::*};
+use gtk::{gio, glib, prelude::*, gdk};
 use libadwaita as adw;
+use std::path::PathBuf;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::refresh_conflicts;
@@ -88,7 +89,8 @@ pub fn show_add_dialog(
             let dispatcher = entry_dispatcher.text().to_string();
             let args = entry_args.text().to_string();
 
-            match parser::add_keybind(&mods, &key, &dispatcher, &args) {
+            let config_path = parser::get_config_path().unwrap(); // Default to main config
+            match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args) {
                 Ok(line_number) => {
                     let resolved_mods = resolve_input_mods(&mods);
                     let kb = parser::Keybind {
@@ -99,6 +101,7 @@ pub fn show_add_dialog(
                         dispatcher,
                         args,
                         line_number,
+                        file_path: config_path,
                     };
                     
                     model_clone.append(&KeybindObject::new(kb, false));
@@ -221,6 +224,9 @@ pub fn show_edit_dialog(
     let obj_clone = obj.clone();
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
+    let file_path_str = obj.property::<String>("file-path");
+    let file_path = PathBuf::from(&file_path_str);
+
     dialog.connect_response(move |dialog, response| {
         match response {
             gtk::ResponseType::Ok => {
@@ -241,7 +247,7 @@ pub fn show_edit_dialog(
                     input_args
                 };
                 
-                match parser::update_line(line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
+                match parser::update_line(file_path.clone(), line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
                     Ok(_) => {
                         let resolved_mods = resolve_input_mods(&new_mods);
                         obj_clone.set_property("mods", new_mods.to_value());
@@ -274,7 +280,7 @@ pub fn show_edit_dialog(
                 }
             }
             gtk::ResponseType::Reject => {
-                match parser::delete_keybind(line_number) {
+                match parser::delete_keybind(file_path.clone(), line_number) {
                     Ok(_) => {
                         let mut index_to_remove = None;
                         for i in 0..model_clone.n_items() {
@@ -282,8 +288,11 @@ pub fn show_edit_dialog(
                                 if item == obj_clone {
                                     index_to_remove = Some(i);
                                 } else if index_to_remove.is_some() {
-                                    let current_ln = item.property::<u64>("line-number");
-                                    item.set_property("line-number", current_ln - 1);
+                                    // Only update line number if it's the SAME file
+                                    if item.property::<String>("file-path") == file_path_str {
+                                        let current_ln = item.property::<u64>("line-number");
+                                        item.set_property("line-number", current_ln - 1);
+                                    }
                                 }
                             }
                         }
