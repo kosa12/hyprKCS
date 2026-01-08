@@ -1,12 +1,17 @@
 # hyprKCS
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
+[![Version](https://img.shields.io/github/v/tag/kosa12/hyprKCS?label=version)](https://github.com/kosa12/hyprKCS/tags)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
 
 ![hyprKCS Screenshot](./assets/screenshot.png)
 
 ## Features
 
-- **Blazing Fast:** Written in Rust for minimal overhead.
+- **Blazing Fast (lol):** Written in Rust.
 - **Native Look:** Uses GTK4 and Libadwaita to match your system theme (supports Dark/Light mode and Matugen).
 - **Interactive Search:** Filter through your keybinds in real-time as you type.
 - **Key Recorder:** Click "Record" and press a combination to automatically fill in modifiers and keys.
@@ -47,12 +52,6 @@ windowrulev2 = float, class:(com.github.hyprkcs|hyprKCS)
 windowrulev2 = size 700 500, class:(com.github.hyprkcs|hyprKCS)
 windowrulev2 = center, class:(com.github.hyprkcs|hyprKCS)
 ```
-
-## Usage
-
-- **Search:** Type in the top bar to filter keybinds by any field.
-- **Edit:** Double-click a row to edit its modifiers, key, dispatcher, or arguments.
-- **Close:** Press `Escape` or the window close button.
 
 ## Maintainer
 
