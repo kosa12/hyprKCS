@@ -2,7 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
-[![Version](https://img.shields.io/github/v/tag/kosa12/hyprKCS?label=version)](https://github.com/kosa12/hyprKCS/tags)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
