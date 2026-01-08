@@ -5,9 +5,21 @@ use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::refresh_conflicts;
 
+fn resolve_input_mods(mods: &str) -> String {
+    let variables = parser::get_variables().unwrap_or_default();
+    let mut resolved = mods.to_string();
+    for (var, val) in &variables {
+        if resolved.contains(var) {
+            resolved = resolved.replace(var, val);
+        }
+    }
+    resolved
+}
+
 pub fn show_add_dialog(
     parent: &adw::ApplicationWindow,
     model: gio::ListStore,
+    toast_overlay: adw::ToastOverlay,
 ) {
     let dialog = gtk::Dialog::builder()
         .title("Add Keybind")
@@ -28,7 +40,7 @@ pub fn show_add_dialog(
     content_area.append(&label_mods);
 
     let entry_mods = gtk::Entry::builder()
-        .placeholder_text("e.g. SUPER")
+        .placeholder_text("e.g. SUPER or $mainMod")
         .activates_default(true)
         .build();
     content_area.append(&entry_mods);
@@ -68,6 +80,7 @@ pub fn show_add_dialog(
     dialog.set_default_response(gtk::ResponseType::Ok);
 
     let model_clone = model.clone();
+    let toast_overlay_clone = toast_overlay.clone();
     dialog.connect_response(move |dialog, response| {
         if response == gtk::ResponseType::Ok {
             let mods = entry_mods.text().to_string();
@@ -77,9 +90,10 @@ pub fn show_add_dialog(
 
             match parser::add_keybind(&mods, &key, &dispatcher, &args) {
                 Ok(line_number) => {
+                    let resolved_mods = resolve_input_mods(&mods);
                     let kb = parser::Keybind {
                         mods: mods.clone(),
-                        clean_mods: mods,
+                        clean_mods: resolved_mods,
                         flags: String::new(),
                         key,
                         dispatcher,
@@ -89,6 +103,12 @@ pub fn show_add_dialog(
                     
                     model_clone.append(&KeybindObject::new(kb, false));
                     refresh_conflicts(&model_clone);
+
+                    let toast = adw::Toast::builder()
+                        .title("Keybind added successfully")
+                        .timeout(3)
+                        .build();
+                    toast_overlay_clone.add_toast(toast);
                 }
                 Err(e) => {
                     let err_dialog = gtk::MessageDialog::builder()
@@ -118,7 +138,8 @@ pub fn show_edit_dialog(
     current_args: &str, 
     line_number: usize, 
     obj: KeybindObject, 
-    model: &gio::ListStore
+    model: &gio::ListStore,
+    toast_overlay: adw::ToastOverlay,
 ) {
     let (display_mods, mods_had_prefix) = if let Some(stripped) = current_mods.strip_prefix('$') {
         (stripped, true)
@@ -199,6 +220,7 @@ pub fn show_edit_dialog(
 
     let obj_clone = obj.clone();
     let model_clone = model.clone();
+    let toast_overlay_clone = toast_overlay.clone();
     dialog.connect_response(move |dialog, response| {
         match response {
             gtk::ResponseType::Ok => {
@@ -221,12 +243,20 @@ pub fn show_edit_dialog(
                 
                 match parser::update_line(line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
                     Ok(_) => {
+                        let resolved_mods = resolve_input_mods(&new_mods);
                         obj_clone.set_property("mods", new_mods.to_value());
+                        obj_clone.set_property("clean-mods", resolved_mods.to_value());
                         obj_clone.set_property("key", new_key.to_value());
                         obj_clone.set_property("dispatcher", new_dispatcher.to_value());
                         obj_clone.set_property("args", new_args.to_value());
                         
                         refresh_conflicts(&model_clone);
+
+                        let toast = adw::Toast::builder()
+                            .title("Keybind saved successfully")
+                            .timeout(3)
+                            .build();
+                        toast_overlay_clone.add_toast(toast);
                     }
                     Err(e) => {
                         eprintln!("Failed to update config: {}", e);
@@ -260,6 +290,12 @@ pub fn show_edit_dialog(
                         if let Some(idx) = index_to_remove {
                             model_clone.remove(idx);
                             refresh_conflicts(&model_clone);
+
+                            let toast = adw::Toast::builder()
+                                .title("Keybind deleted")
+                                .timeout(3)
+                                .build();
+                            toast_overlay_clone.add_toast(toast);
                         }
                     }
                     Err(e) => {

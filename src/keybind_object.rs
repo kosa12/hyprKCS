@@ -11,6 +11,7 @@ impl KeybindObject {
     pub fn new(keybind: Keybind, is_conflicted: bool) -> Self {
         Object::builder()
             .property("mods", keybind.mods)
+            .property("clean-mods", keybind.clean_mods)
             .property("key", keybind.key)
             .property("dispatcher", keybind.dispatcher)
             .property("args", keybind.args)
@@ -30,6 +31,7 @@ mod imp {
     #[derive(Default)]
     pub struct KeybindObject {
         pub mods: RefCell<String>,
+        pub clean_mods: RefCell<String>,
         pub key: RefCell<String>,
         pub dispatcher: RefCell<String>,
         pub args: RefCell<String>,
@@ -49,6 +51,7 @@ mod imp {
             static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| {
                 vec![
                     glib::ParamSpecString::builder("mods").build(),
+                    glib::ParamSpecString::builder("clean-mods").build(),
                     glib::ParamSpecString::builder("key").build(),
                     glib::ParamSpecString::builder("dispatcher").build(),
                     glib::ParamSpecString::builder("args").build(),
@@ -62,6 +65,7 @@ mod imp {
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
             match pspec.name() {
                 "mods" => { self.mods.replace(value.get().unwrap()); },
+                "clean-mods" => { self.clean_mods.replace(value.get().unwrap()); },
                 "key" => { self.key.replace(value.get().unwrap()); },
                 "dispatcher" => { self.dispatcher.replace(value.get().unwrap()); },
                 "args" => { self.args.replace(value.get().unwrap()); },
@@ -74,6 +78,7 @@ mod imp {
         fn property(&self, _id: usize, pspec: &glib::ParamSpec) -> glib::Value {
             match pspec.name() {
                 "mods" => self.mods.borrow().clone().to_value(),
+                "clean-mods" => self.clean_mods.borrow().clone().to_value(),
                 "key" => self.key.borrow().clone().to_value(),
                 "dispatcher" => self.dispatcher.borrow().clone().to_value(),
                 "args" => self.args.borrow().clone().to_value(),
