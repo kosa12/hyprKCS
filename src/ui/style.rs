@@ -1,5 +1,4 @@
 use gtk4 as gtk;
-use gtk::prelude::*;
 
 pub fn load_css() {
     let provider = gtk::CssProvider::new();
