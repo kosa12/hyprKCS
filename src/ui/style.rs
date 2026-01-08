@@ -65,9 +65,7 @@ pub fn load_css() {
         }
 
         columnview row:selected .key-label, 
-        columnview row:selected .mod-label,
-        columnview row:selected .dispatcher-label,
-        columnview row:selected .args-label {
+        columnview row:selected .mod-label {
             background-color: alpha(white, 0.15);
             border-color: alpha(white, 0.2);
             color: white;
