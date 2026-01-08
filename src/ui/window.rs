@@ -159,6 +159,10 @@ pub fn build_ui(app: &adw::Application) {
     column_view.append_column(&create_column("Args", "args"));
 
     let model_store = model.clone();
+    let toast_overlay = adw::ToastOverlay::new();
+
+    // Connect activate with the toast overlay
+    let toast_overlay_activate = toast_overlay.clone();
     let model_store_activate = model_store.clone();
     column_view.connect_activate(move |view, position| {
         let model = view.model().expect("ColumnView needs a model");
@@ -180,7 +184,17 @@ pub fn build_ui(app: &adw::Application) {
             
             if let Some(root) = view.root() {
                 if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                    show_edit_dialog(window, &current_mods, &current_key, &current_dispatcher, &current_args, line_number as usize, obj, &model_store_activate);
+                    show_edit_dialog(
+                        window, 
+                        &current_mods, 
+                        &current_key, 
+                        &current_dispatcher, 
+                        &current_args, 
+                        line_number as usize, 
+                        obj, 
+                        &model_store_activate,
+                        toast_overlay_activate.clone()
+                    );
                 }
             }
         }
@@ -219,7 +233,6 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    
     let header = adw::HeaderBar::new();
     
     let add_button = gtk::Button::builder()
@@ -228,10 +241,11 @@ pub fn build_ui(app: &adw::Application) {
         .build();
     
     let model_clone_add = model_store.clone();
+    let toast_overlay_add = toast_overlay.clone();
     add_button.connect_clicked(move |btn| {
         if let Some(root) = btn.root() {
             if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                show_add_dialog(window, model_clone_add.clone());
+                show_add_dialog(window, model_clone_add.clone(), toast_overlay_add.clone());
             }
         }
     });
@@ -242,10 +256,12 @@ pub fn build_ui(app: &adw::Application) {
     content.append(&search_entry);
     content.append(&scrolled_window);
 
+    toast_overlay.set_child(Some(&content));
+
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("hyprKCS")
-        .content(&content)
+        .content(&toast_overlay)
         .default_width(700)
         .default_height(500)
         .build();
@@ -261,6 +277,5 @@ pub fn build_ui(app: &adw::Application) {
     });
     window.add_controller(controller);
 
-        window.present();
-
-    }
+    window.present();
+}
