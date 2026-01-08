@@ -5,6 +5,17 @@ use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::refresh_conflicts;
 
+fn resolve_input_mods(mods: &str) -> String {
+    let variables = parser::get_variables().unwrap_or_default();
+    let mut resolved = mods.to_string();
+    for (var, val) in &variables {
+        if resolved.contains(var) {
+            resolved = resolved.replace(var, val);
+        }
+    }
+    resolved
+}
+
 pub fn show_add_dialog(
     parent: &adw::ApplicationWindow,
     model: gio::ListStore,
@@ -29,7 +40,7 @@ pub fn show_add_dialog(
     content_area.append(&label_mods);
 
     let entry_mods = gtk::Entry::builder()
-        .placeholder_text("e.g. SUPER")
+        .placeholder_text("e.g. SUPER or $mainMod")
         .activates_default(true)
         .build();
     content_area.append(&entry_mods);
@@ -79,9 +90,10 @@ pub fn show_add_dialog(
 
             match parser::add_keybind(&mods, &key, &dispatcher, &args) {
                 Ok(line_number) => {
+                    let resolved_mods = resolve_input_mods(&mods);
                     let kb = parser::Keybind {
                         mods: mods.clone(),
-                        clean_mods: mods,
+                        clean_mods: resolved_mods,
                         flags: String::new(),
                         key,
                         dispatcher,
@@ -231,7 +243,9 @@ pub fn show_edit_dialog(
                 
                 match parser::update_line(line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
                     Ok(_) => {
+                        let resolved_mods = resolve_input_mods(&new_mods);
                         obj_clone.set_property("mods", new_mods.to_value());
+                        obj_clone.set_property("clean-mods", resolved_mods.to_value());
                         obj_clone.set_property("key", new_key.to_value());
                         obj_clone.set_property("dispatcher", new_dispatcher.to_value());
                         obj_clone.set_property("args", new_args.to_value());
