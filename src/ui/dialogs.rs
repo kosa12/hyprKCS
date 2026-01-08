@@ -1,5 +1,5 @@
 use gtk4 as gtk;
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
 use libadwaita as adw;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
