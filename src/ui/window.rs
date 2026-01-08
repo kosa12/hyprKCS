@@ -14,7 +14,6 @@ pub fn build_ui(app: &adw::Application) {
     // Detect conflicts
     let mut counts = std::collections::HashMap::new();
     for kb in &keybinds {
-        // Normalize for conflict detection: lowercase
         let key = (kb.clean_mods.to_lowercase(), kb.key.to_lowercase());
         *counts.entry(key).or_insert(0) += 1;
     }
@@ -26,19 +25,14 @@ pub fn build_ui(app: &adw::Application) {
         model.append(&KeybindObject::new(kb, is_conflicted));
     }
 
-    let filter = gtk::CustomFilter::new(|_obj| {
-        true
-    });
-    
+    let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
-    
     let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));
 
     let column_view = gtk::ColumnView::new(Some(selection_model));
     column_view.set_show_row_separators(false); 
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
-    column_view.set_hexpand(true);
 
     let create_column = |title: &str, property_name: &str| {
         let factory = gtk::SignalListItemFactory::new();
@@ -48,10 +42,10 @@ pub fn build_ui(app: &adw::Application) {
         factory.connect_setup(move |_, list_item| {
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
-                .margin_start(4)
-                .margin_end(4)
-                .margin_top(8)
-                .margin_bottom(8)
+                .margin_start(8)
+                .margin_end(8)
+                .margin_top(4)
+                .margin_bottom(4)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
             
@@ -64,17 +58,16 @@ pub fn build_ui(app: &adw::Application) {
             }
 
             if prop_name_css == "mods" {
-                let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+                let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 8);
                 let warning_icon = gtk::Image::builder()
                     .icon_name("dialog-warning-symbolic")
-                    .visible(false) // Hidden by default
-                    .css_classes(["error"])
+                    .visible(false)
+                    .css_classes(["error-icon"])
                     .tooltip_text("Conflicting keybind")
                     .build();
                 
                 box_layout.append(&warning_icon);
                 box_layout.append(&label);
-                
                 list_item.set_child(Some(&box_layout));
             } else {
                 list_item.set_child(Some(&label));
@@ -82,66 +75,23 @@ pub fn build_ui(app: &adw::Application) {
         });
 
         factory.connect_bind(move |_, list_item| {
-            let keybind = list_item
-                .item()
-                .and_downcast::<KeybindObject>()
-                .expect("The item has to be an `KeybindObject`.");
+            let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
             
-            // Logic to handle both complex (Mods) and simple (others) columns
             let (label, icon_opt) = if prop_name == "mods" {
-                 let box_layout = list_item.child().and_downcast::<gtk::Box>().expect("Child is not a Box");
-                 let icon = box_layout.first_child().and_downcast::<gtk::Image>().expect("First child is not an Image");
-                 let label = icon.next_sibling().and_downcast::<gtk::Label>().expect("Second child is not a Label");
+                 let box_layout = list_item.child().and_downcast::<gtk::Box>().unwrap();
+                 let icon = box_layout.first_child().and_downcast::<gtk::Image>().unwrap();
+                 let label = icon.next_sibling().and_downcast::<gtk::Label>().unwrap();
                  (label, Some(icon))
             } else {
-                 let label = list_item.child().and_downcast::<gtk::Label>().expect("Child is not a Label");
+                 let label = list_item.child().and_downcast::<gtk::Label>().unwrap();
                  (label, None)
             };
             
-            let mut binding_label_builder = keybind.bind_property(&prop_name, &label, "label")
-                .sync_create();
-            
-            let mut binding_tooltip_builder = keybind.bind_property(&prop_name, &label, "tooltip-text")
-                .sync_create();
+            keybind.bind_property(&prop_name, &label, "label").sync_create().build();
+            keybind.bind_property(&prop_name, &label, "tooltip-text").sync_create().build();
 
-            if prop_name == "args" || prop_name == "mods" {
-                let transform = |_, val: glib::Value| {
-                    let s = val.get::<String>().unwrap_or_default();
-                    if let Some(stripped) = s.strip_prefix('$') {
-                        Some(stripped.to_string().to_value())
-                    } else {
-                        Some(val)
-                    }
-                };
-                binding_label_builder = binding_label_builder.transform_to(transform);
-                binding_tooltip_builder = binding_tooltip_builder.transform_to(transform);
-            }
-
-            let binding_label = binding_label_builder.build();
-            let binding_tooltip = binding_tooltip_builder.build();
-            
-            let mut bindings = vec![binding_label, binding_tooltip];
-            
             if let Some(icon) = icon_opt {
-                // Manually update the icon visibility based on conflict property
-                let binding_icon = keybind.bind_property("is-conflicted", &icon, "visible")
-                    .sync_create()
-                    .build();
-                bindings.push(binding_icon);
-            }
-
-            unsafe {
-                list_item.set_data("bindings", bindings);
-            }
-        });
-        
-        factory.connect_unbind(move |_, list_item| {
-            unsafe {
-                if let Some(bindings) = list_item.steal_data::<Vec<glib::Binding>>("bindings") {
-                    for b in bindings {
-                        b.unbind();
-                    }
-                }
+                keybind.bind_property("is-conflicted", &icon, "visible").sync_create().build();
             }
         });
 
@@ -149,133 +99,148 @@ pub fn build_ui(app: &adw::Application) {
             .title(title)
             .factory(&factory)
             .expand(true)
-            .resizable(true)
             .build()
     };
 
-    column_view.append_column(&create_column("Mods", "mods"));
+    column_view.append_column(&create_column("Modifiers", "mods"));
     column_view.append_column(&create_column("Key", "key"));
-    column_view.append_column(&create_column("Dispatcher", "dispatcher"));
-    column_view.append_column(&create_column("Args", "args"));
+    column_view.append_column(&create_column("Action", "dispatcher"));
+    column_view.append_column(&create_column("Arguments", "args"));
 
-    let model_store = model.clone();
-    let toast_overlay = adw::ToastOverlay::new();
+    let header_bar = adw::HeaderBar::new();
+    let add_button = gtk::Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text("Add New Keybind")
+        .build();
+    header_bar.pack_start(&add_button);
 
-    // Connect activate with the toast overlay
-    let toast_overlay_activate = toast_overlay.clone();
-    let model_store_activate = model_store.clone();
-    column_view.connect_activate(move |view, position| {
-        let model = view.model().expect("ColumnView needs a model");
-        
-        let selection_model = model.clone().downcast::<gtk::SingleSelection>().ok();
-        
-        let item = if let Some(sel) = selection_model {
-             sel.item(position)
-        } else {
-             model.item(position)
-        };
-        
-        if let Some(obj) = item.and_downcast::<KeybindObject>() {
-            let current_args = obj.property::<String>("args");
-            let current_mods = obj.property::<String>("mods");
-            let current_key = obj.property::<String>("key");
-            let current_dispatcher = obj.property::<String>("dispatcher");
-            let line_number = obj.property::<u64>("line-number");
-            
-            if let Some(root) = view.root() {
-                if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                    show_edit_dialog(
-                        window, 
-                        &current_mods, 
-                        &current_key, 
-                        &current_dispatcher, 
-                        &current_args, 
-                        line_number as usize, 
-                        obj, 
-                        &model_store_activate,
-                        toast_overlay_activate.clone()
-                    );
-                }
-            }
-        }
-    });
+    let search_bar = gtk::SearchBar::builder()
+        .valign(gtk::Align::Start)
+        .key_capture_widget(&column_view)
+        .build();
+    
+    let search_entry = gtk::SearchEntry::builder()
+        .placeholder_text("Type to search keybinds...")
+        .hexpand(true)
+        .build();
+    
+    let clamp = adw::Clamp::builder()
+        .maximum_size(600)
+        .child(&search_entry)
+        .build();
+
+    search_bar.set_child(Some(&clamp));
+    search_bar.set_search_mode(true);
+
+    let status_page = adw::StatusPage::builder()
+        .title("No Keybinds Found")
+        .description("Try a different search term or add a new keybind.")
+        .icon_name("system-search-symbolic")
+        .vexpand(true)
+        .visible(false)
+        .build();
 
     let scrolled_window = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
-        .vexpand(true)
-        .hexpand(true)
         .child(&column_view)
+        .vexpand(true)
         .build();
 
-    let search_entry = gtk::SearchEntry::builder()
-        .placeholder_text("Search keybinds...")
-        .margin_start(12)
-        .margin_end(12)
-        .margin_top(12)
-        .margin_bottom(12)
+    let list_stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::Crossfade)
         .build();
+    list_stack.add_child(&scrolled_window);
+    list_stack.add_child(&status_page);
 
-    search_entry.connect_search_changed(move |entry| {
-        let text = entry.text().to_string().to_lowercase();
-        filter.set_filter_func(move |obj| {
-            let keybind = obj.downcast_ref::<KeybindObject>().unwrap();
-            let mods = keybind.property::<String>("mods").to_lowercase();
-            let key = keybind.property::<String>("key").to_lowercase();
-            let dispatcher = keybind.property::<String>("dispatcher").to_lowercase();
-            let args = keybind.property::<String>("args").to_lowercase();
-            
-            if text.is_empty() {
-                return true;
-            }
-            
-            mods.contains(&text) || key.contains(&text) || dispatcher.contains(&text) || args.contains(&text)
-        });
-    });
+    let main_vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    main_vbox.append(&header_bar);
+    main_vbox.append(&search_bar);
+    main_vbox.append(&list_stack);
 
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let header = adw::HeaderBar::new();
-    
-    let add_button = gtk::Button::builder()
-        .icon_name("list-add-symbolic")
-        .tooltip_text("Add Keybind")
-        .build();
-    
-    let model_clone_add = model_store.clone();
-    let toast_overlay_add = toast_overlay.clone();
-    add_button.connect_clicked(move |btn| {
-        if let Some(root) = btn.root() {
-            if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                show_add_dialog(window, model_clone_add.clone(), toast_overlay_add.clone());
-            }
-        }
-    });
-    
-    header.pack_start(&add_button);
-    
-    content.append(&header);
-    content.append(&search_entry);
-    content.append(&scrolled_window);
-
-    toast_overlay.set_child(Some(&content));
+    let toast_overlay = adw::ToastOverlay::new();
+    toast_overlay.set_child(Some(&main_vbox));
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("hyprKCS")
+        .default_width(800)
+        .default_height(600)
         .content(&toast_overlay)
-        .default_width(700)
-        .default_height(500)
         .build();
 
     let controller = gtk::EventControllerKey::new();
+    let search_entry_focus = search_entry.clone();
     let window_clone = window.clone();
-    controller.connect_key_pressed(move |_, key, _, _| {
+    controller.connect_key_pressed(move |_, key, _, mods| {
+        if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {
+            search_entry_focus.grab_focus();
+            return glib::Propagation::Stop;
+        }
         if key == gtk::gdk::Key::Escape {
+            if !search_entry_focus.text().is_empty() {
+                search_entry_focus.set_text("");
+                return glib::Propagation::Stop;
+            }
             window_clone.close();
             return glib::Propagation::Stop;
         }
         glib::Propagation::Proceed
     });
     window.add_controller(controller);
+
+    let window_activate = window.clone();
+    let model_store = model.clone();
+    let toast_overlay_activate = toast_overlay.clone();
+    column_view.connect_activate(move |view, position| {
+        let selection = view.model().unwrap().downcast::<gtk::SingleSelection>().unwrap();
+        if let Some(obj) = selection.item(position).and_downcast::<KeybindObject>() {
+            show_edit_dialog(
+                &window_activate, 
+                &obj.property::<String>("mods"), 
+                &obj.property::<String>("key"), 
+                &obj.property::<String>("dispatcher"), 
+                &obj.property::<String>("args"), 
+                obj.property::<u64>("line-number") as usize, 
+                obj, 
+                &model_store,
+                toast_overlay_activate.clone()
+            );
+        }
+    });
+
+    let model_clone_add = model.clone();
+    let toast_overlay_add = toast_overlay.clone();
+    let window_add = window.clone();
+    add_button.connect_clicked(move |_| {
+        show_add_dialog(&window_add, model_clone_add.clone(), toast_overlay_add.clone());
+    });
+
+    let status_page_ref = status_page.clone();
+    let list_stack_ref = list_stack.clone();
+    let scrolled_ref = scrolled_window.clone();
+
+    filter_model.connect_items_changed(move |m, _, _, _| {
+        let has_items = m.n_items() > 0;
+        status_page_ref.set_visible(!has_items);
+        scrolled_ref.set_visible(has_items);
+        if has_items {
+            list_stack_ref.set_visible_child(&scrolled_ref);
+        } else {
+            list_stack_ref.set_visible_child(&status_page_ref);
+        }
+    });
+
+    search_entry.connect_search_changed(move |entry| {
+        let text = entry.text().to_string().to_lowercase();
+        filter.set_filter_func(move |obj| {
+            let kb = obj.downcast_ref::<KeybindObject>().unwrap();
+            let mods = kb.property::<String>("mods").to_lowercase();
+            let key = kb.property::<String>("key").to_lowercase();
+            let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
+            let args = kb.property::<String>("args").to_lowercase();
+            text.is_empty() || mods.contains(&text) || key.contains(&text) || dispatcher.contains(&text) || args.contains(&text)
+        });
+    });
 
     window.present();
 }

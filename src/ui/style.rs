@@ -4,38 +4,79 @@ pub fn load_css() {
     let provider = gtk::CssProvider::new();
     provider.load_from_data(
         "
-        .key-label {
-            font-family: monospace;
+        /* Modern Keycap Look */
+        .key-label, .mod-label {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
             font-weight: 800;
-            background-color: alpha(currentColor, 0.1);
+            font-size: 0.9rem;
+            background-color: alpha(@window_fg_color, 0.08);
+            border: 1px solid alpha(@window_fg_color, 0.1);
+            border-bottom-width: 2px;
             border-radius: 6px;
             padding: 2px 8px;
-            margin: 2px 0;
+            margin: 4px 0;
+            color: @window_fg_color;
         }
+        
         .mod-label {
-            font-family: monospace;
-            font-weight: bold;
-            color: alpha(currentColor, 0.8);
-            background-color: alpha(currentColor, 0.05);
-            border-radius: 6px;
-            padding: 2px 8px;
-            margin: 2px 0;
-        }
-        .dispatcher-label {
-            font-weight: 700;
+            font-weight: 600;
+            background-color: alpha(@accent_color, 0.1);
+            border-color: alpha(@accent_color, 0.2);
             color: @accent_color;
         }
+
+        .dispatcher-label {
+            font-weight: 700;
+            color: @window_fg_color;
+        }
+
         .args-label {
-            color: alpha(currentColor, 0.7);
+            color: alpha(@window_fg_color, 0.55);
+            font-style: italic;
         }
-        .conflicted {
+
+        /* Conflict Styling */
+        .error-icon {
             color: @error_color;
-            font-weight: bold;
         }
+
+        /* ColumnView Refinement */
+        columnview {
+            background-color: transparent;
+        }
+        
+        columnview listview {
+            margin: 8px;
+        }
+
+        columnview row {
+            border-radius: 10px;
+            margin: 2px 0;
+            transition: background-color 200ms ease;
+        }
+
+        columnview row:hover {
+            background-color: alpha(@window_fg_color, 0.04);
+        }
+
+        columnview row:selected {
+            background-color: @accent_bg_color;
+            color: @accent_fg_color;
+        }
+
         columnview row:selected .key-label, 
-        columnview row:selected .mod-label {
-            background-color: alpha(white, 0.2);
+        columnview row:selected .mod-label,
+        columnview row:selected .dispatcher-label,
+        columnview row:selected .args-label {
+            background-color: alpha(white, 0.15);
+            border-color: alpha(white, 0.2);
             color: white;
+        }
+        
+        /* Clean Search Entry */
+        searchbar > revealer > box {
+            padding: 12px;
+            border-bottom: 1px solid alpha(@window_fg_color, 0.1);
         }
         "
     );
