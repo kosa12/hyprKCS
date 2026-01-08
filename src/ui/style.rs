@@ -41,12 +41,6 @@ pub fn load_css() {
         }
 
         /* ColumnView Refinement */
-        columnview header button label {
-            text-align: center;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
         columnview {
             background-color: transparent;
         }
