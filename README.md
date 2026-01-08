@@ -11,6 +11,7 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 - **Interactive:** Search through your keybinds in real-time.
 - **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon.
 - **Toast Notifications:** Non-intrusive feedback when saving or deleting.
+- **Key Recorder:** Press a key combo to automatically fill in modifiers and keys.
 - **Add & Delete:** Easily add new keybinds or remove existing ones directly from the UI.
 - **Editable:** Double-click any row to modify your keybinds directly from the UI. Changes are persisted to your `hyprland.conf`.
 
