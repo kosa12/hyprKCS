@@ -54,6 +54,10 @@ fn load_css() {
         .args-label {
             color: alpha(currentColor, 0.7);
         }
+        .conflicted {
+            color: @error_color;
+            font-weight: bold;
+        }
         columnview row:selected .key-label, 
         columnview row:selected .mod-label {
             background-color: alpha(white, 0.2);
@@ -75,16 +79,26 @@ fn build_ui(app: &adw::Application) {
         vec![]
     });
 
+    // Detect conflicts
+    let mut counts = std::collections::HashMap::new();
+    for kb in &keybinds {
+        // Normalize for conflict detection: lowercase
+        let key = (kb.clean_mods.to_lowercase(), kb.key.to_lowercase());
+        *counts.entry(key).or_insert(0) += 1;
+    }
+
     let model = gio::ListStore::new::<KeybindObject>();
     for kb in keybinds {
-        model.append(&KeybindObject::new(kb));
+        let count = counts.get(&(kb.clean_mods.to_lowercase(), kb.key.to_lowercase())).unwrap_or(&0);
+        let is_conflicted = *count > 1;
+        model.append(&KeybindObject::new(kb, is_conflicted));
     }
 
     let filter = gtk::CustomFilter::new(|_obj| {
         true
     });
     
-    let filter_model = gtk::FilterListModel::new(Some(model), Some(filter.clone()));
+    let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
     
     let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));
 
@@ -102,8 +116,8 @@ fn build_ui(app: &adw::Application) {
         factory.connect_setup(move |_, list_item| {
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
-                .margin_start(12)
-                .margin_end(12)
+                .margin_start(4)
+                .margin_end(4)
                 .margin_top(8)
                 .margin_bottom(8)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -117,7 +131,22 @@ fn build_ui(app: &adw::Application) {
                 _ => {}
             }
 
-            list_item.set_child(Some(&label));
+            if prop_name_css == "mods" {
+                let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+                let warning_icon = gtk::Image::builder()
+                    .icon_name("dialog-warning-symbolic")
+                    .visible(false) // Hidden by default
+                    .css_classes(["error"])
+                    .tooltip_text("Conflicting keybind")
+                    .build();
+                
+                box_layout.append(&warning_icon);
+                box_layout.append(&label);
+                
+                list_item.set_child(Some(&box_layout));
+            } else {
+                list_item.set_child(Some(&label));
+            }
         });
 
         factory.connect_bind(move |_, list_item| {
@@ -125,10 +154,17 @@ fn build_ui(app: &adw::Application) {
                 .item()
                 .and_downcast::<KeybindObject>()
                 .expect("The item has to be an `KeybindObject`.");
-            let label = list_item
-                .child()
-                .and_downcast::<gtk::Label>()
-                .expect("The child has to be a `Label`.");
+            
+            // Logic to handle both complex (Mods) and simple (others) columns
+            let (label, icon_opt) = if prop_name == "mods" {
+                 let box_layout = list_item.child().and_downcast::<gtk::Box>().expect("Child is not a Box");
+                 let icon = box_layout.first_child().and_downcast::<gtk::Image>().expect("First child is not an Image");
+                 let label = icon.next_sibling().and_downcast::<gtk::Label>().expect("Second child is not a Label");
+                 (label, Some(icon))
+            } else {
+                 let label = list_item.child().and_downcast::<gtk::Label>().expect("Child is not a Label");
+                 (label, None)
+            };
             
             let mut binding_label_builder = keybind.bind_property(&prop_name, &label, "label")
                 .sync_create();
@@ -151,9 +187,24 @@ fn build_ui(app: &adw::Application) {
 
             let binding_label = binding_label_builder.build();
             let binding_tooltip = binding_tooltip_builder.build();
+            
+            let mut bindings = vec![binding_label, binding_tooltip];
+            
+            if let Some(icon) = icon_opt {
+                // Manually update the icon visibility based on conflict property
+                // Since it's boolean, we can bind it directly?
+                // bind_property handles the sync.
+                let binding_icon = keybind.bind_property("is-conflicted", &icon, "visible")
+                    .sync_create()
+                    .build();
+                bindings.push(binding_icon);
+                
+                // Also add .conflicted class to label if conflicted?
+                // Let's stick to the icon for now, simpler and cleaner.
+            }
 
             unsafe {
-                list_item.set_data("bindings", vec![binding_label, binding_tooltip]);
+                list_item.set_data("bindings", bindings);
             }
         });
         
@@ -180,6 +231,7 @@ fn build_ui(app: &adw::Application) {
     column_view.append_column(&create_column("Dispatcher", "dispatcher"));
     column_view.append_column(&create_column("Args", "args"));
 
+    let model_store = model.clone();
     column_view.connect_activate(move |view, position| {
         let model = view.model().expect("ColumnView needs a model");
         
@@ -200,7 +252,7 @@ fn build_ui(app: &adw::Application) {
             
             if let Some(root) = view.root() {
                 if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                    show_edit_dialog(window, &current_mods, &current_key, &current_dispatcher, &current_args, line_number as usize, obj);
+                    show_edit_dialog(window, &current_mods, &current_key, &current_dispatcher, &current_args, line_number as usize, obj, &model_store);
                 }
             }
         }
@@ -274,7 +326,7 @@ fn build_ui(app: &adw::Application) {
 
 
 
-fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current_key: &str, current_dispatcher: &str, current_args: &str, line_number: usize, obj: KeybindObject) {
+fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current_key: &str, current_dispatcher: &str, current_args: &str, line_number: usize, obj: KeybindObject, model: &gio::ListStore) {
     let (display_mods, mods_had_prefix) = if let Some(stripped) = current_mods.strip_prefix('$') {
         (stripped, true)
     } else {
@@ -352,6 +404,7 @@ fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current
     dialog.set_default_response(gtk::ResponseType::Ok);
 
     let obj_clone = obj.clone();
+    let model_clone = model.clone();
     dialog.connect_response(move |dialog, response| {
         if response == gtk::ResponseType::Ok {
             let input_mods = entry_mods.text().to_string();
@@ -377,6 +430,8 @@ fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current
                     obj_clone.set_property("key", new_key.to_value());
                     obj_clone.set_property("dispatcher", new_dispatcher.to_value());
                     obj_clone.set_property("args", new_args.to_value());
+                    
+                    refresh_conflicts(&model_clone);
                 }
                 Err(e) => {
                     eprintln!("Failed to update config: {}", e);
@@ -399,4 +454,79 @@ fn show_edit_dialog(parent: &adw::ApplicationWindow, current_mods: &str, current
     dialog.present();
 }
 
+fn refresh_conflicts(model: &gio::ListStore) {
+    let mut counts = std::collections::HashMap::new();
     
+    // First pass: count occurrences
+    for i in 0..model.n_items() {
+        if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+            let mods = obj.property::<String>("mods");
+            let key = obj.property::<String>("key");
+            
+            // We don't have access to 'clean_mods' property directly if it's not exposed as GObject property?
+            // Wait, I didn't add 'clean_mods' as a GObject property in keybind_object.rs!
+            // I only added it to the struct `Keybind` in parser.rs.
+            // But KeybindObject wraps it.
+            // Let's check `src/keybind_object.rs`.
+            
+            // Checking keybind_object.rs... 
+            // It has properties: mods, key, dispatcher, args, line-number, is-conflicted.
+            // It assumes `mods` property holds the string.
+            // But `mods` property is initialized with `keybind.mods` which is the DISPLAY string (e.g. "[l] SUPER").
+            // So we are comparing "[l] SUPER" with "SUPER" if we are not careful?
+            // Actually, in `KeybindObject::new`, we passed `keybind.mods`.
+            
+            // Ideally, we should add `clean_mods` as a hidden property to KeybindObject for accurate comparison.
+            // OR, we can try to strip flags here.
+            
+            // For now, let's just use the `mods` property. It usually contains the full string.
+            // If the user edits it, they edit the `mods` property directly.
+            // The display mods might contain flags like `[l]`.
+            // If one bind is `SUPER, Q` and another is `[l] SUPER, Q`, are they conflicting?
+            // Yes, flags usually modify behavior but the key combo is the same.
+            
+            // Normalizing: remove anything in brackets `[...]` and trim.
+            let clean_mods = if let Some(idx) = mods.find(']') {
+                if let Some(start) = mods.find('[') {
+                     if start < idx {
+                         mods[idx+1..].trim().to_string()
+                     } else {
+                         mods
+                     }
+                } else {
+                    mods
+                }
+            } else {
+                mods
+            };
+            
+            let key_tuple = (clean_mods.to_lowercase(), key.to_lowercase());
+            *counts.entry(key_tuple).or_insert(0) += 1;
+        }
+    }
+    
+    // Second pass: update is-conflicted
+    for i in 0..model.n_items() {
+        if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+            let mods = obj.property::<String>("mods");
+            let key = obj.property::<String>("key");
+            
+            let clean_mods = if let Some(idx) = mods.find(']') {
+                if let Some(start) = mods.find('[') {
+                     if start < idx {
+                         mods[idx+1..].trim().to_string()
+                     } else {
+                         mods
+                     }
+                } else {
+                    mods
+                }
+            } else {
+                mods
+            };
+            
+            let count = counts.get(&(clean_mods.to_lowercase(), key.to_lowercase())).unwrap_or(&0);
+            obj.set_property("is-conflicted", *count > 1);
+        }
+    }
+}
