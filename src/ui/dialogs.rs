@@ -6,6 +6,95 @@ use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::refresh_conflicts;
 
+fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
+    let mut res = Vec::new();
+    if mods.contains(gdk::ModifierType::SUPER_MASK) { res.push("SUPER"); }
+    if mods.contains(gdk::ModifierType::CONTROL_MASK) { res.push("CONTROL"); }
+    if mods.contains(gdk::ModifierType::ALT_MASK) { res.push("ALT"); }
+    if mods.contains(gdk::ModifierType::SHIFT_MASK) { res.push("SHIFT"); }
+    res.join(" ")
+}
+
+fn gdk_to_hypr_key(key: gdk::Key) -> String {
+    match key {
+        gdk::Key::Return => "Return".to_string(),
+        gdk::Key::Tab => "Tab".to_string(),
+        gdk::Key::space => "Space".to_string(),
+        gdk::Key::Escape => "Escape".to_string(),
+        _ => {
+            if let Some(name) = key.name() {
+                name.to_string()
+            } else {
+                "".to_string()
+            }
+        }
+    }
+}
+
+fn setup_key_recorder(
+    container: &gtk::Box,
+    entry_mods: &gtk::Entry,
+    entry_key: &gtk::Entry,
+) {
+    let record_btn = gtk::Button::builder()
+        .label("Record Combo")
+        .tooltip_text("Click then press your key combination")
+        .css_classes(["pill"])
+        .build();
+    
+    let entry_mods_c = entry_mods.clone();
+    let entry_key_c = entry_key.clone();
+    let record_btn_c = record_btn.clone();
+
+    record_btn.connect_clicked(move |btn| {
+        let btn = btn.clone();
+        btn.set_label("Listening...");
+        btn.add_css_class("suggested-action");
+        
+        let entry_mods = entry_mods_c.clone();
+        let entry_key = entry_key_c.clone();
+        let btn_inner = record_btn_c.clone();
+
+        if let Some(root) = btn.root() {
+            let controller = gtk::EventControllerKey::new();
+            let controller_c = controller.clone();
+            
+            controller.connect_key_pressed(move |ctrl, key, _, mods| {
+                if matches!(key, 
+                    gdk::Key::Control_L | gdk::Key::Control_R | 
+                    gdk::Key::Alt_L | gdk::Key::Alt_R | 
+                    gdk::Key::Super_L | gdk::Key::Super_R | 
+                    gdk::Key::Shift_L | gdk::Key::Shift_R |
+                    gdk::Key::Meta_L | gdk::Key::Meta_R
+                ) {
+                    return glib::Propagation::Proceed;
+                }
+
+                let hypr_mods = gdk_to_hypr_mods(mods);
+                let hypr_key = gdk_to_hypr_key(key);
+
+                if !hypr_key.is_empty() {
+                    entry_mods.set_text(&hypr_mods);
+                    entry_key.set_text(&hypr_key);
+                }
+
+                btn_inner.set_label("Record Combo");
+                btn_inner.remove_css_class("suggested-action");
+                
+                if let Some(widget) = ctrl.widget() {
+                    widget.remove_controller(&controller_c);
+                }
+
+                glib::Propagation::Stop
+            });
+
+            root.add_controller(controller);
+        }
+    });
+
+    container.append(&record_btn);
+}
+
 fn resolve_input_mods(mods: &str) -> String {
     let variables = parser::get_variables().unwrap_or_default();
     let mut resolved = mods.to_string();
@@ -36,24 +125,28 @@ pub fn show_add_dialog(
     content_area.set_margin_end(12);
     content_area.set_spacing(12);
 
-    let label_mods = gtk::Label::new(Some("Modifiers:"));
-    label_mods.set_halign(gtk::Align::Start);
-    content_area.append(&label_mods);
-
     let entry_mods = gtk::Entry::builder()
         .placeholder_text("e.g. SUPER or $mainMod")
         .activates_default(true)
         .build();
-    content_area.append(&entry_mods);
-
-    let label_key = gtk::Label::new(Some("Key:"));
-    label_key.set_halign(gtk::Align::Start);
-    content_area.append(&label_key);
 
     let entry_key = gtk::Entry::builder()
         .placeholder_text("e.g. Q")
         .activates_default(true)
         .build();
+
+    let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
+    content_area.append(&recorder_box);
+
+    let label_mods = gtk::Label::new(Some("Modifiers:"));
+    label_mods.set_halign(gtk::Align::Start);
+    content_area.append(&label_mods);
+    content_area.append(&entry_mods);
+
+    let label_key = gtk::Label::new(Some("Key:"));
+    label_key.set_halign(gtk::Align::Start);
+    content_area.append(&label_key);
     content_area.append(&entry_key);
 
     let label_dispatcher = gtk::Label::new(Some("Dispatcher:"));
@@ -170,10 +263,6 @@ pub fn show_edit_dialog(
     content_area.set_margin_end(12);
     content_area.set_spacing(12);
 
-    let label_mods = gtk::Label::new(Some("Modifiers:"));
-    label_mods.set_halign(gtk::Align::Start);
-    content_area.append(&label_mods);
-
     let entry_mods = gtk::Entry::builder()
         .text(display_mods)
         .activates_default(true)
@@ -181,16 +270,24 @@ pub fn show_edit_dialog(
     if mods_had_prefix {
         entry_mods.set_placeholder_text(Some("Variable '$' will be added automatically"));
     }
-    content_area.append(&entry_mods);
-
-    let label_key = gtk::Label::new(Some("Key:"));
-    label_key.set_halign(gtk::Align::Start);
-    content_area.append(&label_key);
 
     let entry_key = gtk::Entry::builder()
         .text(current_key)
         .activates_default(true)
         .build();
+
+    let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
+    content_area.append(&recorder_box);
+
+    let label_mods = gtk::Label::new(Some("Modifiers:"));
+    label_mods.set_halign(gtk::Align::Start);
+    content_area.append(&label_mods);
+    content_area.append(&entry_mods);
+
+    let label_key = gtk::Label::new(Some("Key:"));
+    label_key.set_halign(gtk::Align::Start);
+    content_area.append(&label_key);
     content_area.append(&entry_key);
 
     let label_dispatcher = gtk::Label::new(Some("Dispatcher:"));
@@ -328,4 +425,3 @@ pub fn show_edit_dialog(
 
     dialog.present();
 }
-
