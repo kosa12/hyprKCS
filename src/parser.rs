@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
-    pub mods: String,
+    pub mods: String,       // Display string (e.g. "[l] SUPER")
+    pub clean_mods: String, // Raw mods (e.g. "SUPER")
+    pub flags: String,      // Flags (e.g. "l")
     pub key: String,
     pub dispatcher: String,
     pub args: String,
@@ -56,7 +58,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             let args = caps.get(5).map_or("", |m| m.as_str()).trim().to_string();
 
             let display_mods = if flags.is_empty() {
-                mods
+                mods.clone()
             } else {
                 format!("[{}] {}", flags, mods)
             };
@@ -69,6 +71,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
             keybinds.push(Keybind {
                 mods: display_mods,
+                clean_mods: mods,
+                flags: flags.to_string(),
                 key,
                 dispatcher,
                 args,
