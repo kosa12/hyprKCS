@@ -124,3 +124,35 @@ pub fn update_line(line_number: usize, new_mods: &str, new_key: &str, new_dispat
     }
 }
 
+pub fn add_keybind(mods: &str, key: &str, dispatcher: &str, args: &str) -> Result<usize> {
+    let path = get_config_path()?;
+    let content = std::fs::read_to_string(&path)?;
+    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+    let new_line = if args.trim().is_empty() {
+        format!("bind = {}, {}, {}", mods, key, dispatcher)
+    } else {
+        format!("bind = {}, {}, {}, {}", mods, key, dispatcher, args)
+    };
+
+    lines.push(new_line);
+    std::fs::write(&path, lines.join("\n"))?;
+    
+    Ok(lines.len() - 1)
+}
+
+pub fn delete_keybind(line_number: usize) -> Result<()> {
+    let path = get_config_path()?;
+    let content = std::fs::read_to_string(&path)?;
+    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+    if line_number >= lines.len() {
+        return Err(anyhow::anyhow!("Line number out of bounds"));
+    }
+
+    lines.remove(line_number);
+    std::fs::write(&path, lines.join("\n"))?;
+    
+    Ok(())
+}
+

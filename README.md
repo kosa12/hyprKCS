@@ -10,6 +10,7 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 - **Native Look:** Uses GTK4 and Libadwaita to match your system theme (supports Dark/Light mode and Matugen).
 - **Interactive:** Search through your keybinds in real-time.
 - **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon.
+- **Add & Delete:** Easily add new keybinds or remove existing ones directly from the UI.
 - **Editable:** Double-click any row to modify your keybinds directly from the UI. Changes are persisted to your `hyprland.conf`.
 
 ## Installation

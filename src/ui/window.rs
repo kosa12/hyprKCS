@@ -3,7 +3,7 @@ use gtk::{gio, glib, prelude::*};
 use libadwaita as adw;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::dialogs::show_edit_dialog;
+use crate::ui::dialogs::{show_edit_dialog, show_add_dialog};
 
 pub fn build_ui(app: &adw::Application) {
     let keybinds = parser::parse_config().unwrap_or_else(|err| {
@@ -159,6 +159,7 @@ pub fn build_ui(app: &adw::Application) {
     column_view.append_column(&create_column("Args", "args"));
 
     let model_store = model.clone();
+    let model_store_activate = model_store.clone();
     column_view.connect_activate(move |view, position| {
         let model = view.model().expect("ColumnView needs a model");
         
@@ -179,7 +180,7 @@ pub fn build_ui(app: &adw::Application) {
             
             if let Some(root) = view.root() {
                 if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
-                    show_edit_dialog(window, &current_mods, &current_key, &current_dispatcher, &current_args, line_number as usize, obj, &model_store);
+                    show_edit_dialog(window, &current_mods, &current_key, &current_dispatcher, &current_args, line_number as usize, obj, &model_store_activate);
                 }
             }
         }
@@ -220,6 +221,22 @@ pub fn build_ui(app: &adw::Application) {
     let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
     
     let header = adw::HeaderBar::new();
+    
+    let add_button = gtk::Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text("Add Keybind")
+        .build();
+    
+    let model_clone_add = model_store.clone();
+    add_button.connect_clicked(move |btn| {
+        if let Some(root) = btn.root() {
+            if let Some(window) = root.downcast_ref::<adw::ApplicationWindow>() {
+                show_add_dialog(window, model_clone_add.clone());
+            }
+        }
+    });
+    
+    header.pack_start(&add_button);
     
     content.append(&header);
     content.append(&search_entry);
