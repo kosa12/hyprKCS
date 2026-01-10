@@ -2,6 +2,8 @@ use gtk4 as gtk;
 use gtk::{gio, glib, prelude::*};
 use libadwaita as adw;
 use gtk4_layer_shell::{Layer, LayerShell, KeyboardMode};
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::views::{create_add_view, create_edit_view};
@@ -280,14 +282,24 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     search_entry.connect_search_changed(move |entry| {
-        let text = entry.text().to_string().to_lowercase();
+        let text = entry.text().to_string();
+        let matcher = SkimMatcherV2::default();
+
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
-            let mods = kb.property::<String>("mods").to_lowercase();
-            let key = kb.property::<String>("key").to_lowercase();
-            let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
-            let args = kb.property::<String>("args").to_lowercase();
-            text.is_empty() || mods.contains(&text) || key.contains(&text) || dispatcher.contains(&text) || args.contains(&text)
+            let mods = kb.property::<String>("mods");
+            let key = kb.property::<String>("key");
+            let dispatcher = kb.property::<String>("dispatcher");
+            let args = kb.property::<String>("args");
+            
+            if text.is_empty() {
+                return true;
+            }
+
+            matcher.fuzzy_match(&mods, &text).is_some() ||
+            matcher.fuzzy_match(&key, &text).is_some() ||
+            matcher.fuzzy_match(&dispatcher, &text).is_some() ||
+            matcher.fuzzy_match(&args, &text).is_some()
         });
     });
 

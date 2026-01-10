@@ -2,6 +2,8 @@ use clap::Parser;
 use gtk4 as gtk;
 use gtk::{glib, prelude::*};
 use libadwaita as adw;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 
 mod parser;
 mod keybind_object;
@@ -39,12 +41,12 @@ fn main() -> glib::ExitCode {
                 use comfy_table::*;
 
                 let binds = if let Some(term) = args.search {
-                    let term = term.to_lowercase();
+                    let matcher = SkimMatcherV2::default();
                     binds.into_iter().filter(|b| {
-                        b.mods.to_lowercase().contains(&term) ||
-                        b.key.to_lowercase().contains(&term) ||
-                        b.dispatcher.to_lowercase().contains(&term) ||
-                        b.args.to_lowercase().contains(&term)
+                        matcher.fuzzy_match(&b.mods, &term).is_some() ||
+                        matcher.fuzzy_match(&b.key, &term).is_some() ||
+                        matcher.fuzzy_match(&b.dispatcher, &term).is_some() ||
+                        matcher.fuzzy_match(&b.args, &term).is_some()
                     }).collect::<Vec<_>>()
                 } else {
                     binds

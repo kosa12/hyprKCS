@@ -1,6 +1,6 @@
 [package]
 name = "hyprKCS"
-version = "1.6.2"
+version = "1.7.0"
 edition = "2021"
 license = "MIT"
 
@@ -14,6 +14,7 @@ once_cell = "1.21.3"
 gtk4-layer-shell = "0.7.1"
 clap = { version = "4.5.54", features = ["derive"] }
 comfy-table = "7.2.1"
+fuzzy-matcher = "0.3.7"
 
 [[bin]]
 name = "hyprKCS"
