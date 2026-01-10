@@ -1,5 +1,5 @@
 {
-  description = "A fast, minimal Hyprland keybind cheat sheet written in Rust/GTK4";
+  description = "A fast, minimal Hyprland keybind cheat sheet and editor written in Rust/GTK4";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
