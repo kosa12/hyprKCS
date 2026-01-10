@@ -17,6 +17,10 @@ pub struct Keybind {
 }
 
 pub fn get_config_path() -> Result<PathBuf> {
+    if let Ok(env_path) = std::env::var("HYPRKCS_CONFIG") {
+        return Ok(PathBuf::from(env_path));
+    }
+
     let mut path = config_dir().context("Could not find config directory")?;
     path.push("hypr");
     path.push("hyprland.conf");

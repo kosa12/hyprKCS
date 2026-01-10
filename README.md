@@ -42,17 +42,36 @@ cargo build --release
 ```
 The binary will be available at `./target/release/hyprKCS`.
 
-## Configuration
+## CLI Usage
 
-To make the application open in floating mode by default, add the following to your `hyprland.conf`:
+hyprKCS provides a robust command-line interface for quick lookups and configuration management.
 
-```ini
-windowrulev2 = float, class:(com.github.hyprkcs|hyprKCS)
-windowrulev2 = size 700 500, class:(com.github.hyprkcs|hyprKCS)
-windowrulev2 = center, class:(com.github.hyprkcs|hyprKCS)
+**Print all keybinds in a dynamic table:**
+```bash
+hyprKCS --print #or hyprKCS -p
 ```
 
-## Maintainer
+**Filter keybinds by a search term:**
+```bash
+hyprKCS --search "firefox" #or hyprKCS -s "firefox"
+```
+
+**Use a custom configuration file:**
+```bash
+hyprKCS --config ~/.config/hypr/custom_binds.conf #or hyprKCS -c ~/.config/hypr/custom_binds.conf
+```
+
+**Show help:**
+```bash
+hyprKCS --help #or hyprKCS -h
+```
+
+**Show version:**
+```bash
+hyprKCS --version #or hyprKCS -V
+```
+
+## Maintainer:
 
 **kosa12** (kosa03matyas@gmail.com)
 - **PGP Fingerprint:** `D205 9131 FDE2 EECC 7C90 A549 F2CB 939C 8AA6 7892`
