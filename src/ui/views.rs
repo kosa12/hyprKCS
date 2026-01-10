@@ -225,6 +225,15 @@ pub fn create_add_view(
         let dispatcher = entry_dispatcher_c.text().to_string();
         let args = entry_args_c.text().to_string();
 
+        if key.trim().is_empty() || dispatcher.trim().is_empty() {
+            let toast = adw::Toast::builder()
+                .title("Error: Key and Dispatcher cannot be empty")
+                .timeout(3)
+                .build();
+            toast_overlay_clone.add_toast(toast);
+            return;
+        }
+
         let config_path = parser::get_config_path().unwrap();
         match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args) {
             Ok(line_number) => {
@@ -431,6 +440,15 @@ pub fn create_edit_view(
 
         let new_key = entry_key.text().to_string();
         let new_dispatcher = entry_dispatcher.text().to_string();
+
+        if new_key.trim().is_empty() || new_dispatcher.trim().is_empty() {
+            let toast = adw::Toast::builder()
+                .title("Error: Key and Dispatcher cannot be empty")
+                .timeout(3)
+                .build();
+            toast_overlay_clone.add_toast(toast);
+            return;
+        }
 
         let input_args = entry_args.text().to_string();
         let new_args = if args_had_prefix {
