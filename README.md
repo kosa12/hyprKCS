@@ -75,6 +75,14 @@ hyprKCS --help #or hyprKCS -h
 hyprKCS --version #or hyprKCS -V
 ```
 
+## Troubleshooting
+
+- **Keybinds not loading?**
+hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag.
+
+- **Found a bug?**
+Check out our [Contributing Guidelines](CONTRIBUTING.md) or open an [Issue](https://github.com/kosa12/hyprKCS/issues).
+
 ## Maintainer:
 
 **kosa12** (kosa03matyas@gmail.com)
