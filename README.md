@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Binary Size](https://img.shields.io/badge/binary_size-~3MB-blue)](https://github.com/kosa12/hyprKCS)
 
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
 
@@ -24,7 +25,17 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 - **Toast Notifications:** Provides smooth, non-intrusive feedback for every action.
 - **Safe Persistence:** Changes are written back to the correct configuration files automatically.
 - **Backup Config:** Save your current config so you don't mess up something.
-- **Vim keybinds:**: `j/k` to move up and down, `/` to search, `enter` to edit, `d` to delete row.
+
+## Keyboard Shortcuts
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Navigate up/down (vim-style) |
+| `/` | Focus search bar |
+| `Enter` | Edit selected keybind |
+| `d` | Delete selected keybind |
+| `Ctrl` + `f` | Focus search bar |
+| `Esc` | Clear search / Close window |
 
 ## Installation
 
