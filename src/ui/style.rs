@@ -1,9 +1,9 @@
 use gtk4 as gtk;
+use libadwaita as adw;
+use gtk::{gio, glib, prelude::*};
+use std::cell::RefCell;
 
-pub fn load_css() {
-    let provider = gtk::CssProvider::new();
-    provider.load_from_data(
-        "
+const APP_CSS: &str = "
         /* Modern Keycap Look */
         .key-label, .mod-label {
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -97,7 +97,6 @@ pub fn load_css() {
             border-radius: 12px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.4); 
             margin: 12px;
-            overflow: hidden;
         }
 
         button.flat {
@@ -134,12 +133,102 @@ pub fn load_css() {
              border: none;
              outline: none;
         }
-        "
+";
+
+thread_local! {
+    static THEME_MONITOR: RefCell<Option<gio::FileMonitor>> = RefCell::new(None);
+}
+
+pub fn load_css() {
+    let app_provider = gtk::CssProvider::new();
+    app_provider.load_from_data(APP_CSS);
+
+    let theme_provider = gtk::CssProvider::new();
+    let display = gtk::gdk::Display::default().expect("Could not connect to a display.");
+    
+    if let Some(config_dir) = dirs::config_dir() {
+        let gtk_css_path = config_dir.join("gtk-4.0/gtk.css");
+        let css_file = gio::File::for_path(&gtk_css_path);
+        if gtk_css_path.exists() {
+             theme_provider.load_from_file(&css_file);
+        }
+    }
+
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &theme_provider,
+        gtk::STYLE_PROVIDER_PRIORITY_USER,
     );
 
     gtk::style_context_add_provider_for_display(
-        &gtk::gdk::Display::default().expect("Could not connect to a display."),
-        &provider,
+        &display,
+        &app_provider,
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+    
+    if let Some(settings) = gtk::Settings::default() {
+        let app_prov = app_provider.clone();
+        let theme_prov = theme_provider.clone();
+        settings.connect_gtk_theme_name_notify(move |_| {
+            if let Some(config_dir) = dirs::config_dir() {
+                 let css_file = gio::File::for_path(config_dir.join("gtk-4.0/gtk.css"));
+                 theme_prov.load_from_file(&css_file);
+            }
+            app_prov.load_from_data(APP_CSS);
+        });
+    }
+
+    let manager = adw::StyleManager::default();
+    let app_prov = app_provider.clone();
+    let theme_prov = theme_provider.clone();
+    manager.connect_dark_notify(move |_| {
+         if let Some(config_dir) = dirs::config_dir() {
+                 let css_file = gio::File::for_path(config_dir.join("gtk-4.0/gtk.css"));
+                 theme_prov.load_from_file(&css_file);
+            }
+        app_prov.load_from_data(APP_CSS);
+    });
+
+    start_theme_monitor(app_provider, theme_provider);
+}
+
+fn start_theme_monitor(app_provider: gtk::CssProvider, theme_provider: gtk::CssProvider) {
+    if let Some(config_dir) = dirs::config_dir() {
+        let gtk_config_dir = config_dir.join("gtk-4.0");
+        let dir_file = gio::File::for_path(&gtk_config_dir);
+        
+        match dir_file.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE) {
+            Ok(monitor) => {
+                monitor.connect_changed(move |_, file, _, event| {
+                    let path = file.path();
+                    if let Some(path) = path {
+                        if path.file_name().map_or(false, |n| n == "gtk.css") {
+                             match event {
+                                 gio::FileMonitorEvent::ChangesDoneHint |
+                                 gio::FileMonitorEvent::Changed |
+                                 gio::FileMonitorEvent::Created |
+                                 gio::FileMonitorEvent::AttributeChanged => {
+                                     let theme_prov = theme_provider.clone();
+                                     let app_prov = app_provider.clone();
+                                     let f = gio::File::for_path(&path);
+                                     
+                                     glib::timeout_add_local(std::time::Duration::from_millis(200), move || {
+                                         theme_prov.load_from_file(&f);
+                                         app_prov.load_from_data(APP_CSS);
+                                         glib::ControlFlow::Break
+                                     });
+                                 }
+                                 _ => {}
+                             }
+                        }
+                    }
+                });
+                
+                THEME_MONITOR.with(|m| {
+                    *m.borrow_mut() = Some(monitor);
+                });
+            },
+            Err(e) => eprintln!("Failed to monitor theme directory: {}", e),
+        }
+    }
 }
