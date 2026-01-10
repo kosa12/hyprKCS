@@ -16,13 +16,15 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 
 - **Blazing Fast (lol):** Written in Rust.
 - **Native Look:** Uses GTK4 and Libadwaita to match your system theme (supports Dark/Light mode and Matugen).
-- **Interactive Search:** Filter through your keybinds in real-time as you type.
+- **Interactive Search:** Filter through your keybinds in real-time as you type (fuzzy).
 - **Key Recorder:** Click "Record" and press a combination to automatically fill in modifiers and keys.
 - **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon, resolving Hyprland variables (like `$mainMod`) for accuracy.
 - **Sourced File Support:** Recursively parses files included via `source = ...`, allowing you to edit binds across your entire configuration.
 - **Add, Edit & Delete:** Full CRUD support for your keybinds directly from the UI.
 - **Toast Notifications:** Provides smooth, non-intrusive feedback for every action.
 - **Safe Persistence:** Changes are written back to the correct configuration files automatically.
+- **Backup Config:** Save your current config so you don't mess up something.
+- **Vim keybinds:**: `j/k` to move up and down, `/` to search, `enter` to edit, `d` to delete row.
 
 ## Installation
 

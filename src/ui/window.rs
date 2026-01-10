@@ -4,6 +4,8 @@ use libadwaita as adw;
 use gtk4_layer_shell::{Layer, LayerShell, KeyboardMode};
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
+use chrono::Local;
+use std::fs;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::views::{create_add_view, create_edit_view};
@@ -26,7 +28,7 @@ pub fn build_ui(app: &adw::Application) {
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
     let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));
 
-    let column_view = gtk::ColumnView::new(Some(selection_model));
+    let column_view = gtk::ColumnView::new(Some(selection_model.clone()));
     column_view.set_show_row_separators(false); 
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
@@ -37,6 +39,7 @@ pub fn build_ui(app: &adw::Application) {
         let prop_name_css = property_name.to_string();
         
         factory.connect_setup(move |_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
                 .margin_start(8)
@@ -72,6 +75,7 @@ pub fn build_ui(app: &adw::Application) {
         });
 
         factory.connect_bind(move |_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
             
             let (label, icon_opt) = if prop_name == "mods" {
@@ -117,6 +121,12 @@ pub fn build_ui(app: &adw::Application) {
         .css_classes(["flat"])
         .build();
 
+    let backup_button = gtk::Button::builder()
+        .icon_name("document-save-symbolic")
+        .tooltip_text("Backup Current Config")
+        .css_classes(["flat"])
+        .build();
+
     let top_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
@@ -128,6 +138,7 @@ pub fn build_ui(app: &adw::Application) {
     
     top_box.append(&search_entry);
     top_box.append(&add_button);
+    top_box.append(&backup_button);
 
     // Status Page (Empty State)
     let status_page = adw::StatusPage::builder()
@@ -200,11 +211,90 @@ pub fn build_ui(app: &adw::Application) {
     let window_clone = window.clone();
     let root_stack_c = root_stack.clone();
 
+    let selection_model_key = selection_model.clone();
+    let model_key = model.clone();
+    let toast_overlay_key = toast_overlay.clone();
+    let edit_page_container_key = edit_page_container.clone();
+    let column_view_key = column_view.clone();
+
     controller.connect_key_pressed(move |_, key, _, mods| {
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {
             search_entry_focus.grab_focus();
             return glib::Propagation::Stop;
         }
+
+        let home_visible = root_stack_c.visible_child_name().as_deref() == Some("home");
+        let search_focused = search_entry_focus.has_focus();
+
+        if home_visible && !search_focused {
+            if mods.is_empty() {
+                match key {
+                    gtk::gdk::Key::j => {
+                        let current = selection_model_key.selected();
+                        let max = selection_model_key.n_items();
+                        if current + 1 < max {
+                            selection_model_key.set_selected(current + 1);
+                            column_view_key.scroll_to(current + 1, None, gtk::ListScrollFlags::NONE, None);
+                        }
+                        return glib::Propagation::Stop;
+                    }
+                    gtk::gdk::Key::k => {
+                        let current = selection_model_key.selected();
+                        if current > 0 {
+                            selection_model_key.set_selected(current - 1);
+                            column_view_key.scroll_to(current - 1, None, gtk::ListScrollFlags::NONE, None);
+                        }
+                        return glib::Propagation::Stop;
+                    }
+                    gtk::gdk::Key::slash => {
+                        search_entry_focus.grab_focus();
+                        return glib::Propagation::Stop;
+                    }
+                    gtk::gdk::Key::d => {
+                        if let Some(obj) = selection_model_key.selected_item().and_downcast::<KeybindObject>() {
+                            let line = obj.property::<u64>("line-number") as usize;
+                            let file_path_str = obj.property::<String>("file-path");
+                            let file_path = std::path::PathBuf::from(file_path_str);
+                            
+                            match parser::delete_keybind(file_path, line) {
+                                Ok(_) => {
+                                     if let Some(pos) = model_key.find(&obj) {
+                                         model_key.remove(pos);
+                                         refresh_conflicts(&model_key);
+                                     }
+                                     let toast = adw::Toast::new("Keybind deleted");
+                                     toast_overlay_key.add_toast(toast);
+                                },
+                                Err(e) => {
+                                     let toast = adw::Toast::new(&format!("Failed to delete: {}", e));
+                                     toast_overlay_key.add_toast(toast);
+                                }
+                            }
+                        }
+                        return glib::Propagation::Stop;
+                    }
+                    gtk::gdk::Key::Return => {
+                       if let Some(obj) = selection_model_key.selected_item().and_downcast::<KeybindObject>() {
+                           while let Some(child) = edit_page_container_key.first_child() {
+                               edit_page_container_key.remove(&child);
+                           }
+                           let edit_view = create_edit_view(
+                               &root_stack_c,
+                               obj,
+                               &model_key,
+                               &toast_overlay_key,
+                               &edit_page_container_key
+                           );
+                           edit_page_container_key.append(&edit_view);
+                           root_stack_c.set_visible_child_name("edit");
+                           return glib::Propagation::Stop;
+                       }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         if key == gtk::gdk::Key::Escape {
             if root_stack_c.visible_child_name().as_deref() != Some("home") {
                 root_stack_c.set_visible_child_name("home");
@@ -264,6 +354,29 @@ pub fn build_ui(app: &adw::Application) {
         );
         add_page_container_c.append(&add_view);
         root_stack_add.set_visible_child_name("add");
+    });
+
+    let toast_overlay_backup = toast_overlay.clone();
+    backup_button.connect_clicked(move |_| {
+        match parser::get_config_path() {
+            Ok(path) => {
+                let now = Local::now();
+                let params = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+                let backup_path = path.with_extension(format!("conf.{}.bak", params));
+                
+                if let Err(e) = fs::copy(&path, &backup_path) {
+                     let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                     toast_overlay_backup.add_toast(toast);
+                } else {
+                     let toast = adw::Toast::new(&format!("Config backed up to {:?}", backup_path.file_name().unwrap()));
+                     toast_overlay_backup.add_toast(toast);
+                }
+            },
+            Err(e) => {
+                 let toast = adw::Toast::new(&format!("Could not find config path: {}", e));
+                 toast_overlay_backup.add_toast(toast);
+            }
+        }
     });
 
     let status_page_ref = status_page.clone();

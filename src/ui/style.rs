@@ -141,7 +141,7 @@ thread_local! {
 
 pub fn load_css() {
     let app_provider = gtk::CssProvider::new();
-    app_provider.load_from_data(APP_CSS);
+    app_provider.load_from_string(APP_CSS);
 
     let theme_provider = gtk::CssProvider::new();
     let display = gtk::gdk::Display::default().expect("Could not connect to a display.");
@@ -174,7 +174,7 @@ pub fn load_css() {
                  let css_file = gio::File::for_path(config_dir.join("gtk-4.0/gtk.css"));
                  theme_prov.load_from_file(&css_file);
             }
-            app_prov.load_from_data(APP_CSS);
+            app_prov.load_from_string(APP_CSS);
         });
     }
 
@@ -186,7 +186,7 @@ pub fn load_css() {
                  let css_file = gio::File::for_path(config_dir.join("gtk-4.0/gtk.css"));
                  theme_prov.load_from_file(&css_file);
             }
-        app_prov.load_from_data(APP_CSS);
+        app_prov.load_from_string(APP_CSS);
     });
 
     start_theme_monitor(app_provider, theme_provider);
@@ -214,7 +214,7 @@ fn start_theme_monitor(app_provider: gtk::CssProvider, theme_provider: gtk::CssP
                                      
                                      glib::timeout_add_local(std::time::Duration::from_millis(200), move || {
                                          theme_prov.load_from_file(&f);
-                                         app_prov.load_from_data(APP_CSS);
+                                         app_prov.load_from_string(APP_CSS);
                                          glib::ControlFlow::Break
                                      });
                                  }
