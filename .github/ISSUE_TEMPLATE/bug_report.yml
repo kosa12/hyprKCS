@@ -16,7 +16,7 @@ body:
         - label: I've successfully updated to the latest version.
           required: false
         - label: I've successfully updated the system packages to the latest.
-          required: fasle
+          required: false
         - label: I have read the README.
           required: true
         - label: I've ticked the checkboxes without reading their contents.
