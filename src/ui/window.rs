@@ -1,9 +1,11 @@
 use gtk4 as gtk;
 use gtk::{gio, glib, prelude::*};
 use libadwaita as adw;
+use gtk4_layer_shell::{Layer, LayerShell, KeyboardMode};
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::dialogs::{show_edit_dialog, show_add_dialog};
+use crate::ui::views::{create_add_view, create_edit_view};
+use crate::ui::utils::refresh_conflicts;
 
 pub fn build_ui(app: &adw::Application) {
     let keybinds = parser::parse_config().unwrap_or_else(|err| {
@@ -11,19 +13,12 @@ pub fn build_ui(app: &adw::Application) {
         vec![]
     });
 
-    // Detect conflicts
-    let mut counts = std::collections::HashMap::new();
-    for kb in &keybinds {
-        let key = (kb.clean_mods.to_lowercase(), kb.key.to_lowercase());
-        *counts.entry(key).or_insert(0) += 1;
-    }
-
     let model = gio::ListStore::new::<KeybindObject>();
     for kb in keybinds {
-        let count = counts.get(&(kb.clean_mods.to_lowercase(), kb.key.to_lowercase())).unwrap_or(&0);
-        let is_conflicted = *count > 1;
-        model.append(&KeybindObject::new(kb, is_conflicted));
+        model.append(&KeybindObject::new(kb, None));
     }
+    
+    refresh_conflicts(&model);
 
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
@@ -92,6 +87,7 @@ pub fn build_ui(app: &adw::Application) {
 
             if let Some(icon) = icon_opt {
                 keybind.bind_property("is-conflicted", &icon, "visible").sync_create().build();
+                keybind.bind_property("conflict-reason", &icon, "tooltip-text").sync_create().build();
             }
         });
 
@@ -107,31 +103,31 @@ pub fn build_ui(app: &adw::Application) {
     column_view.append_column(&create_column("Action", "dispatcher"));
     column_view.append_column(&create_column("Arguments", "args"));
 
-    let header_bar = adw::HeaderBar::new();
+    // Compact Top Bar Layout
+    let search_entry = gtk::SearchEntry::builder()
+        .placeholder_text("Search keybinds...")
+        .hexpand(true)
+        .build();
+
     let add_button = gtk::Button::builder()
         .icon_name("list-add-symbolic")
         .tooltip_text("Add New Keybind")
+        .css_classes(["flat"])
         .build();
-    header_bar.pack_start(&add_button);
 
-    let search_bar = gtk::SearchBar::builder()
-        .valign(gtk::Align::Start)
-        .key_capture_widget(&column_view)
+    let top_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(8)
+        .margin_top(8)
+        .margin_bottom(8)
+        .margin_start(8)
+        .margin_end(8)
         .build();
     
-    let search_entry = gtk::SearchEntry::builder()
-        .placeholder_text("Type to search keybinds...")
-        .hexpand(true)
-        .build();
-    
-    let clamp = adw::Clamp::builder()
-        .maximum_size(600)
-        .child(&search_entry)
-        .build();
+    top_box.append(&search_entry);
+    top_box.append(&add_button);
 
-    search_bar.set_child(Some(&clamp));
-    search_bar.set_search_mode(true);
-
+    // Status Page (Empty State)
     let status_page = adw::StatusPage::builder()
         .title("No Keybinds Found")
         .description("Try a different search term or add a new keybind.")
@@ -153,30 +149,65 @@ pub fn build_ui(app: &adw::Application) {
     list_stack.add_child(&status_page);
 
     let main_vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    main_vbox.append(&header_bar);
-    main_vbox.append(&search_bar);
+    main_vbox.append(&top_box);
+    main_vbox.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     main_vbox.append(&list_stack);
 
+    // ROOT STACK (Switches between HOME, ADD, EDIT)
+    let root_stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::SlideLeftRight)
+        .build();
+    
+    // Add "Home" page
+    root_stack.add_named(&main_vbox, Some("home"));
+
+    // Pages for Add/Edit (containers)
+    let add_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root_stack.add_named(&add_page_container, Some("add"));
+
+    let edit_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root_stack.add_named(&edit_page_container, Some("edit"));
+
+    let window_content = gtk::Box::builder()
+        .css_classes(["window-content"])
+        .vexpand(true)
+        .hexpand(true)
+        .build();
+    window_content.append(&root_stack);
+
     let toast_overlay = adw::ToastOverlay::new();
-    toast_overlay.set_child(Some(&main_vbox));
+    toast_overlay.set_child(Some(&window_content));
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("hyprKCS")
-        .default_width(800)
-        .default_height(600)
+        .default_width(700)
+        .default_height(500)
         .content(&toast_overlay)
+        .decorated(false)
+        .startup_id("hyprkcs-menu")
         .build();
+
+    // Initialize Layer Shell
+    window.init_layer_shell();
+    window.set_layer(Layer::Overlay);
+    window.set_keyboard_mode(KeyboardMode::OnDemand);
+    window.add_css_class("menu-window");
 
     let controller = gtk::EventControllerKey::new();
     let search_entry_focus = search_entry.clone();
     let window_clone = window.clone();
+    let root_stack_c = root_stack.clone();
+
     controller.connect_key_pressed(move |_, key, _, mods| {
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {
             search_entry_focus.grab_focus();
             return glib::Propagation::Stop;
         }
         if key == gtk::gdk::Key::Escape {
+            if root_stack_c.visible_child_name().as_deref() != Some("home") {
+                root_stack_c.set_visible_child_name("home");
+                return glib::Propagation::Stop;
+            }
             if !search_entry_focus.text().is_empty() {
                 search_entry_focus.set_text("");
                 return glib::Propagation::Stop;
@@ -188,31 +219,49 @@ pub fn build_ui(app: &adw::Application) {
     });
     window.add_controller(controller);
 
-    let window_activate = window.clone();
     let model_store = model.clone();
     let toast_overlay_activate = toast_overlay.clone();
+    let root_stack_edit = root_stack.clone();
+    let edit_page_container_c = edit_page_container.clone();
+
     column_view.connect_activate(move |view, position| {
         let selection = view.model().unwrap().downcast::<gtk::SingleSelection>().unwrap();
         if let Some(obj) = selection.item(position).and_downcast::<KeybindObject>() {
-            show_edit_dialog(
-                &window_activate, 
-                &obj.property::<String>("mods"), 
-                &obj.property::<String>("key"), 
-                &obj.property::<String>("dispatcher"), 
-                &obj.property::<String>("args"), 
-                obj.property::<u64>("line-number") as usize, 
-                obj, 
+            // Clear previous edit form
+             while let Some(child) = edit_page_container_c.first_child() {
+                edit_page_container_c.remove(&child);
+            }
+            
+            let edit_view = create_edit_view(
+                &root_stack_edit,
+                obj,
                 &model_store,
-                toast_overlay_activate.clone()
+                &toast_overlay_activate,
+                &edit_page_container_c
             );
+            edit_page_container_c.append(&edit_view);
+            root_stack_edit.set_visible_child_name("edit");
         }
     });
 
     let model_clone_add = model.clone();
     let toast_overlay_add = toast_overlay.clone();
-    let window_add = window.clone();
+    let root_stack_add = root_stack.clone();
+    let add_page_container_c = add_page_container.clone();
+
     add_button.connect_clicked(move |_| {
-        show_add_dialog(&window_add, model_clone_add.clone(), toast_overlay_add.clone());
+         // Clear previous add form (optional but good for reset)
+         while let Some(child) = add_page_container_c.first_child() {
+            add_page_container_c.remove(&child);
+        }
+
+        let add_view = create_add_view(
+            &root_stack_add,
+            &model_clone_add,
+            &toast_overlay_add
+        );
+        add_page_container_c.append(&add_view);
+        root_stack_add.set_visible_child_name("add");
     });
 
     let status_page_ref = status_page.clone();

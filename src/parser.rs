@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use dirs::config_dir;
 use regex::Regex;
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
@@ -22,13 +23,30 @@ pub fn get_config_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-fn expand_path(path_str: &str, current_file: &PathBuf) -> PathBuf {
-    let path_str = path_str.trim();
+fn resolve_variables(input: &str, vars: &HashMap<String, String>) -> String {
+    let mut result = input.to_string();
+    // Sort variables by length descending to prevent partial replacements
+    let mut sorted_vars: Vec<_> = vars.keys().collect();
+    sorted_vars.sort_by(|a, b| b.len().cmp(&a.len()));
+
+    for key in sorted_vars {
+        if result.contains(key) {
+            result = result.replace(key, &vars[key]);
+        }
+    }
+    result
+}
+
+fn expand_path(path_str: &str, current_file: &Path, vars: &HashMap<String, String>) -> PathBuf {
+    let resolved_path_str = resolve_variables(path_str, vars);
+    let path_str = resolved_path_str.trim();
+
     if path_str.starts_with('~') {
         if let Some(home) = dirs::home_dir() {
             return home.join(&path_str[2..]);
         }
     }
+
     let p = PathBuf::from(path_str);
     if p.is_absolute() {
         p
@@ -37,36 +55,47 @@ fn expand_path(path_str: &str, current_file: &PathBuf) -> PathBuf {
     }
 }
 
-pub fn get_variables() -> Result<std::collections::HashMap<String, String>> {
+pub fn get_variables() -> Result<HashMap<String, String>> {
     let main_path = get_config_path()?;
-    let mut variables = std::collections::HashMap::new();
-    let mut visited = std::collections::HashSet::new();
-    
-    fn collect_vars(path: PathBuf, vars: &mut std::collections::HashMap<String, String>, visited: &mut std::collections::HashSet<PathBuf>) -> Result<()> {
+    let mut variables = HashMap::new();
+    let mut visited = HashSet::new();
+
+    fn collect_recursive(
+        path: PathBuf,
+        vars: &mut HashMap<String, String>,
+        visited: &mut HashSet<PathBuf>,
+    ) -> Result<()> {
         if !path.exists() || visited.contains(&path) {
             return Ok(());
         }
         visited.insert(path.clone());
-        
-        let content = std::fs::read_to_string(&path)?;
-        let var_re = Regex::new(r"^\s*\$([a-zA-Z0-0_-]+)\s*=\s*(.*)").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        let var_re = Regex::new(r"^\s*(\$[a-zA-Z0-9_-]+)\s*=\s*(.*)").unwrap();
         let source_re = Regex::new(r"^\s*source\s*=\s*(.*)").unwrap();
 
         for line in content.lines() {
             let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+
             if let Some(caps) = var_re.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
-                let value = caps.get(2).unwrap().as_str().trim().to_string();
-                vars.insert(format!("${}", name), value);
+                let raw_value_full = caps.get(2).unwrap().as_str();
+                let raw_value = raw_value_full.split('#').next().unwrap_or("").trim();
+                let value = resolve_variables(raw_value, vars);
+                vars.insert(name, value);
             } else if let Some(caps) = source_re.captures(line) {
-                let sourced_path = expand_path(caps.get(1).unwrap().as_str(), &path);
-                let _ = collect_vars(sourced_path, vars, visited);
+                let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
+                let sourced_path = expand_path(path_str, &path, vars);
+                let _ = collect_recursive(sourced_path, vars, visited);
             }
         }
         Ok(())
     }
 
-    collect_vars(main_path, &mut variables, &mut visited)?;
+    collect_recursive(main_path, &mut variables, &mut visited)?;
     Ok(variables)
 }
 
@@ -74,22 +103,23 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
     let mut keybinds = Vec::new();
     let variables = get_variables()?;
-    let mut visited = std::collections::HashSet::new();
+    let mut visited = HashSet::new();
 
     fn parse_recursive(
-        path: PathBuf, 
-        keybinds: &mut Vec<Keybind>, 
-        variables: &std::collections::HashMap<String, String>,
-        visited: &mut std::collections::HashSet<PathBuf>
+        path: PathBuf,
+        keybinds: &mut Vec<Keybind>,
+        variables: &HashMap<String, String>,
+        visited: &mut HashSet<PathBuf>,
     ) -> Result<()> {
         if !path.exists() || visited.contains(&path) {
             return Ok(());
         }
         visited.insert(path.clone());
 
-        let content = std::fs::read_to_string(&path)?;
-        let bind_re = Regex::new(r"^\s*bind([a-z]*)\s*=\s*([^,]*)\s*,\s*([^,]+)\s*,\s*([^,]+)(?:\s*,\s*(.*))?").unwrap();
-        let source_re = Regex::new(r"^\s*source\s*=\s*(.*)").unwrap();
+        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        // Regex to match "bind" or "bindl", "binde" etc, and capture the flags + the rest of the line
+        let bind_re = Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap();
+        let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
 
         for (index, line) in content.lines().enumerate() {
             let line_trimmed = line.trim();
@@ -99,42 +129,42 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
             if let Some(caps) = bind_re.captures(line_trimmed) {
                 let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
-                let raw_mods = caps.get(2).map_or("", |m| m.as_str()).trim().to_string();
-                let key = caps.get(3).map_or("", |m| m.as_str()).trim().to_string();
-                let dispatcher = caps.get(4).map_or("", |m| m.as_str()).trim().to_string();
-                let args = caps.get(5).map_or("", |m| m.as_str()).trim().to_string();
+                let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
 
-                let mut resolved_mods = raw_mods.clone();
-                for (var, val) in variables {
-                    if resolved_mods.contains(var) {
-                        resolved_mods = resolved_mods.replace(var, val);
-                    }
+                // 1. Resolve variables in the content string FIRST
+                let resolved_content = resolve_variables(raw_content, variables);
+
+                // 2. Strip comments
+                let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
+
+                // 3. Split by comma to get arguments
+                // Limit 4 because: Mod, Key, Dispatcher, Args
+                let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
+
+                if parts.len() >= 3 {
+                    let mods = parts[0].to_string();
+                    let key = parts[1].to_string();
+                    let dispatcher = parts[2].to_string();
+                    let args = if parts.len() > 3 {
+                         parts[3].to_string()
+                    } else {
+                        String::new()
+                    };
+
+                    keybinds.push(Keybind {
+                        mods: mods.clone(),      // We display the resolved mods
+                        clean_mods: mods,        // And store resolved mods
+                        flags: flags.to_string(),
+                        key,
+                        dispatcher,
+                        args,
+                        line_number: index,
+                        file_path: path.clone(),
+                    });
                 }
-
-                let display_mods = if flags.is_empty() {
-                    raw_mods.clone()
-                } else {
-                    format!("[{}] {}", flags, raw_mods)
-                };
-
-                let args = if let Some(idx) = args.find('#') {
-                    args[..idx].trim().to_string()
-                } else {
-                    args
-                };
-
-                keybinds.push(Keybind {
-                    mods: display_mods,
-                    clean_mods: resolved_mods,
-                    flags: flags.to_string(),
-                    key,
-                    dispatcher,
-                    args,
-                    line_number: index,
-                    file_path: path.clone(),
-                });
             } else if let Some(caps) = source_re.captures(line_trimmed) {
-                let sourced_path = expand_path(caps.get(1).unwrap().as_str(), &path);
+                let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
+                let sourced_path = expand_path(path_str, &path, variables);
                 let _ = parse_recursive(sourced_path, keybinds, variables, visited);
             }
         }
@@ -145,7 +175,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     Ok(keybinds)
 }
 
-pub fn update_line(path: PathBuf, line_number: usize, new_mods: &str, new_key: &str, new_dispatcher: &str, new_args: &str) -> Result<()> {
+pub fn update_line(
+    path: PathBuf,
+    line_number: usize,
+    new_mods: &str,
+    new_key: &str,
+    new_dispatcher: &str,
+    new_args: &str,
+) -> Result<()> {
     let content = std::fs::read_to_string(&path)?;
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
 
@@ -154,29 +191,45 @@ pub fn update_line(path: PathBuf, line_number: usize, new_mods: &str, new_key: &
     }
 
     let original_line = &lines[line_number];
-    let re = Regex::new(r"^(\s*bind)([a-z]*\s*=\s*)([^,]*),\s*([^,]+)\s*,\s*([^,]+)(.*)$").unwrap();
-    
+    let re = Regex::new(r"^(\s*bind)([a-zA-Z]*\s*=\s*)(.*)$").unwrap();
+
     if let Some(caps) = re.captures(original_line) {
-         let prefix = caps.get(1).map_or("", |m| m.as_str());
-         let flags_eq = caps.get(2).map_or("", |m| m.as_str());
-         
-         let new_line = if new_args.trim().is_empty() {
-             format!("{}{}{}, {}, {}", prefix, flags_eq, new_mods, new_key, new_dispatcher)
-         } else {
-             format!("{}{}{}, {}, {}, {}", prefix, flags_eq, new_mods, new_key, new_dispatcher, new_args)
-         };
-         
-         lines[line_number] = new_line;
-         std::fs::write(&path, lines.join("\n"))?;
-         Ok(())
+        let prefix = caps.get(1).map_or("", |m| m.as_str());
+        let flags_eq = caps.get(2).map_or("", |m| m.as_str());
+
+        let new_line = if new_args.trim().is_empty() {
+            format!(
+                "{}{} {}, {}, {}",
+                prefix, flags_eq, new_mods, new_key, new_dispatcher
+            )
+        } else {
+            format!(
+                "{}{} {}, {}, {}, {}",
+                prefix, flags_eq, new_mods, new_key, new_dispatcher, new_args
+            )
+        };
+
+        lines[line_number] = new_line;
+        std::fs::write(&path, lines.join("\n"))?;
+        Ok(())
     } else {
-         Err(anyhow::anyhow!("Could not parse original line structure"))
+        Err(anyhow::anyhow!("Could not parse original line structure"))
     }
 }
 
-pub fn add_keybind(path: PathBuf, mods: &str, key: &str, dispatcher: &str, args: &str) -> Result<usize> {
+pub fn add_keybind(
+    path: PathBuf,
+    mods: &str,
+    key: &str,
+    dispatcher: &str,
+    args: &str,
+) -> Result<usize> {
     let content = std::fs::read_to_string(&path).unwrap_or_default();
-    let mut lines: Vec<String> = if content.is_empty() { vec![] } else { content.lines().map(|s| s.to_string()).collect() };
+    let mut lines: Vec<String> = if content.is_empty() {
+        vec![]
+    } else {
+        content.lines().map(|s| s.to_string()).collect()
+    };
 
     let new_line = if args.trim().is_empty() {
         format!("bind = {}, {}, {}", mods, key, dispatcher)
@@ -186,7 +239,7 @@ pub fn add_keybind(path: PathBuf, mods: &str, key: &str, dispatcher: &str, args:
 
     lines.push(new_line);
     std::fs::write(&path, lines.join("\n"))?;
-    
+
     Ok(lines.len() - 1)
 }
 
@@ -200,6 +253,6 @@ pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {
 
     lines.remove(line_number);
     std::fs::write(&path, lines.join("\n"))?;
-    
+
     Ok(())
 }

@@ -19,7 +19,7 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "0.1.0";
+            version = "1.6.0";
 
             src = ./.;
 
@@ -35,6 +35,7 @@
             buildInputs = [
               pkgs.gtk4
               pkgs.libadwaita
+              pkgs.gtk4-layer-shell
             ];
 
             # Rename binary to match pname (lowercase)

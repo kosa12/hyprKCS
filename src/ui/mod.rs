@@ -1,4 +1,4 @@
 pub mod style;
 pub mod window;
-pub mod dialogs;
+pub mod views;
 pub mod utils;

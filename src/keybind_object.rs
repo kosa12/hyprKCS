@@ -8,7 +8,7 @@ glib::wrapper! {
 }
 
 impl KeybindObject {
-    pub fn new(keybind: Keybind, is_conflicted: bool) -> Self {
+    pub fn new(keybind: Keybind, conflict_reason: Option<String>) -> Self {
         Object::builder()
             .property("mods", keybind.mods)
             .property("clean-mods", keybind.clean_mods)
@@ -17,7 +17,8 @@ impl KeybindObject {
             .property("args", keybind.args)
             .property("line-number", keybind.line_number as u64)
             .property("file-path", keybind.file_path.to_str().unwrap_or(""))
-            .property("is-conflicted", is_conflicted)
+            .property("is-conflicted", conflict_reason.is_some())
+            .property("conflict-reason", conflict_reason.unwrap_or_default())
             .build()
     }
 }
@@ -39,6 +40,7 @@ mod imp {
         pub line_number: Cell<u64>,
         pub file_path: RefCell<String>,
         pub is_conflicted: Cell<bool>,
+        pub conflict_reason: RefCell<String>,
     }
 
     #[glib::object_subclass]
@@ -60,6 +62,7 @@ mod imp {
                     glib::ParamSpecUInt64::builder("line-number").build(),
                     glib::ParamSpecString::builder("file-path").build(),
                     glib::ParamSpecBoolean::builder("is-conflicted").build(),
+                    glib::ParamSpecString::builder("conflict-reason").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -75,6 +78,7 @@ mod imp {
                 "line-number" => { self.line_number.replace(value.get().unwrap()); },
                 "file-path" => { self.file_path.replace(value.get().unwrap()); },
                 "is-conflicted" => { self.is_conflicted.replace(value.get().unwrap()); },
+                "conflict-reason" => { self.conflict_reason.replace(value.get().unwrap()); },
                 _ => unimplemented!(),
             }
         }
@@ -89,6 +93,7 @@ mod imp {
                 "line-number" => self.line_number.get().to_value(),
                 "file-path" => self.file_path.borrow().clone().to_value(),
                 "is-conflicted" => self.is_conflicted.get().to_value(),
+                "conflict-reason" => self.conflict_reason.borrow().clone().to_value(),
                 _ => unimplemented!(),
             }
         }
