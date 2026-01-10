@@ -126,6 +126,13 @@ pub fn build_ui(app: &adw::Application) {
         .tooltip_text("Backup Current Config")
         .css_classes(["flat"])
         .build();
+    
+    let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom"]);
+    let category_dropdown = gtk::DropDown::builder()
+        .model(&categories)
+        .selected(0)
+        .tooltip_text("Filter by Category")
+        .build();
 
     let top_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -136,6 +143,7 @@ pub fn build_ui(app: &adw::Application) {
         .margin_end(8)
         .build();
     
+    top_box.append(&category_dropdown);
     top_box.append(&search_entry);
     top_box.append(&add_button);
     top_box.append(&backup_button);
@@ -394,17 +402,30 @@ pub fn build_ui(app: &adw::Application) {
         }
     });
 
-    search_entry.connect_search_changed(move |entry| {
-        let text = entry.text().to_string();
+    let filter_func = move |text: String, category: u32| {
         let matcher = SkimMatcherV2::default();
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
             let mods = kb.property::<String>("mods");
             let key = kb.property::<String>("key");
-            let dispatcher = kb.property::<String>("dispatcher");
-            let args = kb.property::<String>("args");
+            let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
+            let args = kb.property::<String>("args").to_lowercase();
             
+            // Category Filter
+            let category_match = match category {
+                0 => true, // All
+                1 => dispatcher.contains("workspace") || dispatcher.contains("movetoworkspace"),
+                2 => dispatcher.contains("window") || dispatcher.contains("active") || dispatcher.contains("focus") || dispatcher.contains("fullscreen") || dispatcher.contains("group") || dispatcher.contains("split") || dispatcher.contains("pin"),
+                3 => args.contains("volume") || args.contains("brightness") || args.contains("playerctl") || dispatcher.contains("audio"),
+                4 => dispatcher == "exec", // Custom/Script
+                _ => true,
+            };
+
+            if !category_match {
+                return false;
+            }
+
             if text.is_empty() {
                 return true;
             }
@@ -414,6 +435,23 @@ pub fn build_ui(app: &adw::Application) {
             matcher.fuzzy_match(&dispatcher, &text).is_some() ||
             matcher.fuzzy_match(&args, &text).is_some()
         });
+    };
+
+    let filter_func_1 = std::rc::Rc::new(filter_func);
+    let filter_func_2 = filter_func_1.clone();
+    
+    let dropdown_ref = category_dropdown.clone();
+    search_entry.connect_search_changed(move |entry| {
+        let text = entry.text().to_string();
+        let cat = dropdown_ref.selected();
+        filter_func_1(text, cat);
+    });
+
+    let search_entry_ref = search_entry.clone();
+    category_dropdown.connect_selected_notify(move |dropdown| {
+        let text = search_entry_ref.text().to_string();
+        let cat = dropdown.selected();
+        filter_func_2(text, cat);
     });
 
     window.present();

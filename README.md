@@ -17,6 +17,7 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 
 - **Blazing Fast (lol):** Written in Rust.
 - **Native Look:** Uses GTK4 and Libadwaita to match your system theme (supports Dark/Light mode and Matugen).
+- **Category Filtering:** Quickly filter keybinds by type (Workspace, Window, Media, etc) using the dropdown.
 - **Interactive Search:** Filter through your keybinds in real-time as you type (fuzzy).
 - **Key Recorder:** Click "Record" and press a combination to automatically fill in modifiers and keys.
 - **Conflict Detection:** Automatically highlights duplicate keybinds with a warning icon, resolving Hyprland variables (like `$mainMod`) for accuracy.
