@@ -81,7 +81,7 @@ hyprKCS --version #or hyprKCS -V
 hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag.
 
 - **Found a bug?**
-Check out our [Contributing Guidelines](CONTRIBUTING.md) or open an [Issue](https://github.com/kosa12/hyprKCS/issues).
+Open an [Issue](https://github.com/kosa12/hyprKCS/issues).
 
 ## Maintainer:
 
