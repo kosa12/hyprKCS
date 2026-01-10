@@ -6,7 +6,11 @@
 
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
 
-![hyprKCS Screenshot](./assets/screenshot.png)
+<p align="center">
+  <img src="./assets/image.png" width="32%" />
+  <img src="./assets/image2.png" width="32%" />
+  <img src="./assets/image3.png" width="32%" />
+</p>
 
 ## Features
 
