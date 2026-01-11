@@ -4,7 +4,7 @@ use libadwaita as adw;
 use std::path::PathBuf;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::{refresh_conflicts, execute_keybind};
+use crate::ui::utils::{refresh_conflicts, execute_keybind, setup_dispatcher_completion};
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
@@ -174,6 +174,7 @@ pub fn create_add_view(
         .placeholder_text("e.g. exec")
         .activates_default(true)
         .build();
+    setup_dispatcher_completion(&entry_dispatcher);
     form_box.append(&entry_dispatcher);
 
     let label_args = gtk::Label::new(Some("Arguments:"));
@@ -391,6 +392,7 @@ pub fn create_edit_view(
         .text(&current_dispatcher)
         .activates_default(true)
         .build();
+    setup_dispatcher_completion(&entry_dispatcher);
     form_box.append(&entry_dispatcher);
 
     let label_args = gtk::Label::new(Some("Arguments:"));
@@ -462,6 +464,7 @@ pub fn create_edit_view(
     let file_path = PathBuf::from(&file_path_str);
     let stack_c = stack.clone();
 
+    let entry_dispatcher_save = entry_dispatcher.clone();
     save_btn.connect_clicked(move |_| {
         let input_mods = entry_mods.text().to_string();
         let new_mods = if mods_had_prefix {
@@ -471,7 +474,7 @@ pub fn create_edit_view(
         };
 
         let new_key = entry_key.text().to_string();
-        let new_dispatcher = entry_dispatcher.text().to_string();
+        let new_dispatcher = entry_dispatcher_save.text().to_string();
 
         if new_key.trim().is_empty() || new_dispatcher.trim().is_empty() {
             let toast = adw::Toast::builder()

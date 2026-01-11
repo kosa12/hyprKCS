@@ -1,5 +1,5 @@
 use gtk4 as gtk;
-use gtk::{gio, prelude::*};
+use gtk::{gio, glib, prelude::*};
 use crate::keybind_object::KeybindObject;
 
 fn normalize(mods: &str, key: &str) -> (std::collections::BTreeSet<String>, String) {
@@ -70,4 +70,37 @@ pub fn execute_keybind(dispatcher: &str, args: &str) {
     }
     
     let _ = command.spawn();
+}
+
+#[allow(deprecated)]
+pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
+    let dispatchers = [
+        "exec", "execr", "pass", "killactive", "closewindow", "workspace",
+        "movetoworkspace", "movetoworkspacesilent", "togglefloating",
+        "fullscreen", "fakefullscreen", "dpms", "pin", "movefocus",
+        "movewindow", "centerwindow", "resizeactive", "moveactive",
+        "cyclenext", "swapnext", "focuswindow", "focusmonitor",
+        "splitratio", "toggleopaque", "movecursortocorner", "workspaceopt",
+        "exit", "forcerendererreload", "movecurrentworkspacetomonitor",
+        "focusworkspaceoncurrentmonitor", "togglespecialworkspace",
+        "focusurgentorlast", "togglegroup", "changegroupactive",
+        "swapprev", "focuscurrentorlast", "lockgroups", "lockactivegroup",
+        "moveintogroup", "moveoutofgroup", "movewindoworgroup",
+        "movegroupwindow", "denywindowfromgroup", "setignoregrouplock",
+        "alterzorder", "tag", "layoutmsg", "sendshortcut", "sendkeystate",
+    ];
+
+    let list_store = gtk::ListStore::new(&[glib::Type::STRING]);
+    for dispatcher in dispatchers {
+        list_store.set(&list_store.append(), &[(0, &dispatcher)]);
+    }
+
+    let completion = gtk::EntryCompletion::builder()
+        .model(&list_store)
+        .text_column(0)
+        .inline_completion(true)
+        .popup_completion(false)
+        .build();
+
+    entry.set_completion(Some(&completion));
 }

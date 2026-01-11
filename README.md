@@ -97,6 +97,21 @@ hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is e
 - **Found a bug?**
 Open an [Issue](https://github.com/kosa12/hyprKCS/issues).
 
+## Roadmap
+
+The goal of hyprKCS is to become the ultimate keybind management tool for Hyprland.
+
+- [x] **CLI Interface:** Search and print keybinds from terminal and other info.
+- [x] **Fuzzy Search:** Quickly find keybinds as you type.
+- [x] **Category Filter:** Filter keybinds by type (Workspace, Window, Media, etc).
+- [x] **Vim-style Navigation:** Use `j`/`k` to navigate the list. etc.
+- [x] **Quick Execute:** Test keybinds immediately via `hyprctl dispatch`.
+- [x] **Autocomplete:** Smart suggestions for Hyprland dispatchers.
+- [ ] **Conflict Wizard:** Interactive resolution for duplicate binds.
+- [ ] **Auto-Reload:** Automatically trigger `hyprctl reload` after edits.
+- [ ] **Pinned Binds:** Star your most-used binds to keep them at the top.
+- [ ] **Visual Statistics:** Breakdown of your config by category and complexity.
+
 ## Maintainer:
 
 **kosa12** (kosa03matyas@gmail.com)
