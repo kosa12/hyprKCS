@@ -5,6 +5,7 @@
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Binary Size](https://img.shields.io/badge/binary_size-~3MB-blue)](https://github.com/kosa12/hyprKCS)
 
+
 A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
 
 <p align="center">
