@@ -72,6 +72,36 @@ pub fn execute_keybind(dispatcher: &str, args: &str) {
     let _ = command.spawn();
 }
 
+pub fn execute_hyprctl(args: &[&str]) {
+    use std::io::Write;
+    
+    let output = std::process::Command::new("hyprctl")
+        .args(args)
+        .output();
+
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/hyprkcs-debug.log") 
+    {
+        let _ = writeln!(file, "Executing: hyprctl {:?}", args);
+        match &output {
+            Ok(out) => {
+                let _ = writeln!(file, "Status: {}", out.status);
+                let _ = writeln!(file, "Stdout: {}", String::from_utf8_lossy(&out.stdout));
+                let _ = writeln!(file, "Stderr: {}", String::from_utf8_lossy(&out.stderr));
+            },
+            Err(e) => {
+                let _ = writeln!(file, "Failed to execute: {}", e);
+            }
+        }
+    }
+
+    if let Err(e) = output {
+        eprintln!("Failed to execute hyprctl: {}", e);
+    }
+}
+
 #[allow(deprecated)]
 pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
     let dispatchers = [

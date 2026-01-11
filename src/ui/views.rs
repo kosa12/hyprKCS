@@ -4,7 +4,7 @@ use libadwaita as adw;
 use std::path::PathBuf;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::{refresh_conflicts, execute_keybind, setup_dispatcher_completion};
+use crate::ui::utils::{refresh_conflicts, execute_keybind, setup_dispatcher_completion, execute_hyprctl};
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
@@ -48,8 +48,21 @@ pub fn setup_key_recorder(
 
     record_btn.connect_clicked(move |btn| {
         let btn = btn.clone();
+        
+        // If already listening, stop listening and reset
+        if btn.label().map_or(false, |l| l == "Listening...") {
+             btn.set_label("Record Combo");
+             btn.remove_css_class("suggested-action");
+             execute_hyprctl(&["dispatch", "submap", "reset"]);
+             return;
+        }
+
         btn.set_label("Listening...");
         btn.add_css_class("suggested-action");
+        
+        // Define the submap with a dummy bind to ensure it's created and recognized
+        execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset"]);
+        execute_hyprctl(&["dispatch", "submap", "hyprkcs_blocking"]);
         
         let entry_mods = entry_mods_c.clone();
         let entry_key = entry_key_c.clone();
@@ -80,6 +93,7 @@ pub fn setup_key_recorder(
 
                 btn_inner.set_label("Record Combo");
                 btn_inner.remove_css_class("suggested-action");
+                execute_hyprctl(&["dispatch", "submap", "reset"]);
                 
                 if let Some(widget) = ctrl.widget() {
                     widget.remove_controller(&controller_c);
