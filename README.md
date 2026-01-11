@@ -6,7 +6,7 @@
 [![Binary Size](https://img.shields.io/badge/binary_size-~3MB-blue)](https://github.com/kosa12/hyprKCS)
 
 
-A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libadwaita.
+A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwaita.
 
 <p align="center">
   <img src="./assets/image.png" width="32%" />
