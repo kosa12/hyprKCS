@@ -31,10 +31,8 @@ A fast, minimal Hyprland keybind cheat sheet written in Rust with GTK4 and Libad
 
 | Key | Action |
 | --- | --- |
-| `j` / `k` | Navigate up/down (vim-style) |
 | `/` | Focus search bar |
 | `Enter` | Edit selected keybind |
-| `d` | Delete selected keybind |
 | `Ctrl` + `f` | Focus search bar |
 | `Esc` | Clear search / Close window |
 

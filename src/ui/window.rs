@@ -238,48 +238,8 @@ pub fn build_ui(app: &adw::Application) {
         if home_visible && !search_focused {
             if mods.is_empty() {
                 match key {
-                    gtk::gdk::Key::j => {
-                        let current = selection_model_key.selected();
-                        let max = selection_model_key.n_items();
-                        if current + 1 < max {
-                            selection_model_key.set_selected(current + 1);
-                            column_view_key.scroll_to(current + 1, None, gtk::ListScrollFlags::NONE, None);
-                        }
-                        return glib::Propagation::Stop;
-                    }
-                    gtk::gdk::Key::k => {
-                        let current = selection_model_key.selected();
-                        if current > 0 {
-                            selection_model_key.set_selected(current - 1);
-                            column_view_key.scroll_to(current - 1, None, gtk::ListScrollFlags::NONE, None);
-                        }
-                        return glib::Propagation::Stop;
-                    }
                     gtk::gdk::Key::slash => {
                         search_entry_focus.grab_focus();
-                        return glib::Propagation::Stop;
-                    }
-                    gtk::gdk::Key::d => {
-                        if let Some(obj) = selection_model_key.selected_item().and_downcast::<KeybindObject>() {
-                            let line = obj.property::<u64>("line-number") as usize;
-                            let file_path_str = obj.property::<String>("file-path");
-                            let file_path = std::path::PathBuf::from(file_path_str);
-                            
-                            match parser::delete_keybind(file_path, line) {
-                                Ok(_) => {
-                                     if let Some(pos) = model_key.find(&obj) {
-                                         model_key.remove(pos);
-                                         refresh_conflicts(&model_key);
-                                     }
-                                     let toast = adw::Toast::new("Keybind deleted");
-                                     toast_overlay_key.add_toast(toast);
-                                },
-                                Err(e) => {
-                                     let toast = adw::Toast::new(&format!("Failed to delete: {}", e));
-                                     toast_overlay_key.add_toast(toast);
-                                }
-                            }
-                        }
                         return glib::Propagation::Stop;
                     }
                     gtk::gdk::Key::Return => {
