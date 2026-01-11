@@ -102,6 +102,10 @@ Open an [Issue](https://github.com/kosa12/hyprKCS/issues).
 **kosa12** (kosa03matyas@gmail.com)
 - **PGP Fingerprint:** `D205 9131 FDE2 EECC 7C90 A549 F2CB 939C 8AA6 7892`
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
 MIT
