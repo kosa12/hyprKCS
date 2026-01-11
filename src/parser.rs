@@ -12,6 +12,7 @@ pub struct Keybind {
     pub key: String,
     pub dispatcher: String,
     pub args: String,
+    pub submap: Option<String>,
     pub line_number: usize,
     pub file_path: PathBuf,
 }
@@ -108,12 +109,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     let mut keybinds = Vec::new();
     let variables = get_variables()?;
     let mut visited = HashSet::new();
+    let mut current_submap: Option<String> = None;
 
     fn parse_recursive(
         path: PathBuf,
         keybinds: &mut Vec<Keybind>,
         variables: &HashMap<String, String>,
         visited: &mut HashSet<PathBuf>,
+        current_submap: &mut Option<String>,
     ) -> Result<()> {
         if !path.exists() || visited.contains(&path) {
             return Ok(());
@@ -124,6 +127,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         // Regex to match "bind" or "bindl", "binde" etc, and capture the flags + the rest of the line
         let bind_re = Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap();
         let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
+        let submap_re = Regex::new(r"^\s*submap\s*=\s*(.*)$").unwrap();
 
         for (index, line) in content.lines().enumerate() {
             let line_trimmed = line.trim();
@@ -131,7 +135,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 continue;
             }
 
-            if let Some(caps) = bind_re.captures(line_trimmed) {
+            if let Some(caps) = submap_re.captures(line_trimmed) {
+                let name = caps.get(1).map_or("", |m| m.as_str()).trim();
+                if name == "reset" {
+                    *current_submap = None;
+                } else {
+                    *current_submap = Some(name.to_string());
+                }
+            } else if let Some(caps) = bind_re.captures(line_trimmed) {
                 let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
                 let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
 
@@ -162,6 +173,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         key,
                         dispatcher,
                         args,
+                        submap: current_submap.clone(),
                         line_number: index,
                         file_path: path.clone(),
                     });
@@ -169,13 +181,13 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             } else if let Some(caps) = source_re.captures(line_trimmed) {
                 let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
                 let sourced_path = expand_path(path_str, &path, variables);
-                let _ = parse_recursive(sourced_path, keybinds, variables, visited);
+                let _ = parse_recursive(sourced_path, keybinds, variables, visited, current_submap);
             }
         }
         Ok(())
     }
 
-    parse_recursive(main_path, &mut keybinds, &variables, &mut visited)?;
+    parse_recursive(main_path, &mut keybinds, &variables, &mut visited, &mut current_submap)?;
     Ok(keybinds)
 }
 
@@ -227,6 +239,7 @@ pub fn add_keybind(
     key: &str,
     dispatcher: &str,
     args: &str,
+    submap: Option<String>,
 ) -> Result<usize> {
     let content = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<String> = if content.is_empty() {
@@ -241,10 +254,57 @@ pub fn add_keybind(
         format!("bind = {}, {}, {}, {}", mods, key, dispatcher, args)
     };
 
-    lines.push(new_line);
-    std::fs::write(&path, lines.join("\n"))?;
+    if let Some(submap_name) = submap.filter(|s| !s.is_empty()) {
+        let submap_decl = format!("submap = {}", submap_name);
+        let mut found_submap = false;
+        let mut insert_index = None;
 
-    Ok(lines.len() - 1)
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed == submap_decl {
+                found_submap = true;
+                // Look ahead for the end of this submap
+                for j in (i + 1)..lines.len() {
+                    let next_trimmed = lines[j].trim();
+                    if next_trimmed.starts_with("submap =") {
+                        // Found end of block (either reset or another submap start)
+                        insert_index = Some(j);
+                        break;
+                    }
+                }
+                if insert_index.is_none() {
+                    // Submap exists but no closing 'submap =' found, append to end
+                    insert_index = Some(lines.len());
+                }
+                break;
+            }
+        }
+
+        if let Some(idx) = insert_index {
+            lines.insert(idx, new_line);
+            std::fs::write(&path, lines.join("\n"))?;
+            Ok(idx)
+        } else if found_submap {
+             // Should have been handled above, but fallback
+             lines.push(new_line);
+             std::fs::write(&path, lines.join("\n"))?;
+             Ok(lines.len() - 1)
+        } else {
+            // Submap doesn't exist, create it
+            lines.push(String::new()); // spacer
+            lines.push(submap_decl);
+            lines.push(new_line);
+            lines.push("submap = reset".to_string());
+            
+            std::fs::write(&path, lines.join("\n"))?;
+            Ok(lines.len() - 2) // Index of the new bind
+        }
+    } else {
+        // Global map
+        lines.push(new_line);
+        std::fs::write(&path, lines.join("\n"))?;
+        Ok(lines.len() - 1)
+    }
 }
 
 pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {

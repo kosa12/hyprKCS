@@ -15,6 +15,7 @@ impl KeybindObject {
             .property("key", keybind.key)
             .property("dispatcher", keybind.dispatcher)
             .property("args", keybind.args)
+            .property("submap", keybind.submap.unwrap_or_default())
             .property("line-number", keybind.line_number as u64)
             .property("file-path", keybind.file_path.to_str().unwrap_or(""))
             .property("is-conflicted", conflict_reason.is_some())
@@ -37,6 +38,7 @@ mod imp {
         pub key: RefCell<String>,
         pub dispatcher: RefCell<String>,
         pub args: RefCell<String>,
+        pub submap: RefCell<String>,
         pub line_number: Cell<u64>,
         pub file_path: RefCell<String>,
         pub is_conflicted: Cell<bool>,
@@ -59,6 +61,7 @@ mod imp {
                     glib::ParamSpecString::builder("key").build(),
                     glib::ParamSpecString::builder("dispatcher").build(),
                     glib::ParamSpecString::builder("args").build(),
+                    glib::ParamSpecString::builder("submap").build(),
                     glib::ParamSpecUInt64::builder("line-number").build(),
                     glib::ParamSpecString::builder("file-path").build(),
                     glib::ParamSpecBoolean::builder("is-conflicted").build(),
@@ -75,6 +78,7 @@ mod imp {
                 "key" => { self.key.replace(value.get().unwrap()); },
                 "dispatcher" => { self.dispatcher.replace(value.get().unwrap()); },
                 "args" => { self.args.replace(value.get().unwrap()); },
+                "submap" => { self.submap.replace(value.get().unwrap()); },
                 "line-number" => { self.line_number.replace(value.get().unwrap()); },
                 "file-path" => { self.file_path.replace(value.get().unwrap()); },
                 "is-conflicted" => { self.is_conflicted.replace(value.get().unwrap()); },
@@ -90,6 +94,7 @@ mod imp {
                 "key" => self.key.borrow().clone().to_value(),
                 "dispatcher" => self.dispatcher.borrow().clone().to_value(),
                 "args" => self.args.borrow().clone().to_value(),
+                "submap" => self.submap.borrow().clone().to_value(),
                 "line-number" => self.line_number.get().to_value(),
                 "file-path" => self.file_path.borrow().clone().to_value(),
                 "is-conflicted" => self.is_conflicted.get().to_value(),

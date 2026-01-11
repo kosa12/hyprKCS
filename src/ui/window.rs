@@ -54,6 +54,7 @@ pub fn build_ui(app: &adw::Application) {
                 "mods" => label.add_css_class("mod-label"),
                 "dispatcher" => label.add_css_class("dispatcher-label"),
                 "args" => label.add_css_class("args-label"),
+                "submap" => label.add_css_class("submap-label"),
                 _ => {}
             }
 
@@ -91,6 +92,16 @@ pub fn build_ui(app: &adw::Application) {
             keybind.bind_property(&prop_name, &label, "label").sync_create().build();
             keybind.bind_property(&prop_name, &label, "tooltip-text").sync_create().build();
 
+            if prop_name == "submap" {
+                 keybind.bind_property("submap", &label, "visible")
+                    .transform_to(|_, val: &glib::Value| {
+                        let s = val.get::<String>().unwrap_or_default();
+                        Some((!s.is_empty()).to_value())
+                    })
+                    .sync_create()
+                    .build();
+            }
+
             if let Some(icon) = icon_opt {
                 keybind.bind_property("is-conflicted", &icon, "visible").sync_create().build();
                 keybind.bind_property("conflict-reason", &icon, "tooltip-text").sync_create().build();
@@ -103,11 +114,11 @@ pub fn build_ui(app: &adw::Application) {
             .expand(true)
             .build()
     };
-
     column_view.append_column(&create_column("Modifiers", "mods"));
     column_view.append_column(&create_column("Key", "key"));
     column_view.append_column(&create_column("Action", "dispatcher"));
     column_view.append_column(&create_column("Arguments", "args"));
+    column_view.append_column(&create_column("Submap", "submap"));
 
     // Compact Top Bar Layout
     let search_entry = gtk::SearchEntry::builder()
@@ -224,7 +235,6 @@ pub fn build_ui(app: &adw::Application) {
     let model_key = model.clone();
     let toast_overlay_key = toast_overlay.clone();
     let edit_page_container_key = edit_page_container.clone();
-    let column_view_key = column_view.clone();
 
     controller.connect_key_pressed(move |_, key, _, mods| {
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {

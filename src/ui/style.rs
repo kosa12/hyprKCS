@@ -25,6 +25,17 @@ const APP_CSS: &str = "
             color: @accent_color;
         }
 
+        .submap-label {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background-color: alpha(@accent_color, 0.15);
+            color: @accent_color;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: 4px 0;
+        }
+
         .dispatcher-label {
             font-weight: 700;
             color: @window_fg_color;

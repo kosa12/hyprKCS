@@ -187,6 +187,16 @@ pub fn create_add_view(
         .build();
     form_box.append(&entry_args);
 
+    let label_submap = gtk::Label::new(Some("Submap (Optional):"));
+    label_submap.set_halign(gtk::Align::Start);
+    form_box.append(&label_submap);
+
+    let entry_submap = gtk::Entry::builder()
+        .placeholder_text("e.g. resize (leave empty for global)")
+        .activates_default(true)
+        .build();
+    form_box.append(&entry_submap);
+
     let button_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(12)
@@ -235,12 +245,15 @@ pub fn create_add_view(
     let entry_key_c = entry_key.clone();
     let entry_dispatcher_c = entry_dispatcher.clone();
     let entry_args_c = entry_args.clone();
+    let entry_submap_c = entry_submap.clone();
 
     add_btn.connect_clicked(move |_| {
         let mods = entry_mods_c.text().to_string();
         let key = entry_key_c.text().to_string();
         let dispatcher = entry_dispatcher_c.text().to_string();
         let args = entry_args_c.text().to_string();
+        let submap_raw = entry_submap_c.text().to_string();
+        let submap = if submap_raw.trim().is_empty() { None } else { Some(submap_raw.trim().to_string()) };
 
         if key.trim().is_empty() || dispatcher.trim().is_empty() {
             let toast = adw::Toast::builder()
@@ -252,7 +265,7 @@ pub fn create_add_view(
         }
 
         let config_path = parser::get_config_path().unwrap();
-        match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args) {
+        match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args, submap.clone()) {
             Ok(line_number) => {
                 let resolved_mods = resolve_input_mods(&mods);
                 let kb = parser::Keybind {
@@ -262,6 +275,7 @@ pub fn create_add_view(
                     key,
                     dispatcher,
                     args,
+                    submap,
                     line_number,
                     file_path: config_path,
                 };
@@ -280,6 +294,7 @@ pub fn create_add_view(
                 entry_key_c.set_text("");
                 entry_dispatcher_c.set_text("");
                 entry_args_c.set_text("");
+                entry_submap_c.set_text("");
 
                 stack_c.set_visible_child_name("home");
             }
