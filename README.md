@@ -107,7 +107,7 @@ The goal of hyprKCS is to become the ultimate keybind management tool for Hyprla
 - [x] **Quick Execute:** Test keybinds immediately via `hyprctl dispatch`.
 - [x] **Autocomplete:** Smart suggestions for Hyprland dispatchers.
 - [ ] **Conflict Wizard:** Interactive resolution for duplicate binds.
-- [ ] **Auto-Reload:** Automatically trigger `hyprctl reload` after edits.
+- [x] **Auto-Reload:** Automatically trigger `hyprctl reload` after edits.
 - [ ] **Pinned Binds:** Star your most-used binds to keep them at the top.
 - [ ] **Visual Statistics:** Breakdown of your config by category and complexity.
 
