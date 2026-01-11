@@ -9,21 +9,11 @@ use std::fs;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::views::{create_add_view, create_edit_view};
-use crate::ui::utils::refresh_conflicts;
 
 pub fn build_ui(app: &adw::Application) {
-    let keybinds = parser::parse_config().unwrap_or_else(|err| {
-        eprintln!("Error parsing config: {}", err);
-        vec![]
-    });
-
     let model = gio::ListStore::new::<KeybindObject>();
-    for kb in keybinds {
-        model.append(&KeybindObject::new(kb, None));
-    }
+    crate::ui::utils::reload_keybinds(&model);
     
-    refresh_conflicts(&model);
-
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
     let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));

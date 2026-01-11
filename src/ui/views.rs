@@ -4,7 +4,7 @@ use libadwaita as adw;
 use std::path::PathBuf;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::{refresh_conflicts, execute_keybind, setup_dispatcher_completion, execute_hyprctl};
+use crate::ui::utils::{execute_keybind, setup_dispatcher_completion, execute_hyprctl, reload_keybinds};
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
@@ -107,17 +107,6 @@ pub fn setup_key_recorder(
     });
 
     container.append(&record_btn);
-}
-
-fn resolve_input_mods(mods: &str) -> String {
-    let variables = parser::get_variables().unwrap_or_default();
-    let mut resolved = mods.to_string();
-    for (var, val) in &variables {
-        if resolved.contains(var) {
-            resolved = resolved.replace(var, val);
-        }
-    }
-    resolved
 }
 
 pub fn create_add_view(
@@ -280,22 +269,8 @@ pub fn create_add_view(
 
         let config_path = parser::get_config_path().unwrap();
         match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args, submap.clone()) {
-            Ok(line_number) => {
-                let resolved_mods = resolve_input_mods(&mods);
-                let kb = parser::Keybind {
-                    mods: mods.clone(),
-                    clean_mods: resolved_mods,
-                    flags: String::new(),
-                    key,
-                    dispatcher,
-                    args,
-                    submap,
-                    line_number,
-                    file_path: config_path,
-                };
-                
-                model_clone.append(&KeybindObject::new(kb, None));
-                refresh_conflicts(&model_clone);
+            Ok(_) => {
+                reload_keybinds(&model_clone);
                 
                 let toast = adw::Toast::builder()
                     .title("Keybind added successfully")
@@ -486,7 +461,6 @@ pub fn create_edit_view(
         stack_c.set_visible_child_name("home");
     });
 
-    let obj_clone = obj.clone();
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let file_path_str = obj.property::<String>("file-path");
@@ -523,14 +497,7 @@ pub fn create_edit_view(
         
         match parser::update_line(file_path.clone(), line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
             Ok(_) => {
-                let resolved_mods = resolve_input_mods(&new_mods);
-                obj_clone.set_property("mods", new_mods.to_value());
-                obj_clone.set_property("clean-mods", resolved_mods.to_value());
-                obj_clone.set_property("key", new_key.to_value());
-                obj_clone.set_property("dispatcher", new_dispatcher.to_value());
-                obj_clone.set_property("args", new_args.to_value());
-                
-                refresh_conflicts(&model_clone);
+                reload_keybinds(&model_clone);
                 let toast = adw::Toast::builder()
                     .title("Keybind saved")
                     .timeout(3)
@@ -548,7 +515,6 @@ pub fn create_edit_view(
         }
     });
 
-    let obj_clone = obj.clone();
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let file_path_str = obj.property::<String>("file-path");
@@ -558,28 +524,12 @@ pub fn create_edit_view(
     delete_btn.connect_clicked(move |_| {
         match parser::delete_keybind(file_path.clone(), line_number) {
             Ok(_) => {
-                let mut index_to_remove = None;
-                for i in 0..model_clone.n_items() {
-                    if let Some(item) = model_clone.item(i).and_downcast::<KeybindObject>() {
-                        if item == obj_clone {
-                            index_to_remove = Some(i);
-                        } else if index_to_remove.is_some() {
-                             if item.property::<String>("file-path") == file_path_str {
-                                let current_ln = item.property::<u64>("line-number");
-                                item.set_property("line-number", current_ln - 1);
-                            }
-                        }
-                    }
-                }
-                if let Some(idx) = index_to_remove {
-                    model_clone.remove(idx);
-                    refresh_conflicts(&model_clone);
-                    let toast = adw::Toast::builder()
-                        .title("Keybind deleted")
-                        .timeout(3)
-                        .build();
-                    toast_overlay_clone.add_toast(toast);
-                }
+                reload_keybinds(&model_clone);
+                let toast = adw::Toast::builder()
+                    .title("Keybind deleted")
+                    .timeout(3)
+                    .build();
+                toast_overlay_clone.add_toast(toast);
                 stack_c.set_visible_child_name("home");
             }
             Err(e) => {
