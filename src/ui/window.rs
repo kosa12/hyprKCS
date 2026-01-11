@@ -215,6 +215,7 @@ pub fn build_ui(app: &adw::Application) {
     window.add_css_class("menu-window");
 
     let controller = gtk::EventControllerKey::new();
+    controller.set_propagation_phase(gtk::PropagationPhase::Capture);
     let search_entry_focus = search_entry.clone();
     let window_clone = window.clone();
     let root_stack_c = root_stack.clone();
@@ -455,4 +456,5 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     window.present();
+    search_entry.grab_focus();
 }

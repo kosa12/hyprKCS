@@ -43,3 +43,31 @@ pub fn refresh_conflicts(model: &gio::ListStore) {
         obj1.set_property("conflict-reason", reason);
     }
 }
+
+pub fn execute_keybind(dispatcher: &str, args: &str) {
+    let variables = crate::parser::get_variables().unwrap_or_default();
+    
+    let mut resolved_dispatcher = dispatcher.to_string();
+    let mut resolved_args = args.to_string();
+    
+    let mut sorted_vars: Vec<_> = variables.keys().collect();
+    sorted_vars.sort_by(|a, b| b.len().cmp(&a.len()));
+
+    for key in sorted_vars {
+        if resolved_dispatcher.contains(key) {
+            resolved_dispatcher = resolved_dispatcher.replace(key, &variables[key]);
+        }
+        if resolved_args.contains(key) {
+            resolved_args = resolved_args.replace(key, &variables[key]);
+        }
+    }
+
+    let mut command = std::process::Command::new("hyprctl");
+    command.arg("dispatch").arg(&resolved_dispatcher);
+    
+    if !resolved_args.trim().is_empty() {
+        command.arg(&resolved_args);
+    }
+    
+    let _ = command.spawn();
+}

@@ -4,7 +4,7 @@ use libadwaita as adw;
 use std::path::PathBuf;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::refresh_conflicts;
+use crate::ui::utils::{refresh_conflicts, execute_keybind};
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
@@ -197,14 +197,30 @@ pub fn create_add_view(
         .label("Cancel")
         .build();
     
+    let exec_btn = gtk::Button::builder()
+        .label("Execute")
+        .tooltip_text("Test this keybind immediately using hyprctl dispatch")
+        .build();
+
     let add_btn = gtk::Button::builder()
         .label("Add Keybind")
         .css_classes(["suggested-action"])
         .build();
 
     button_box.append(&cancel_btn);
+    button_box.append(&exec_btn);
     button_box.append(&add_btn);
     container.append(&button_box);
+
+    let entry_dispatcher_exec = entry_dispatcher.clone();
+    let entry_args_exec = entry_args.clone();
+    exec_btn.connect_clicked(move |_| {
+        let dispatcher = entry_dispatcher_exec.text().to_string();
+        let args = entry_args_exec.text().to_string();
+        if !dispatcher.trim().is_empty() {
+            execute_keybind(&dispatcher, &args);
+        }
+    });
 
     let stack_c = stack.clone();
     cancel_btn.connect_clicked(move |_| {
@@ -402,6 +418,11 @@ pub fn create_edit_view(
         .css_classes(["destructive-action"])
         .build();
     
+    let exec_btn = gtk::Button::builder()
+        .label("Execute")
+        .tooltip_text("Test this keybind immediately using hyprctl dispatch")
+        .build();
+
     let cancel_btn = gtk::Button::builder()
         .label("Cancel")
         .build();
@@ -414,9 +435,20 @@ pub fn create_edit_view(
     button_box.append(&delete_btn);
     let spacer = gtk::Box::builder().hexpand(true).build();
     button_box.append(&spacer);
+    button_box.append(&exec_btn);
     button_box.append(&cancel_btn);
     button_box.append(&save_btn);
     container.append(&button_box);
+
+    let entry_dispatcher_exec = entry_dispatcher.clone();
+    let entry_args_exec = entry_args.clone();
+    exec_btn.connect_clicked(move |_| {
+        let dispatcher = entry_dispatcher_exec.text().to_string();
+        let args = entry_args_exec.text().to_string();
+        if !dispatcher.trim().is_empty() {
+            execute_keybind(&dispatcher, &args);
+        }
+    });
 
     let stack_c = stack.clone();
     cancel_btn.connect_clicked(move |_| {
