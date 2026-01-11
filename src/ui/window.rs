@@ -79,22 +79,20 @@ pub fn build_ui(app: &adw::Application) {
                  (label, None)
             };
             
-            keybind.bind_property(&prop_name, &label, "label").sync_create().build();
-            keybind.bind_property(&prop_name, &label, "tooltip-text").sync_create().build();
+            let text = keybind.property::<String>(&prop_name);
+            label.set_label(&text);
+            label.set_tooltip_text(Some(&text));
 
             if prop_name == "submap" {
-                 keybind.bind_property("submap", &label, "visible")
-                    .transform_to(|_, val: &glib::Value| {
-                        let s = val.get::<String>().unwrap_or_default();
-                        Some((!s.is_empty()).to_value())
-                    })
-                    .sync_create()
-                    .build();
+                 let submap_val = keybind.property::<String>("submap");
+                 label.set_visible(!submap_val.is_empty());
             }
 
             if let Some(icon) = icon_opt {
-                keybind.bind_property("is-conflicted", &icon, "visible").sync_create().build();
-                keybind.bind_property("conflict-reason", &icon, "tooltip-text").sync_create().build();
+                let is_conflicted = keybind.property::<bool>("is-conflicted");
+                let reason = keybind.property::<String>("conflict-reason");
+                icon.set_visible(is_conflicted);
+                icon.set_tooltip_text(Some(&reason));
             }
         });
 

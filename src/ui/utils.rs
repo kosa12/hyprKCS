@@ -13,37 +13,34 @@ fn normalize(mods: &str, key: &str) -> (std::collections::BTreeSet<String>, Stri
     (mod_set, clean_key)
 }
 
-pub fn refresh_conflicts(model: &gio::ListStore) {
-    let n = model.n_items();
-    
-    for i in 0..n {
-        let obj1 = model.item(i).and_downcast::<KeybindObject>().unwrap();
-        let mods1_str = obj1.property::<String>("clean-mods");
-        let key1_str = obj1.property::<String>("key");
-        let submap1 = obj1.property::<String>("submap");
-        let (mods1, key1) = normalize(&mods1_str, &key1_str);
-        
-        let mut reason = String::new();
-        let mut is_conflicted = false;
+fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
+    let mut collision_map: std::collections::HashMap<(Vec<String>, String, String), Vec<usize>> = std::collections::HashMap::new();
 
-        for j in 0..n {
-            if i == j { continue; }
-            let obj2 = model.item(j).and_downcast::<KeybindObject>().unwrap();
-            let mods2_str = obj2.property::<String>("clean-mods");
-            let key2_str = obj2.property::<String>("key");
-            let submap2 = obj2.property::<String>("submap");
-            let (mods2, key2) = normalize(&mods2_str, &key2_str);
+    for (i, kb) in keybinds.iter().enumerate() {
+        let (mod_set, clean_key) = normalize(&kb.clean_mods, &kb.key);
+        // Convert BTreeSet to sorted Vec for hashing/key
+        let sorted_mods: Vec<String> = mod_set.into_iter().collect();
+        let submap = kb.submap.clone().unwrap_or_default();
+        
+        let key = (sorted_mods, clean_key, submap);
+        collision_map.entry(key).or_default().push(i);
+    }
+
+    let mut results = vec![None; keybinds.len()];
+
+    for (key, indices) in collision_map {
+        if indices.len() > 1 {
+            let (mods, key_char, _) = key;
+            let mods_disp = mods.join(" ");
+            let reason = format!("Conflicts with: {} {}", mods_disp, key_char);
             
-            if mods1 == mods2 && key1 == key2 && submap1 == submap2 {
-                 is_conflicted = true;
-                 reason = format!("Conflicts with: {} {}", mods2_str, key2_str);
-                 break;
+            for idx in indices {
+                results[idx] = Some(reason.clone());
             }
         }
-        
-        obj1.set_property("is-conflicted", is_conflicted);
-        obj1.set_property("conflict-reason", reason);
     }
+    
+    results
 }
 
 pub fn reload_keybinds(model: &gio::ListStore) {
@@ -54,11 +51,11 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         vec![]
     });
 
-    for kb in keybinds {
-        model.append(&KeybindObject::new(kb, None));
+    let conflicts = detect_conflicts(&keybinds);
+
+    for (kb, conflict) in keybinds.into_iter().zip(conflicts.into_iter()) {
+        model.append(&KeybindObject::new(kb, conflict));
     }
-    
-    refresh_conflicts(model);
 }
 
 pub fn execute_keybind(dispatcher: &str, args: &str) {
