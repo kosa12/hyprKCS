@@ -9,9 +9,9 @@
 A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwaita.
 
 <p align="center">
-  <img src="./assets/image.png" width="32%" />
-  <img src="./assets/image2.png" width="32%" />
-  <img src="./assets/image3.png" width="32%" />
+  <img src="./assets/image_1.png" width="32%" />
+  <img src="./assets/image_2.png" width="32%" />
+  <img src="./assets/image_3.png" width="32%" />
 </p>
 
 ## Features
