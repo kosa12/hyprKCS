@@ -27,7 +27,7 @@ A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwait
 - **Toast Notifications:** Provides smooth, non-intrusive feedback for every action.
 - **Safe Persistence:** Changes are written back to the correct configuration files automatically.
 - **Backup Config:** Save your current config so you don't mess up something.
-
+- **Conflict Wizard:** Step-by-step guide to resolve duplicate keybinds.
 ## Keyboard Shortcuts
 
 | Key | Action |
@@ -98,7 +98,7 @@ The goal of hyprKCS is to become the ultimate keybind management tool for Hyprla
 - [x] **Vim-style Navigation:** Use `j`/`k` to navigate the list. etc.
 - [x] **Quick Execute:** Test keybinds immediately via `hyprctl dispatch`.
 - [x] **Autocomplete:** Smart suggestions for Hyprland dispatchers.
-- [ ] **Conflict Wizard:** Interactive resolution for duplicate binds.
+- [x] **Conflict Wizard:** Interactive resolution for duplicate binds.
 - [x] **Auto-Reload:** Automatically trigger `hyprctl reload` after edits.
 - [ ] **Pinned Binds:** Star your most-used binds to keep them at the top.
 - [ ] **Visual Statistics:** Breakdown of your config by category and complexity.
