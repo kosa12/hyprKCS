@@ -41,6 +41,10 @@ A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwait
 
 ### AUR (Arch Linux)
 ```bash
+# Import the PGP key if you encounter errors
+gpg --keyserver keyserver.ubuntu.com --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
+
+# Install the package
 yay -S hyprkcs-git
 ```
 
