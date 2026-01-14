@@ -41,9 +41,6 @@ fn main() -> glib::ExitCode {
     if args.print || args.search.is_some() {
         match parser::parse_config() {
             Ok(binds) => {
-                use comfy_table::presets::UTF8_FULL;
-                use comfy_table::*;
-
                 let binds = if let Some(term) = args.search {
                     let matcher = SkimMatcherV2::default();
                     binds
@@ -59,17 +56,36 @@ fn main() -> glib::ExitCode {
                     binds
                 };
 
-                let mut table = Table::new();
-                table
-                    .load_preset(UTF8_FULL)
-                    .set_content_arrangement(ContentArrangement::Dynamic)
-                    .set_header(vec!["Modifiers", "Key", "Action", "Arguments"]);
-
-                for bind in binds {
-                    table.add_row(vec![bind.mods, bind.key, bind.dispatcher, bind.args]);
+                // Simple manual table printing
+                // Calculate max widths for alignment
+                let mut w_mods = 9; // "Modifiers".len()
+                let mut w_key = 3;  // "Key".len()
+                let mut w_disp = 6; // "Action".len()
+                
+                for b in &binds {
+                    w_mods = w_mods.max(b.mods.len());
+                    w_key = w_key.max(b.key.len());
+                    w_disp = w_disp.max(b.dispatcher.len());
                 }
 
-                println!("{table}");
+                // Add padding
+                w_mods += 2;
+                w_key += 2;
+                w_disp += 2;
+
+                // Header
+                println!(
+                    "{:<w_mods$}{:<w_key$}{:<w_disp$}Arguments",
+                    "Modifiers", "Key", "Action"
+                );
+                println!("{:-<100}", ""); // Separator
+
+                for bind in binds {
+                    println!(
+                        "{:<w_mods$}{:<w_key$}{:<w_disp$}{}",
+                        bind.mods, bind.key, bind.dispatcher, bind.args
+                    );
+                }
             }
             Err(e) => eprintln!("Error parsing config: {}", e),
         }
