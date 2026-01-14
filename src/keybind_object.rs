@@ -1,6 +1,6 @@
 use gtk4 as gtk;
 use gtk::glib;
-use glib::Object;
+use glib::subclass::prelude::*; 
 use crate::parser::Keybind;
 
 glib::wrapper! {
@@ -9,40 +9,58 @@ glib::wrapper! {
 
 impl KeybindObject {
     pub fn new(keybind: Keybind, conflict_reason: Option<String>) -> Self {
-        Object::builder()
-            .property("mods", keybind.mods)
-            .property("clean-mods", keybind.clean_mods)
-            .property("key", keybind.key)
-            .property("dispatcher", keybind.dispatcher)
-            .property("args", keybind.args)
-            .property("submap", keybind.submap.unwrap_or_default())
-            .property("line-number", keybind.line_number as u64)
-            .property("file-path", keybind.file_path.to_str().unwrap_or(""))
-            .property("is-conflicted", conflict_reason.is_some())
-            .property("conflict-reason", conflict_reason.unwrap_or_default())
-            .build()
+        let obj: Self = glib::Object::new();
+        
+        {
+            let imp = obj.imp();
+            let mut data = imp.data.borrow_mut();
+            
+            data.mods = keybind.mods;
+            data.clean_mods = keybind.clean_mods;
+            data.key = keybind.key;
+            data.dispatcher = keybind.dispatcher;
+            data.args = keybind.args;
+            data.submap = keybind.submap.unwrap_or_default();
+            data.line_number = keybind.line_number as u64;
+            data.file_path = keybind.file_path.to_str().unwrap_or("").to_string();
+            
+            if let Some(reason) = conflict_reason {
+                data.is_conflicted = true;
+                data.conflict_reason = reason;
+            } else {
+                 data.is_conflicted = false;
+                 data.conflict_reason.clear();
+            }
+        }
+
+        obj
     }
 }
 
 mod imp {
-    use std::cell::{Cell, RefCell};
+    use std::cell::RefCell;
     use gtk4 as gtk;
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
+    #[derive(Default, Clone)]
+    pub struct KeybindData {
+        pub mods: String,
+        pub clean_mods: String,
+        pub key: String,
+        pub dispatcher: String,
+        pub args: String,
+        pub submap: String,
+        pub line_number: u64,
+        pub file_path: String,
+        pub is_conflicted: bool,
+        pub conflict_reason: String,
+    }
+
     #[derive(Default)]
     pub struct KeybindObject {
-        pub mods: RefCell<String>,
-        pub clean_mods: RefCell<String>,
-        pub key: RefCell<String>,
-        pub dispatcher: RefCell<String>,
-        pub args: RefCell<String>,
-        pub submap: RefCell<String>,
-        pub line_number: Cell<u64>,
-        pub file_path: RefCell<String>,
-        pub is_conflicted: Cell<bool>,
-        pub conflict_reason: RefCell<String>,
+        pub data: RefCell<KeybindData>,
     }
 
     #[glib::object_subclass]
@@ -72,33 +90,35 @@ mod imp {
         }
 
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
+            let mut data = self.data.borrow_mut();
             match pspec.name() {
-                "mods" => { self.mods.replace(value.get().unwrap()); },
-                "clean-mods" => { self.clean_mods.replace(value.get().unwrap()); },
-                "key" => { self.key.replace(value.get().unwrap()); },
-                "dispatcher" => { self.dispatcher.replace(value.get().unwrap()); },
-                "args" => { self.args.replace(value.get().unwrap()); },
-                "submap" => { self.submap.replace(value.get().unwrap()); },
-                "line-number" => { self.line_number.replace(value.get().unwrap()); },
-                "file-path" => { self.file_path.replace(value.get().unwrap()); },
-                "is-conflicted" => { self.is_conflicted.replace(value.get().unwrap()); },
-                "conflict-reason" => { self.conflict_reason.replace(value.get().unwrap()); },
+                "mods" => data.mods = value.get().unwrap(),
+                "clean-mods" => data.clean_mods = value.get().unwrap(),
+                "key" => data.key = value.get().unwrap(),
+                "dispatcher" => data.dispatcher = value.get().unwrap(),
+                "args" => data.args = value.get().unwrap(),
+                "submap" => data.submap = value.get().unwrap(),
+                "line-number" => data.line_number = value.get().unwrap(),
+                "file-path" => data.file_path = value.get().unwrap(),
+                "is-conflicted" => data.is_conflicted = value.get().unwrap(),
+                "conflict-reason" => data.conflict_reason = value.get().unwrap(),
                 _ => unimplemented!(),
             }
         }
 
         fn property(&self, _id: usize, pspec: &glib::ParamSpec) -> glib::Value {
+            let data = self.data.borrow();
             match pspec.name() {
-                "mods" => self.mods.borrow().clone().to_value(),
-                "clean-mods" => self.clean_mods.borrow().clone().to_value(),
-                "key" => self.key.borrow().clone().to_value(),
-                "dispatcher" => self.dispatcher.borrow().clone().to_value(),
-                "args" => self.args.borrow().clone().to_value(),
-                "submap" => self.submap.borrow().clone().to_value(),
-                "line-number" => self.line_number.get().to_value(),
-                "file-path" => self.file_path.borrow().clone().to_value(),
-                "is-conflicted" => self.is_conflicted.get().to_value(),
-                "conflict-reason" => self.conflict_reason.borrow().clone().to_value(),
+                "mods" => data.mods.to_value(),
+                "clean-mods" => data.clean_mods.to_value(),
+                "key" => data.key.to_value(),
+                "dispatcher" => data.dispatcher.to_value(),
+                "args" => data.args.to_value(),
+                "submap" => data.submap.to_value(),
+                "line-number" => data.line_number.to_value(),
+                "file-path" => data.file_path.to_value(),
+                "is-conflicted" => data.is_conflicted.to_value(),
+                "conflict-reason" => data.conflict_reason.to_value(),
                 _ => unimplemented!(),
             }
         }
