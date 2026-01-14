@@ -14,6 +14,15 @@ A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwait
   <img src="./assets/image_3.png" width="32%" />
 </p>
 
+<details>
+  <summary align="center"><b>🎥 Click to see Live Demo</b></summary>
+  <p align="center">
+    <video src="./assets/livedemo.mp4" width="100%" controls>
+      Your browser does not support the video tag.
+    </video>
+  </p>
+</details>
+
 ## Features
 
 - **Blazing Fast (lol):** Written in Rust.
