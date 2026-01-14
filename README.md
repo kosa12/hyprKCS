@@ -41,10 +41,6 @@ A fast, minimal Hyprland keybind manager written in Rust with GTK4 and Libadwait
 
 ### AUR (Arch Linux)
 ```bash
-# Import the PGP key if you encounter errors
-gpg --keyserver keyserver.ubuntu.com --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
-
-# Install the package
 yay -S hyprkcs-git
 ```
 
@@ -106,6 +102,21 @@ The goal of hyprKCS is to become the ultimate keybind management tool for Hyprla
 - [x] **Auto-Reload:** Automatically trigger `hyprctl reload` after edits.
 - [ ] **Pinned Binds:** Star your most-used binds to keep them at the top.
 - [ ] **Visual Statistics:** Breakdown of your config by category and complexity.
+
+## Troubleshooting
+
+### GPG Key Import Issues
+If you encounter errors like `gpg: keyserver receive failed` or `unknown public key` when installing from AUR, you need to import the maintainer's PGP key manually.
+
+Try importing from the Ubuntu keyserver:
+```bash
+gpg --keyserver keyserver.ubuntu.com --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
+```
+
+Or from OpenPGP:
+```bash
+gpg --keyserver keys.openpgp.org --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
+```
 
 ## Maintainer:
 
