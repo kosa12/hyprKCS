@@ -42,69 +42,82 @@ pub fn setup_key_recorder(
         .css_classes(["record-btn"])
         .build();
     
-    let entry_mods_c = entry_mods.clone();
-    let entry_key_c = entry_key.clone();
-    let record_btn_c = record_btn.clone();
+    // Create the controller once and attach it to the button
+    let controller = gtk::EventControllerKey::new();
+    record_btn.add_controller(controller.clone());
 
-    record_btn.connect_clicked(move |btn| {
-        let btn = btn.clone();
-        
+    let entry_mods = entry_mods.clone();
+    let entry_key = entry_key.clone();
+
+    let controller_weak = controller.downgrade();
+    let entry_mods_weak = entry_mods.downgrade();
+    let entry_key_weak = entry_key.downgrade();
+
+    let on_click = move |btn: &gtk::Button| {
+        let _controller = match controller_weak.upgrade() { Some(c) => c, None => return };
+        let _entry_mods = match entry_mods_weak.upgrade() { Some(c) => c, None => return };
+        let _entry_key = match entry_key_weak.upgrade() { Some(c) => c, None => return };
+
         // If already listening, stop listening and reset
         if btn.label().map_or(false, |l| l == "Listening...") {
              btn.set_label("Record Combo");
              btn.remove_css_class("suggested-action");
-             execute_hyprctl(&["dispatch", "submap", "reset"]);
+             execute_hyprctl(&["reload"]);
              return;
         }
 
         btn.set_label("Listening...");
         btn.add_css_class("suggested-action");
+        btn.grab_focus(); // Ensure we catch keys
         
         // Define the submap with a dummy bind to ensure it's created and recognized
         execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset"]);
         execute_hyprctl(&["dispatch", "submap", "hyprkcs_blocking"]);
-        
-        let entry_mods = entry_mods_c.clone();
-        let entry_key = entry_key_c.clone();
-        let btn_inner = record_btn_c.clone();
+    };
 
-        if let Some(root) = btn.root() {
-            let controller = gtk::EventControllerKey::new();
-            let controller_c = controller.clone();
-            
-            controller.connect_key_pressed(move |ctrl, key, _, mods| {
-                if matches!(key, 
-                    gdk::Key::Control_L | gdk::Key::Control_R | 
-                    gdk::Key::Alt_L | gdk::Key::Alt_R | 
-                    gdk::Key::Super_L | gdk::Key::Super_R | 
-                    gdk::Key::Shift_L | gdk::Key::Shift_R |
-                    gdk::Key::Meta_L | gdk::Key::Meta_R
-                ) {
-                    return glib::Propagation::Proceed;
-                }
+    record_btn.connect_clicked(on_click);
 
-                let hypr_mods = gdk_to_hypr_mods(mods);
-                let hypr_key = gdk_to_hypr_key(key);
+    let record_btn_weak = record_btn.downgrade();
+    let entry_mods_weak_2 = entry_mods.downgrade();
+    let entry_key_weak_2 = entry_key.downgrade();
 
-                if !hypr_key.is_empty() {
-                    entry_mods.set_text(&hypr_mods);
-                    entry_key.set_text(&hypr_key);
-                }
+    let on_keypress = move |_: &gtk::EventControllerKey, key: gdk::Key, _: u32, mods: gdk::ModifierType| -> glib::Propagation {
+        let record_btn = match record_btn_weak.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
+        let entry_mods = match entry_mods_weak_2.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
+        let entry_key = match entry_key_weak_2.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
 
-                btn_inner.set_label("Record Combo");
-                btn_inner.remove_css_class("suggested-action");
-                execute_hyprctl(&["dispatch", "submap", "reset"]);
-                
-                if let Some(widget) = ctrl.widget() {
-                    widget.remove_controller(&controller_c);
-                }
-
-                glib::Propagation::Stop
-            });
-
-            root.add_controller(controller);
+        // Only process if we are actually listening
+        if record_btn.label().map_or(true, |l| l != "Listening...") {
+            return glib::Propagation::Proceed;
         }
-    });
+
+        if matches!(key, 
+            gdk::Key::Control_L | gdk::Key::Control_R | 
+            gdk::Key::Alt_L | gdk::Key::Alt_R | 
+            gdk::Key::Super_L | gdk::Key::Super_R | 
+            gdk::Key::Shift_L | gdk::Key::Shift_R |
+            gdk::Key::Meta_L | gdk::Key::Meta_R
+        ) {
+            return glib::Propagation::Proceed;
+        }
+
+        let hypr_mods = gdk_to_hypr_mods(mods);
+        let hypr_key = gdk_to_hypr_key(key);
+
+        if !hypr_key.is_empty() {
+            entry_mods.set_text(&hypr_mods);
+            entry_key.set_text(&hypr_key);
+        }
+
+        record_btn.set_label("Record Combo");
+        record_btn.remove_css_class("suggested-action");
+        execute_hyprctl(&["reload"]);
+
+        glib::Propagation::Stop
+    };
+
+    // Connect the key handler
+    controller.connect_key_pressed(on_keypress);
 
     container.append(&record_btn);
 }
