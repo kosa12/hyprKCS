@@ -13,6 +13,9 @@ pub struct StyleConfig {
     pub show_args: bool,
     pub monitor_margin: i32,
     pub row_padding: i32,
+    
+    // Internal use for UI feedback
+    pub errors: Vec<String>,
 }
 
 impl Default for StyleConfig {
@@ -28,6 +31,7 @@ impl Default for StyleConfig {
             show_args: true,
             monitor_margin: 12,
             row_padding: 2,
+            errors: Vec::new(),
         }
     }
 }
@@ -52,18 +56,37 @@ impl StyleConfig {
                         config.border_radius = Some(val.clone());
                     }
                     if let Some(val) = vars.get("opacity") {
-                        if let Ok(num) = val.parse::<f64>() {
-                            config.opacity = Some(num);
+                        match val.parse::<f64>() {
+                            Ok(num) => {
+                                if num < 0.0 || num > 1.0 {
+                                    config.errors.push(format!("Opacity '{}' out of range (0.0 - 1.0). Using default.", val));
+                                } else {
+                                    config.opacity = Some(num);
+                                }
+                            }
+                            Err(_) => config.errors.push(format!("Invalid opacity value '{}'. Using default.", val)),
                         }
                     }
                     if let Some(val) = vars.get("width") {
                         if let Some(num) = parse_pixels(val) {
-                            config.width = num;
+                            if num < 100 {
+                                config.errors.push(format!("Width '{}' is too small (min 100px). Using default.", val));
+                            } else {
+                                config.width = num;
+                            }
+                        } else {
+                            config.errors.push(format!("Invalid width value '{}'.", val));
                         }
                     }
                     if let Some(val) = vars.get("height") {
                         if let Some(num) = parse_pixels(val) {
-                            config.height = num;
+                            if num < 100 {
+                                config.errors.push(format!("Height '{}' is too small (min 100px). Using default.", val));
+                            } else {
+                                config.height = num;
+                            }
+                        } else {
+                            config.errors.push(format!("Invalid height value '{}'.", val));
                         }
                     }
                     if let Some(val) = vars.get("showSubmaps") {
@@ -74,12 +97,24 @@ impl StyleConfig {
                     }
                     if let Some(val) = vars.get("monitorMargin") {
                         if let Some(num) = parse_pixels(val) {
-                            config.monitor_margin = num;
+                             if num < 0 {
+                                config.errors.push(format!("Monitor margin '{}' cannot be negative. Using default.", val));
+                            } else {
+                                config.monitor_margin = num;
+                            }
+                        } else {
+                            config.errors.push(format!("Invalid monitorMargin '{}'.", val));
                         }
                     }
                      if let Some(val) = vars.get("rowPadding") {
                         if let Some(num) = parse_pixels(val) {
-                            config.row_padding = num;
+                             if num < 0 {
+                                config.errors.push(format!("Row padding '{}' cannot be negative. Using default.", val));
+                            } else {
+                                config.row_padding = num;
+                            }
+                        } else {
+                            config.errors.push(format!("Invalid rowPadding '{}'.", val));
                         }
                     }
                 }

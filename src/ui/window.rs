@@ -222,6 +222,11 @@ pub fn build_ui(app: &adw::Application) {
 
     let toast_overlay = adw::ToastOverlay::new();
     toast_overlay.set_child(Some(&window_content));
+    
+    // Log configuration errors to stderr
+    for error in &config.errors {
+        eprintln!("[Config Error] {}", error);
+    }
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
