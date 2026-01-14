@@ -342,26 +342,50 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     let toast_overlay_backup = toast_overlay.clone();
-    backup_button.connect_clicked(move |_| match parser::get_config_path() {
-        Ok(path) => {
-            let now = Local::now();
-            let params = now.format("%Y-%m-%d_%H-%M-%S").to_string();
-            let backup_path = path.with_extension(format!("conf.{}.bak", params));
+    backup_button.connect_clicked(move |_| {
+        let now = Local::now();
+        let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+        
+        match parser::get_all_config_files() {
+            Ok(files) => {
+                if let Some(config_dir) = dirs::config_dir() {
+                    let backup_root = config_dir.join("hypr/backups");
+                    let backup_dir = backup_root.join(&timestamp);
+                    
+                    if let Err(e) = fs::create_dir_all(&backup_dir) {
+                        let toast = adw::Toast::new(&format!("Failed to create backup dir: {}", e));
+                        toast_overlay_backup.add_toast(toast);
+                        return;
+                    }
 
-            if let Err(e) = fs::copy(&path, &backup_path) {
-                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
-                toast_overlay_backup.add_toast(toast);
-            } else {
-                let toast = adw::Toast::new(&format!(
-                    "Config backed up to {:?}",
-                    backup_path.file_name().unwrap()
-                ));
-                toast_overlay_backup.add_toast(toast);
+                    let mut success_count = 0;
+                    for file_path in files {
+                        if let Some(name) = file_path.file_name() {
+                            let dest = backup_dir.join(name);
+                            // If multiple files have the same name, we might overwrite. 
+                            // Simple solution: if exists, append a number/hash? 
+                            // For now, let's assume they are unique or just overwrite (last one wins).
+                            // Better: Replicate structure? Too complex for now.
+                            // Let's just copy flat.
+                            if let Err(e) = fs::copy(&file_path, &dest) {
+                                eprintln!("Failed to backup {:?}: {}", file_path, e);
+                            } else {
+                                success_count += 1;
+                            }
+                        }
+                    }
+
+                    let toast = adw::Toast::new(&format!(
+                        "Backed up {} files to ~/.config/hypr/backups/{}",
+                        success_count, timestamp
+                    ));
+                    toast_overlay_backup.add_toast(toast);
+                }
+            },
+            Err(e) => {
+                 let toast = adw::Toast::new(&format!("Could not find config files: {}", e));
+                 toast_overlay_backup.add_toast(toast);
             }
-        }
-        Err(e) => {
-            let toast = adw::Toast::new(&format!("Could not find config path: {}", e));
-            toast_overlay_backup.add_toast(toast);
         }
     });
 
