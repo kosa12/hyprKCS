@@ -28,13 +28,9 @@ pub fn get_config_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-fn resolve_variables(input: &str, vars: &HashMap<String, String>) -> String {
+fn resolve_variables(input: &str, vars: &HashMap<String, String>, sorted_keys: &[String]) -> String {
     let mut result = input.to_string();
-    // Sort variables by length descending to prevent partial replacements
-    let mut sorted_vars: Vec<_> = vars.keys().collect();
-    sorted_vars.sort_by(|a, b| b.len().cmp(&a.len()));
-
-    for key in sorted_vars {
+    for key in sorted_keys {
         if result.contains(key) {
             result = result.replace(key, &vars[key]);
         }
@@ -42,8 +38,8 @@ fn resolve_variables(input: &str, vars: &HashMap<String, String>) -> String {
     result
 }
 
-fn expand_path(path_str: &str, current_file: &Path, vars: &HashMap<String, String>) -> PathBuf {
-    let resolved_path_str = resolve_variables(path_str, vars);
+fn expand_path(path_str: &str, current_file: &Path, vars: &HashMap<String, String>, sorted_keys: &[String]) -> PathBuf {
+    let resolved_path_str = resolve_variables(path_str, vars, sorted_keys);
     let path_str = resolved_path_str.trim();
 
     if path_str.starts_with('~') {
@@ -85,15 +81,20 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                 continue;
             }
 
+            // Prepare sorted keys from current variables for resolution
+            // This happens per-line but only for variable/source lines, which is acceptable
+            let mut sorted_keys: Vec<_> = vars.keys().cloned().collect();
+            sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
+
             if let Some(caps) = var_re.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 let raw_value_full = caps.get(2).unwrap().as_str();
                 let raw_value = raw_value_full.split('#').next().unwrap_or("").trim();
-                let value = resolve_variables(raw_value, vars);
+                let value = resolve_variables(raw_value, vars, &sorted_keys);
                 vars.insert(name, value);
             } else if let Some(caps) = source_re.captures(line) {
                 let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
-                let sourced_path = expand_path(path_str, &path, vars);
+                let sourced_path = expand_path(path_str, &path, vars, &sorted_keys);
                 let _ = collect_recursive(sourced_path, vars, visited);
             }
         }
@@ -108,6 +109,11 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
     let mut keybinds = Vec::new();
     let variables = get_variables()?;
+    
+    // Sort keys ONCE for the entire parsing process
+    let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
+    sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
+
     let mut visited = HashSet::new();
     let mut current_submap: Option<String> = None;
 
@@ -115,6 +121,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         path: PathBuf,
         keybinds: &mut Vec<Keybind>,
         variables: &HashMap<String, String>,
+        sorted_keys: &[String],
         visited: &mut HashSet<PathBuf>,
         current_submap: &mut Option<String>,
     ) -> Result<()> {
@@ -146,8 +153,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
                 let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
 
-                // 1. Resolve variables in the content string FIRST
-                let resolved_content = resolve_variables(raw_content, variables);
+                // 1. Resolve variables in the content string using PRE-SORTED keys
+                let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
 
                 // 2. Strip comments
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
@@ -180,14 +187,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 }
             } else if let Some(caps) = source_re.captures(line_trimmed) {
                 let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
-                let sourced_path = expand_path(path_str, &path, variables);
-                let _ = parse_recursive(sourced_path, keybinds, variables, visited, current_submap);
+                let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+                let _ = parse_recursive(sourced_path, keybinds, variables, sorted_keys, visited, current_submap);
             }
         }
         Ok(())
     }
 
-    parse_recursive(main_path, &mut keybinds, &variables, &mut visited, &mut current_submap)?;
+    parse_recursive(main_path, &mut keybinds, &variables, &sorted_keys, &mut visited, &mut current_submap)?;
     Ok(keybinds)
 }
 

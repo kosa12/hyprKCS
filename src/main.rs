@@ -5,6 +5,10 @@ use libadwaita as adw;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 
+#[cfg(target_os = "linux")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod parser;
 mod keybind_object;
 mod ui;
