@@ -1,26 +1,26 @@
-use gtk4 as gtk;
-use gtk::{gio, glib, prelude::*};
-use libadwaita as adw;
-use gtk4_layer_shell::{Layer, LayerShell, KeyboardMode};
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
-use chrono::Local;
-use std::fs;
-use crate::parser;
 use crate::keybind_object::KeybindObject;
+use crate::parser;
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
+use chrono::Local;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
+use gtk::{gio, glib, prelude::*};
+use gtk4 as gtk;
+use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
+use libadwaita as adw;
+use std::fs;
 
 pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
     crate::ui::utils::reload_keybinds(&model);
-    
+
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
     let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));
 
     let column_view = gtk::ColumnView::new(Some(selection_model.clone()));
-    column_view.set_show_row_separators(false); 
+    column_view.set_show_row_separators(false);
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
 
@@ -28,7 +28,7 @@ pub fn build_ui(app: &adw::Application) {
         let factory = gtk::SignalListItemFactory::new();
         let prop_name = property_name.to_string();
         let prop_name_css = property_name.to_string();
-        
+
         factory.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let label = gtk::Label::builder()
@@ -39,7 +39,7 @@ pub fn build_ui(app: &adw::Application) {
                 .margin_bottom(4)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
-            
+
             match prop_name_css.as_str() {
                 "key" => label.add_css_class("key-label"),
                 "mods" => label.add_css_class("mod-label"),
@@ -57,7 +57,7 @@ pub fn build_ui(app: &adw::Application) {
                     .css_classes(["error-icon"])
                     .tooltip_text("Conflicting keybind")
                     .build();
-                
+
                 box_layout.append(&warning_icon);
                 box_layout.append(&label);
                 list_item.set_child(Some(&box_layout));
@@ -69,24 +69,27 @@ pub fn build_ui(app: &adw::Application) {
         factory.connect_bind(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
-            
+
             let (label, icon_opt) = if prop_name == "mods" {
-                 let box_layout = list_item.child().and_downcast::<gtk::Box>().unwrap();
-                 let icon = box_layout.first_child().and_downcast::<gtk::Image>().unwrap();
-                 let label = icon.next_sibling().and_downcast::<gtk::Label>().unwrap();
-                 (label, Some(icon))
+                let box_layout = list_item.child().and_downcast::<gtk::Box>().unwrap();
+                let icon = box_layout
+                    .first_child()
+                    .and_downcast::<gtk::Image>()
+                    .unwrap();
+                let label = icon.next_sibling().and_downcast::<gtk::Label>().unwrap();
+                (label, Some(icon))
             } else {
-                 let label = list_item.child().and_downcast::<gtk::Label>().unwrap();
-                 (label, None)
+                let label = list_item.child().and_downcast::<gtk::Label>().unwrap();
+                (label, None)
             };
-            
+
             let text = keybind.property::<String>(&prop_name);
             label.set_label(&text);
             label.set_tooltip_text(Some(&text));
 
             if prop_name == "submap" {
-                 let submap_val = keybind.property::<String>("submap");
-                 label.set_visible(!submap_val.is_empty());
+                let submap_val = keybind.property::<String>("submap");
+                label.set_visible(!submap_val.is_empty());
             }
 
             if let Some(icon) = icon_opt {
@@ -126,14 +129,14 @@ pub fn build_ui(app: &adw::Application) {
         .tooltip_text("Backup Current Config")
         .css_classes(["flat"])
         .build();
-        
+
     let conflict_button = gtk::Button::builder()
         .icon_name("dialog-warning-symbolic")
         .label("Resolve Conflicts")
         .css_classes(["destructive-action"])
         .visible(false)
         .build();
-    
+
     let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom"]);
     let category_dropdown = gtk::DropDown::builder()
         .model(&categories)
@@ -149,7 +152,7 @@ pub fn build_ui(app: &adw::Application) {
         .margin_start(8)
         .margin_end(8)
         .build();
-    
+
     top_box.append(&category_dropdown);
     top_box.append(&search_entry);
     top_box.append(&conflict_button);
@@ -186,7 +189,7 @@ pub fn build_ui(app: &adw::Application) {
     let root_stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::SlideLeftRight)
         .build();
-    
+
     // Add "Home" page
     root_stack.add_named(&main_vbox, Some("home"));
 
@@ -253,21 +256,24 @@ pub fn build_ui(app: &adw::Application) {
                         return glib::Propagation::Stop;
                     }
                     gtk::gdk::Key::Return => {
-                       if let Some(obj) = selection_model_key.selected_item().and_downcast::<KeybindObject>() {
-                           while let Some(child) = edit_page_container_key.first_child() {
-                               edit_page_container_key.remove(&child);
-                           }
-                           let edit_view = create_edit_view(
-                               &root_stack_c,
-                               obj,
-                               &model_key,
-                               &toast_overlay_key,
-                               &edit_page_container_key
-                           );
-                           edit_page_container_key.append(&edit_view);
-                           root_stack_c.set_visible_child_name("edit");
-                           return glib::Propagation::Stop;
-                       }
+                        if let Some(obj) = selection_model_key
+                            .selected_item()
+                            .and_downcast::<KeybindObject>()
+                        {
+                            while let Some(child) = edit_page_container_key.first_child() {
+                                edit_page_container_key.remove(&child);
+                            }
+                            let edit_view = create_edit_view(
+                                &root_stack_c,
+                                obj,
+                                &model_key,
+                                &toast_overlay_key,
+                                &edit_page_container_key,
+                            );
+                            edit_page_container_key.append(&edit_view);
+                            root_stack_c.set_visible_child_name("edit");
+                            return glib::Propagation::Stop;
+                        }
                     }
                     _ => {}
                 }
@@ -296,19 +302,23 @@ pub fn build_ui(app: &adw::Application) {
     let edit_page_container_c = edit_page_container.clone();
 
     column_view.connect_activate(move |view, position| {
-        let selection = view.model().unwrap().downcast::<gtk::SingleSelection>().unwrap();
+        let selection = view
+            .model()
+            .unwrap()
+            .downcast::<gtk::SingleSelection>()
+            .unwrap();
         if let Some(obj) = selection.item(position).and_downcast::<KeybindObject>() {
             // Clear previous edit form
-             while let Some(child) = edit_page_container_c.first_child() {
+            while let Some(child) = edit_page_container_c.first_child() {
                 edit_page_container_c.remove(&child);
             }
-            
+
             let edit_view = create_edit_view(
                 &root_stack_edit,
                 obj,
                 &model_store,
                 &toast_overlay_activate,
-                &edit_page_container_c
+                &edit_page_container_c,
             );
             edit_page_container_c.append(&edit_view);
             root_stack_edit.set_visible_child_name("edit");
@@ -321,43 +331,40 @@ pub fn build_ui(app: &adw::Application) {
     let add_page_container_c = add_page_container.clone();
 
     add_button.connect_clicked(move |_| {
-         // Clear previous add form (optional but good for reset)
-         while let Some(child) = add_page_container_c.first_child() {
+        // Clear previous add form (optional but good for reset)
+        while let Some(child) = add_page_container_c.first_child() {
             add_page_container_c.remove(&child);
         }
 
-        let add_view = create_add_view(
-            &root_stack_add,
-            &model_clone_add,
-            &toast_overlay_add
-        );
+        let add_view = create_add_view(&root_stack_add, &model_clone_add, &toast_overlay_add);
         add_page_container_c.append(&add_view);
         root_stack_add.set_visible_child_name("add");
     });
 
     let toast_overlay_backup = toast_overlay.clone();
-    backup_button.connect_clicked(move |_| {
-        match parser::get_config_path() {
-            Ok(path) => {
-                let now = Local::now();
-                let params = now.format("%Y-%m-%d_%H-%M-%S").to_string();
-                let backup_path = path.with_extension(format!("conf.{}.bak", params));
-                
-                if let Err(e) = fs::copy(&path, &backup_path) {
-                     let toast = adw::Toast::new(&format!("Backup failed: {}", e));
-                     toast_overlay_backup.add_toast(toast);
-                } else {
-                     let toast = adw::Toast::new(&format!("Config backed up to {:?}", backup_path.file_name().unwrap()));
-                     toast_overlay_backup.add_toast(toast);
-                }
-            },
-            Err(e) => {
-                 let toast = adw::Toast::new(&format!("Could not find config path: {}", e));
-                 toast_overlay_backup.add_toast(toast);
+    backup_button.connect_clicked(move |_| match parser::get_config_path() {
+        Ok(path) => {
+            let now = Local::now();
+            let params = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+            let backup_path = path.with_extension(format!("conf.{}.bak", params));
+
+            if let Err(e) = fs::copy(&path, &backup_path) {
+                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                toast_overlay_backup.add_toast(toast);
+            } else {
+                let toast = adw::Toast::new(&format!(
+                    "Config backed up to {:?}",
+                    backup_path.file_name().unwrap()
+                ));
+                toast_overlay_backup.add_toast(toast);
             }
         }
+        Err(e) => {
+            let toast = adw::Toast::new(&format!("Could not find config path: {}", e));
+            toast_overlay_backup.add_toast(toast);
+        }
     });
-    
+
     // Logic to update conflict button visibility
     let update_conflict_btn = {
         let conflict_button = conflict_button.clone();
@@ -370,20 +377,20 @@ pub fn build_ui(app: &adw::Application) {
                     }
                 }
             }
-            
+
             conflict_button.set_visible(conflict_count > 0);
             if conflict_count > 0 {
                 conflict_button.set_label(&format!("Resolve Conflicts ({})", conflict_count));
             }
         }
     };
-    
+
     // Initial check
     update_conflict_btn(&model);
-    
+
     let update_conflict_btn_c = update_conflict_btn.clone();
     let _conflict_btn_model = model.clone();
-    
+
     // HACK: ListStore doesn't expose "on content changed" easily for deep property changes unless we bind to them.
     // However, we reload the whole model on add/edit/delete, triggering `items-changed`.
     // We can hook into that.
@@ -400,13 +407,13 @@ pub fn build_ui(app: &adw::Application) {
         while let Some(child) = wizard_container_c.first_child() {
             wizard_container_c.remove(&child);
         }
-        
+
         let wizard_view = create_conflict_wizard(
-            &stack_wizard, 
-            &model_wizard, 
+            &stack_wizard,
+            &model_wizard,
             &toast_wizard,
             &wizard_container_c,
-            0
+            0,
         );
         wizard_container_c.append(&wizard_view);
         stack_wizard.set_visible_child_name("wizard");
@@ -436,13 +443,26 @@ pub fn build_ui(app: &adw::Application) {
             let key = kb.property::<String>("key");
             let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
             let args = kb.property::<String>("args").to_lowercase();
-            
+
             // Category Filter
             let category_match = match category {
                 0 => true, // All
                 1 => dispatcher.contains("workspace") || dispatcher.contains("movetoworkspace"),
-                2 => dispatcher.contains("window") || dispatcher.contains("active") || dispatcher.contains("focus") || dispatcher.contains("fullscreen") || dispatcher.contains("group") || dispatcher.contains("split") || dispatcher.contains("pin"),
-                3 => args.contains("volume") || args.contains("brightness") || args.contains("playerctl") || dispatcher.contains("audio"),
+                2 => {
+                    dispatcher.contains("window")
+                        || dispatcher.contains("active")
+                        || dispatcher.contains("focus")
+                        || dispatcher.contains("fullscreen")
+                        || dispatcher.contains("group")
+                        || dispatcher.contains("split")
+                        || dispatcher.contains("pin")
+                }
+                3 => {
+                    args.contains("volume")
+                        || args.contains("brightness")
+                        || args.contains("playerctl")
+                        || dispatcher.contains("audio")
+                }
                 4 => dispatcher == "exec", // Custom/Script
                 _ => true,
             };
@@ -455,16 +475,16 @@ pub fn build_ui(app: &adw::Application) {
                 return true;
             }
 
-            matcher.fuzzy_match(&mods, &text).is_some() ||
-            matcher.fuzzy_match(&key, &text).is_some() ||
-            matcher.fuzzy_match(&dispatcher, &text).is_some() ||
-            matcher.fuzzy_match(&args, &text).is_some()
+            matcher.fuzzy_match(&mods, &text).is_some()
+                || matcher.fuzzy_match(&key, &text).is_some()
+                || matcher.fuzzy_match(&dispatcher, &text).is_some()
+                || matcher.fuzzy_match(&args, &text).is_some()
         });
     };
 
     let filter_func_1 = std::rc::Rc::new(filter_func);
     let filter_func_2 = filter_func_1.clone();
-    
+
     let dropdown_ref = category_dropdown.clone();
     search_entry.connect_search_changed(move |entry| {
         let text = entry.text().to_string();

@@ -1,16 +1,16 @@
 use clap::Parser;
-use gtk4 as gtk;
-use gtk::{glib, prelude::*};
-use libadwaita as adw;
-use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
+use gtk::{glib, prelude::*};
+use gtk4 as gtk;
+use libadwaita as adw;
 
 #[cfg(target_os = "linux")]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-mod parser;
 mod keybind_object;
+mod parser;
 mod ui;
 
 const APP_ID: &str = "com.github.hyprkcs";
@@ -46,12 +46,15 @@ fn main() -> glib::ExitCode {
 
                 let binds = if let Some(term) = args.search {
                     let matcher = SkimMatcherV2::default();
-                    binds.into_iter().filter(|b| {
-                        matcher.fuzzy_match(&b.mods, &term).is_some() ||
-                        matcher.fuzzy_match(&b.key, &term).is_some() ||
-                        matcher.fuzzy_match(&b.dispatcher, &term).is_some() ||
-                        matcher.fuzzy_match(&b.args, &term).is_some()
-                    }).collect::<Vec<_>>()
+                    binds
+                        .into_iter()
+                        .filter(|b| {
+                            matcher.fuzzy_match(&b.mods, &term).is_some()
+                                || matcher.fuzzy_match(&b.key, &term).is_some()
+                                || matcher.fuzzy_match(&b.dispatcher, &term).is_some()
+                                || matcher.fuzzy_match(&b.args, &term).is_some()
+                        })
+                        .collect::<Vec<_>>()
                 } else {
                     binds
                 };
@@ -63,24 +66,17 @@ fn main() -> glib::ExitCode {
                     .set_header(vec!["Modifiers", "Key", "Action", "Arguments"]);
 
                 for bind in binds {
-                    table.add_row(vec![
-                        bind.mods,
-                        bind.key,
-                        bind.dispatcher,
-                        bind.args,
-                    ]);
+                    table.add_row(vec![bind.mods, bind.key, bind.dispatcher, bind.args]);
                 }
 
                 println!("{table}");
-            },
+            }
             Err(e) => eprintln!("Error parsing config: {}", e),
         }
         return glib::ExitCode::SUCCESS;
     }
 
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .build();
+    let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|_| {
         adw::init().unwrap();

@@ -1,17 +1,27 @@
+use crate::keybind_object::KeybindObject;
+use crate::parser;
+use crate::ui::utils::{
+    execute_hyprctl, execute_keybind, reload_keybinds, setup_dispatcher_completion,
+};
+use gtk::{gdk, gio, glib, prelude::*};
 use gtk4 as gtk;
-use gtk::{gio, glib, prelude::*, gdk};
 use libadwaita as adw;
 use std::path::PathBuf;
-use crate::parser;
-use crate::keybind_object::KeybindObject;
-use crate::ui::utils::{execute_keybind, setup_dispatcher_completion, execute_hyprctl, reload_keybinds};
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
-    if mods.contains(gdk::ModifierType::SUPER_MASK) { res.push("SUPER"); }
-    if mods.contains(gdk::ModifierType::CONTROL_MASK) { res.push("CONTROL"); }
-    if mods.contains(gdk::ModifierType::ALT_MASK) { res.push("ALT"); }
-    if mods.contains(gdk::ModifierType::SHIFT_MASK) { res.push("SHIFT"); }
+    if mods.contains(gdk::ModifierType::SUPER_MASK) {
+        res.push("SUPER");
+    }
+    if mods.contains(gdk::ModifierType::CONTROL_MASK) {
+        res.push("CONTROL");
+    }
+    if mods.contains(gdk::ModifierType::ALT_MASK) {
+        res.push("ALT");
+    }
+    if mods.contains(gdk::ModifierType::SHIFT_MASK) {
+        res.push("SHIFT");
+    }
     res.join(" ")
 }
 
@@ -31,17 +41,13 @@ fn gdk_to_hypr_key(key: gdk::Key) -> String {
     }
 }
 
-pub fn setup_key_recorder(
-    container: &gtk::Box,
-    entry_mods: &gtk::Entry,
-    entry_key: &gtk::Entry,
-) {
+pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_key: &gtk::Entry) {
     let record_btn = gtk::Button::builder()
         .label("Record Combo")
         .tooltip_text("Click then press your key combination")
         .css_classes(["record-btn"])
         .build();
-    
+
     // Create the controller once and attach it to the button
     let controller = gtk::EventControllerKey::new();
     record_btn.add_controller(controller.clone());
@@ -54,22 +60,31 @@ pub fn setup_key_recorder(
     let entry_key_weak = entry_key.downgrade();
 
     let on_click = move |btn: &gtk::Button| {
-        let _controller = match controller_weak.upgrade() { Some(c) => c, None => return };
-        let _entry_mods = match entry_mods_weak.upgrade() { Some(c) => c, None => return };
-        let _entry_key = match entry_key_weak.upgrade() { Some(c) => c, None => return };
+        let _controller = match controller_weak.upgrade() {
+            Some(c) => c,
+            None => return,
+        };
+        let _entry_mods = match entry_mods_weak.upgrade() {
+            Some(c) => c,
+            None => return,
+        };
+        let _entry_key = match entry_key_weak.upgrade() {
+            Some(c) => c,
+            None => return,
+        };
 
         // If already listening, stop listening and reset
         if btn.label().map_or(false, |l| l == "Listening...") {
-             btn.set_label("Record Combo");
-             btn.remove_css_class("suggested-action");
-             execute_hyprctl(&["reload"]);
-             return;
+            btn.set_label("Record Combo");
+            btn.remove_css_class("suggested-action");
+            execute_hyprctl(&["reload"]);
+            return;
         }
 
         btn.set_label("Listening...");
         btn.add_css_class("suggested-action");
         btn.grab_focus(); // Ensure we catch keys
-        
+
         // Define the submap with a dummy bind to ensure it's created and recognized
         execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset"]);
         execute_hyprctl(&["dispatch", "submap", "hyprkcs_blocking"]);
@@ -81,22 +96,41 @@ pub fn setup_key_recorder(
     let entry_mods_weak_2 = entry_mods.downgrade();
     let entry_key_weak_2 = entry_key.downgrade();
 
-    let on_keypress = move |_: &gtk::EventControllerKey, key: gdk::Key, _: u32, mods: gdk::ModifierType| -> glib::Propagation {
-        let record_btn = match record_btn_weak.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
-        let entry_mods = match entry_mods_weak_2.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
-        let entry_key = match entry_key_weak_2.upgrade() { Some(c) => c, None => return glib::Propagation::Proceed };
+    let on_keypress = move |_: &gtk::EventControllerKey,
+                            key: gdk::Key,
+                            _: u32,
+                            mods: gdk::ModifierType|
+          -> glib::Propagation {
+        let record_btn = match record_btn_weak.upgrade() {
+            Some(c) => c,
+            None => return glib::Propagation::Proceed,
+        };
+        let entry_mods = match entry_mods_weak_2.upgrade() {
+            Some(c) => c,
+            None => return glib::Propagation::Proceed,
+        };
+        let entry_key = match entry_key_weak_2.upgrade() {
+            Some(c) => c,
+            None => return glib::Propagation::Proceed,
+        };
 
         // Only process if we are actually listening
         if record_btn.label().map_or(true, |l| l != "Listening...") {
             return glib::Propagation::Proceed;
         }
 
-        if matches!(key, 
-            gdk::Key::Control_L | gdk::Key::Control_R | 
-            gdk::Key::Alt_L | gdk::Key::Alt_R | 
-            gdk::Key::Super_L | gdk::Key::Super_R | 
-            gdk::Key::Shift_L | gdk::Key::Shift_R |
-            gdk::Key::Meta_L | gdk::Key::Meta_R
+        if matches!(
+            key,
+            gdk::Key::Control_L
+                | gdk::Key::Control_R
+                | gdk::Key::Alt_L
+                | gdk::Key::Alt_R
+                | gdk::Key::Super_L
+                | gdk::Key::Super_R
+                | gdk::Key::Shift_L
+                | gdk::Key::Shift_R
+                | gdk::Key::Meta_L
+                | gdk::Key::Meta_R
         ) {
             return glib::Propagation::Proceed;
         }
@@ -220,10 +254,8 @@ pub fn create_add_view(
         .margin_top(12)
         .build();
 
-    let cancel_btn = gtk::Button::builder()
-        .label("Cancel")
-        .build();
-    
+    let cancel_btn = gtk::Button::builder().label("Cancel").build();
+
     let exec_btn = gtk::Button::builder()
         .label("Execute")
         .tooltip_text("Test this keybind immediately using hyprctl dispatch")
@@ -269,7 +301,11 @@ pub fn create_add_view(
         let dispatcher = entry_dispatcher_c.text().to_string();
         let args = entry_args_c.text().to_string();
         let submap_raw = entry_submap_c.text().to_string();
-        let submap = if submap_raw.trim().is_empty() { None } else { Some(submap_raw.trim().to_string()) };
+        let submap = if submap_raw.trim().is_empty() {
+            None
+        } else {
+            Some(submap_raw.trim().to_string())
+        };
 
         if key.trim().is_empty() || dispatcher.trim().is_empty() {
             let toast = adw::Toast::builder()
@@ -281,16 +317,23 @@ pub fn create_add_view(
         }
 
         let config_path = parser::get_config_path().unwrap();
-        match parser::add_keybind(config_path.clone(), &mods, &key, &dispatcher, &args, submap.clone()) {
+        match parser::add_keybind(
+            config_path.clone(),
+            &mods,
+            &key,
+            &dispatcher,
+            &args,
+            submap.clone(),
+        ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
-                
+
                 let toast = adw::Toast::builder()
                     .title("Keybind added successfully")
                     .timeout(3)
                     .build();
                 toast_overlay_clone.add_toast(toast);
-                
+
                 // Clear fields
                 entry_mods_c.set_text("");
                 entry_key_c.set_text("");
@@ -301,7 +344,7 @@ pub fn create_add_view(
                 stack_c.set_visible_child_name("home");
             }
             Err(e) => {
-                 let toast = adw::Toast::builder()
+                let toast = adw::Toast::builder()
                     .title(&format!("Error: {}", e))
                     .timeout(5)
                     .build();
@@ -315,16 +358,16 @@ pub fn create_add_view(
 
 pub fn create_edit_view(
     stack: &gtk::Stack,
-    obj: KeybindObject, 
+    obj: KeybindObject,
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
-    _editing_page: &gtk::Box, 
+    _editing_page: &gtk::Box,
 ) -> gtk::Box {
     // Note: We create a fresh box because repurposing a live widget in a stack can be tricky without proper subclassing
     // However, for simplicity here, we build a new UI structure every time connect_activate is called,
     // OR we can perform binding updates.
     // Given the architecture, recreating the child of "edit_page" is easiest.
-    
+
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(12)
@@ -436,15 +479,13 @@ pub fn create_edit_view(
         .label("Delete")
         .css_classes(["destructive-action"])
         .build();
-    
+
     let exec_btn = gtk::Button::builder()
         .label("Execute")
         .tooltip_text("Test this keybind immediately using hyprctl dispatch")
         .build();
 
-    let cancel_btn = gtk::Button::builder()
-        .label("Cancel")
-        .build();
+    let cancel_btn = gtk::Button::builder().label("Cancel").build();
 
     let save_btn = gtk::Button::builder()
         .label("Save Changes")
@@ -507,8 +548,15 @@ pub fn create_edit_view(
         } else {
             input_args
         };
-        
-        match parser::update_line(file_path.clone(), line_number, &new_mods, &new_key, &new_dispatcher, &new_args) {
+
+        match parser::update_line(
+            file_path.clone(),
+            line_number,
+            &new_mods,
+            &new_key,
+            &new_dispatcher,
+            &new_args,
+        ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
                 let toast = adw::Toast::builder()
@@ -519,7 +567,7 @@ pub fn create_edit_view(
                 stack_c.set_visible_child_name("home");
             }
             Err(e) => {
-                 let toast = adw::Toast::builder()
+                let toast = adw::Toast::builder()
                     .title(&format!("Error: {}", e))
                     .timeout(5)
                     .build();
@@ -546,7 +594,7 @@ pub fn create_edit_view(
                 stack_c.set_visible_child_name("home");
             }
             Err(e) => {
-                 let toast = adw::Toast::builder()
+                let toast = adw::Toast::builder()
                     .title(&format!("Error: {}", e))
                     .timeout(5)
                     .build();

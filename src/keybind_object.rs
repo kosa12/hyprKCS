@@ -1,7 +1,7 @@
-use gtk4 as gtk;
-use gtk::glib;
-use glib::subclass::prelude::*; 
 use crate::parser::Keybind;
+use glib::subclass::prelude::*;
+use gtk::glib;
+use gtk4 as gtk;
 
 glib::wrapper! {
     pub struct KeybindObject(ObjectSubclass<imp::KeybindObject>);
@@ -10,11 +10,11 @@ glib::wrapper! {
 impl KeybindObject {
     pub fn new(keybind: Keybind, conflict_reason: Option<String>) -> Self {
         let obj: Self = glib::Object::new();
-        
+
         {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
-            
+
             data.mods = keybind.mods;
             data.clean_mods = keybind.clean_mods;
             data.key = keybind.key;
@@ -23,13 +23,13 @@ impl KeybindObject {
             data.submap = keybind.submap.unwrap_or_default();
             data.line_number = keybind.line_number as u64;
             data.file_path = keybind.file_path.to_str().unwrap_or("").to_string();
-            
+
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
                 data.conflict_reason = reason;
             } else {
-                 data.is_conflicted = false;
-                 data.conflict_reason.clear();
+                data.is_conflicted = false;
+                data.conflict_reason.clear();
             }
         }
 
@@ -38,11 +38,11 @@ impl KeybindObject {
 }
 
 mod imp {
-    use std::cell::RefCell;
-    use gtk4 as gtk;
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
+    use gtk4 as gtk;
+    use std::cell::RefCell;
 
     #[derive(Default, Clone)]
     pub struct KeybindData {

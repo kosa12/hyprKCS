@@ -28,7 +28,11 @@ pub fn get_config_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-fn resolve_variables(input: &str, vars: &HashMap<String, String>, sorted_keys: &[String]) -> String {
+fn resolve_variables(
+    input: &str,
+    vars: &HashMap<String, String>,
+    sorted_keys: &[String],
+) -> String {
     let mut result = input.to_string();
     for key in sorted_keys {
         if result.contains(key) {
@@ -38,7 +42,12 @@ fn resolve_variables(input: &str, vars: &HashMap<String, String>, sorted_keys: &
     result
 }
 
-fn expand_path(path_str: &str, current_file: &Path, vars: &HashMap<String, String>, sorted_keys: &[String]) -> PathBuf {
+fn expand_path(
+    path_str: &str,
+    current_file: &Path,
+    vars: &HashMap<String, String>,
+    sorted_keys: &[String],
+) -> PathBuf {
     let resolved_path_str = resolve_variables(path_str, vars, sorted_keys);
     let path_str = resolved_path_str.trim();
 
@@ -93,7 +102,14 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                 let value = resolve_variables(raw_value, vars, &sorted_keys);
                 vars.insert(name, value);
             } else if let Some(caps) = source_re.captures(line) {
-                let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
+                let path_str = caps
+                    .get(1)
+                    .unwrap()
+                    .as_str()
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim();
                 let sourced_path = expand_path(path_str, &path, vars, &sorted_keys);
                 let _ = collect_recursive(sourced_path, vars, visited);
             }
@@ -109,7 +125,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
     let mut keybinds = Vec::new();
     let variables = get_variables()?;
-    
+
     // Sort keys ONCE for the entire parsing process
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
     sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
@@ -168,14 +184,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     let key = parts[1].to_string();
                     let dispatcher = parts[2].to_string();
                     let args = if parts.len() > 3 {
-                         parts[3].to_string()
+                        parts[3].to_string()
                     } else {
                         String::new()
                     };
 
                     keybinds.push(Keybind {
-                        mods: mods.clone(),      // We display the resolved mods
-                        clean_mods: mods,        // And store resolved mods
+                        mods: mods.clone(), // We display the resolved mods
+                        clean_mods: mods,   // And store resolved mods
                         flags: flags.to_string(),
                         key,
                         dispatcher,
@@ -186,15 +202,36 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     });
                 }
             } else if let Some(caps) = source_re.captures(line_trimmed) {
-                let path_str = caps.get(1).unwrap().as_str().split('#').next().unwrap_or("").trim();
+                let path_str = caps
+                    .get(1)
+                    .unwrap()
+                    .as_str()
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim();
                 let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
-                let _ = parse_recursive(sourced_path, keybinds, variables, sorted_keys, visited, current_submap);
+                let _ = parse_recursive(
+                    sourced_path,
+                    keybinds,
+                    variables,
+                    sorted_keys,
+                    visited,
+                    current_submap,
+                );
             }
         }
         Ok(())
     }
 
-    parse_recursive(main_path, &mut keybinds, &variables, &sorted_keys, &mut visited, &mut current_submap)?;
+    parse_recursive(
+        main_path,
+        &mut keybinds,
+        &variables,
+        &sorted_keys,
+        &mut visited,
+        &mut current_submap,
+    )?;
     Ok(keybinds)
 }
 
@@ -292,17 +329,17 @@ pub fn add_keybind(
             std::fs::write(&path, lines.join("\n"))?;
             Ok(idx)
         } else if found_submap {
-             // Should have been handled above, but fallback
-             lines.push(new_line);
-             std::fs::write(&path, lines.join("\n"))?;
-             Ok(lines.len() - 1)
+            // Should have been handled above, but fallback
+            lines.push(new_line);
+            std::fs::write(&path, lines.join("\n"))?;
+            Ok(lines.len() - 1)
         } else {
             // Submap doesn't exist, create it
             lines.push(String::new()); // spacer
             lines.push(submap_decl);
             lines.push(new_line);
             lines.push("submap = reset".to_string());
-            
+
             std::fs::write(&path, lines.join("\n"))?;
             Ok(lines.len() - 2) // Index of the new bind
         }
