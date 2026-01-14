@@ -106,7 +106,7 @@ The goal of hyprKCS is to become the ultimate keybind management tool for Hyprla
 ## Troubleshooting
 
 ### GPG Key Import Issues
-If you encounter errors like `gpg: keyserver receive failed` or `unknown public key` when installing from AUR, you need to import the maintainer's PGP key manually.
+If you encounter errors like `gpg: keyserver receive failed` or `unknown public key` when installing from AUR, you need to import the PGP key manually.
 
 Try importing from the Ubuntu keyserver:
 ```bash
