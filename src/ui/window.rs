@@ -1,3 +1,4 @@
+use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
 use crate::parser;
 use crate::ui::views::{create_add_view, create_edit_view};
@@ -12,6 +13,7 @@ use libadwaita as adw;
 use std::fs;
 
 pub fn build_ui(app: &adw::Application) {
+    let config = StyleConfig::load();
     let model = gio::ListStore::new::<KeybindObject>();
     crate::ui::utils::reload_keybinds(&model);
 
@@ -29,6 +31,7 @@ pub fn build_ui(app: &adw::Application) {
         let prop_name = property_name.to_string();
         let prop_name_css = property_name.to_string();
 
+        let prop_name_css_clone = prop_name_css.clone();
         factory.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let label = gtk::Label::builder()
@@ -40,7 +43,7 @@ pub fn build_ui(app: &adw::Application) {
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
 
-            match prop_name_css.as_str() {
+            match prop_name_css_clone.as_str() {
                 "key" => label.add_css_class("key-label"),
                 "mods" => label.add_css_class("mod-label"),
                 "dispatcher" => label.add_css_class("dispatcher-label"),
@@ -49,7 +52,7 @@ pub fn build_ui(app: &adw::Application) {
                 _ => {}
             }
 
-            if prop_name_css == "mods" {
+            if prop_name_css_clone == "mods" {
                 let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 8);
                 let warning_icon = gtk::Image::builder()
                     .icon_name("dialog-warning-symbolic")
@@ -106,11 +109,18 @@ pub fn build_ui(app: &adw::Application) {
             .expand(true)
             .build()
     };
+    
     column_view.append_column(&create_column("Modifiers", "mods"));
     column_view.append_column(&create_column("Key", "key"));
     column_view.append_column(&create_column("Action", "dispatcher"));
-    column_view.append_column(&create_column("Arguments", "args"));
-    column_view.append_column(&create_column("Submap", "submap"));
+    
+    if config.show_args {
+        column_view.append_column(&create_column("Arguments", "args"));
+    }
+    
+    if config.show_submaps {
+        column_view.append_column(&create_column("Submap", "submap"));
+    }
 
     // Compact Top Bar Layout
     let search_entry = gtk::SearchEntry::builder()
@@ -215,12 +225,15 @@ pub fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .default_width(700)
-        .default_height(500)
         .content(&toast_overlay)
         .decorated(false)
         .startup_id("hyprkcs-menu")
         .build();
+
+    // Enforce size from config
+    window.set_default_size(config.width, config.height);
+    // For layer shell floating surfaces, size request is often needed
+    window.set_size_request(config.width, config.height);
 
     // Initialize Layer Shell
     window.init_layer_shell();

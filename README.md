@@ -66,31 +66,59 @@ cargo build --release
 ```
 The binary will be available at `./target/release/hyprKCS`.
 
+## Configuration
+
+You can customize the appearance and behavior of hyprKCS by creating a configuration file at `~/.config/hyprkcs/hyprkcs.conf`.
+
+```ini
+# Window dimensions
+width = 1000px
+height = 800px
+
+# Appearance
+opacity = 0.95
+fontSize = 10pt
+borderSize = 2px
+borderRadius = 10px
+
+# UI Elements
+showSubmaps = true
+showArgs = true
+
+# Spacing
+monitorMargin = 20px
+rowPadding = 5px
+```
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `width` | Window width (px) | `700` |
+| `height` | Window height (px) | `500` |
+| `opacity` | Window background opacity (0.0 - 1.0) | `1.0` |
+| `fontSize` | Font size for labels (supports px, pt, rem) | `0.9rem` |
+| `borderSize` | Border thickness | `1px` |
+| `borderRadius` | Main window border radius | `12px` |
+| `showSubmaps` | Show/Hide the Submap column | `true` |
+| `showArgs` | Show/Hide the Arguments column | `true` |
+| `monitorMargin` | Margin around the window (px) | `12` |
+| `rowPadding` | Vertical padding between rows (px) | `2` |
+
 ## CLI Usage
 
 hyprKCS provides a robust command-line interface for quick lookups and configuration management.
 
-**Print all keybinds in a dynamic table:**
 ```bash
 hyprKCS --print #or hyprKCS -p
 ```
-
-**Filter keybinds by a search term:**
 ```bash
 hyprKCS --search "firefox" #or hyprKCS -s "firefox"
 ```
-
-**Use a custom configuration file:**
 ```bash
 hyprKCS --config ~/.config/hypr/custom_binds.conf #or hyprKCS -c ~/.config/hypr/custom_binds.conf
 ```
-
-**Show help:**
 ```bash
 hyprKCS --help #or hyprKCS -h
 ```
-
-**Show version:**
 ```bash
 hyprKCS --version #or hyprKCS -V
 ```

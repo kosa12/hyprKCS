@@ -12,6 +12,7 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 mod keybind_object;
 mod parser;
 mod ui;
+mod config;
 
 const APP_ID: &str = "com.github.hyprkcs";
 
