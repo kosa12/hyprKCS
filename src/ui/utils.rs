@@ -2,24 +2,24 @@ use gtk4 as gtk;
 use gtk::{gio, glib, prelude::*};
 use crate::keybind_object::KeybindObject;
 
-fn normalize(mods: &str, key: &str) -> (std::collections::BTreeSet<String>, String) {
-    let mod_set: std::collections::BTreeSet<String> = mods.split_whitespace()
+pub fn normalize(mods: &str, key: &str) -> (Vec<String>, String) {
+    let mut mod_vec: Vec<String> = mods.split_whitespace()
         .map(|s| s.to_uppercase())
         .filter(|s| !s.is_empty())
         .collect();
+    mod_vec.sort();
+    mod_vec.dedup();
         
     let clean_key = key.trim().to_lowercase();
     
-    (mod_set, clean_key)
+    (mod_vec, clean_key)
 }
 
 fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
     let mut collision_map: std::collections::HashMap<(Vec<String>, String, String), Vec<usize>> = std::collections::HashMap::new();
 
     for (i, kb) in keybinds.iter().enumerate() {
-        let (mod_set, clean_key) = normalize(&kb.clean_mods, &kb.key);
-        // Convert BTreeSet to sorted Vec for hashing/key
-        let sorted_mods: Vec<String> = mod_set.into_iter().collect();
+        let (sorted_mods, clean_key) = normalize(&kb.clean_mods, &kb.key);
         let submap = kb.submap.clone().unwrap_or_default();
         
         let key = (sorted_mods, clean_key, submap);
@@ -28,14 +28,31 @@ fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> 
 
     let mut results = vec![None; keybinds.len()];
 
-    for (key, indices) in collision_map {
+    for (_, indices) in collision_map {
         if indices.len() > 1 {
-            let (mods, key_char, _) = key;
-            let mods_disp = mods.join(" ");
-            let reason = format!("Conflicts with: {} {}", mods_disp, key_char);
-            
-            for idx in indices {
-                results[idx] = Some(reason.clone());
+            for &current_idx in &indices {
+                // Find all OTHER binds in this group to describe what it conflicts with
+                let others: Vec<String> = indices.iter()
+                    .filter(|&&other_idx| other_idx != current_idx)
+                    .map(|&other_idx| {
+                        let kb = &keybinds[other_idx];
+                        if kb.args.trim().is_empty() {
+                            kb.dispatcher.clone()
+                        } else {
+                            format!("{} {}", kb.dispatcher, kb.args)
+                        }
+                    })
+                    .collect();
+
+                // If multiple conflicts, join them. If it conflicts with itself (duplicate lines),
+                // the logic above handles it correctly (it will show the duplicate action).
+                // However, if the ONLY conflict is identical (same file/line? no, same index is filtered),
+                // but if we have two identical lines, `others` will contain the action of the duplicate.
+                
+                if !others.is_empty() {
+                     let reason = format!("Conflicts with: {}", others.join(", "));
+                     results[current_idx] = Some(reason);
+                }
             }
         }
     }

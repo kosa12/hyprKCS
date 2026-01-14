@@ -9,6 +9,7 @@ use std::fs;
 use crate::parser;
 use crate::keybind_object::KeybindObject;
 use crate::ui::views::{create_add_view, create_edit_view};
+use crate::ui::wizards::create_conflict_wizard;
 
 pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
@@ -125,6 +126,13 @@ pub fn build_ui(app: &adw::Application) {
         .tooltip_text("Backup Current Config")
         .css_classes(["flat"])
         .build();
+        
+    let conflict_button = gtk::Button::builder()
+        .icon_name("dialog-warning-symbolic")
+        .label("Resolve Conflicts")
+        .css_classes(["destructive-action"])
+        .visible(false)
+        .build();
     
     let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom"]);
     let category_dropdown = gtk::DropDown::builder()
@@ -144,6 +152,7 @@ pub fn build_ui(app: &adw::Application) {
     
     top_box.append(&category_dropdown);
     top_box.append(&search_entry);
+    top_box.append(&conflict_button);
     top_box.append(&add_button);
     top_box.append(&backup_button);
 
@@ -173,7 +182,7 @@ pub fn build_ui(app: &adw::Application) {
     main_vbox.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     main_vbox.append(&list_stack);
 
-    // ROOT STACK (Switches between HOME, ADD, EDIT)
+    // ROOT STACK (Switches between HOME, ADD, EDIT, WIZARD)
     let root_stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::SlideLeftRight)
         .build();
@@ -181,12 +190,15 @@ pub fn build_ui(app: &adw::Application) {
     // Add "Home" page
     root_stack.add_named(&main_vbox, Some("home"));
 
-    // Pages for Add/Edit (containers)
+    // Pages for Add/Edit/Wizard (containers)
     let add_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&add_page_container, Some("add"));
 
     let edit_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&edit_page_container, Some("edit"));
+
+    let wizard_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root_stack.add_named(&wizard_page_container, Some("wizard"));
 
     let window_content = gtk::Box::builder()
         .css_classes(["window-content"])
@@ -344,6 +356,60 @@ pub fn build_ui(app: &adw::Application) {
                  toast_overlay_backup.add_toast(toast);
             }
         }
+    });
+    
+    // Logic to update conflict button visibility
+    let update_conflict_btn = {
+        let conflict_button = conflict_button.clone();
+        move |model: &gio::ListStore| {
+            let mut conflict_count = 0;
+            for i in 0..model.n_items() {
+                if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+                    if obj.property::<bool>("is-conflicted") {
+                        conflict_count += 1;
+                    }
+                }
+            }
+            
+            conflict_button.set_visible(conflict_count > 0);
+            if conflict_count > 0 {
+                conflict_button.set_label(&format!("Resolve Conflicts ({})", conflict_count));
+            }
+        }
+    };
+    
+    // Initial check
+    update_conflict_btn(&model);
+    
+    let update_conflict_btn_c = update_conflict_btn.clone();
+    let _conflict_btn_model = model.clone();
+    
+    // HACK: ListStore doesn't expose "on content changed" easily for deep property changes unless we bind to them.
+    // However, we reload the whole model on add/edit/delete, triggering `items-changed`.
+    // We can hook into that.
+    model.connect_items_changed(move |m, _, _, _| {
+        update_conflict_btn_c(m);
+    });
+
+    let model_wizard = model.clone();
+    let stack_wizard = root_stack.clone();
+    let toast_wizard = toast_overlay.clone();
+    let wizard_container_c = wizard_page_container.clone();
+
+    conflict_button.connect_clicked(move |_| {
+        while let Some(child) = wizard_container_c.first_child() {
+            wizard_container_c.remove(&child);
+        }
+        
+        let wizard_view = create_conflict_wizard(
+            &stack_wizard, 
+            &model_wizard, 
+            &toast_wizard,
+            &wizard_container_c,
+            0
+        );
+        wizard_container_c.append(&wizard_view);
+        stack_wizard.set_visible_child_name("wizard");
     });
 
     let status_page_ref = status_page.clone();
