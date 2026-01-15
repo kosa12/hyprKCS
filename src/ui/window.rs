@@ -19,14 +19,17 @@ pub fn build_ui(app: &adw::Application) {
 
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
-    let selection_model = gtk::SingleSelection::new(Some(filter_model.clone()));
 
-    let column_view = gtk::ColumnView::new(Some(selection_model.clone()));
+    let column_view = gtk::ColumnView::new(None::<gtk::SelectionModel>);
+    let sort_model = gtk::SortListModel::new(Some(filter_model.clone()), column_view.sorter());
+    let selection_model = gtk::SingleSelection::new(Some(sort_model.clone()));
+    column_view.set_model(Some(&selection_model));
+
     column_view.set_show_row_separators(false);
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
 
-    let create_column = |title: &str, property_name: &str| {
+    let create_column = |title: &str, property_name: &str, sort_prop: Option<&str>| {
         let factory = gtk::SignalListItemFactory::new();
         let prop_name = property_name.to_string();
         let prop_name_css = property_name.to_string();
@@ -103,24 +106,65 @@ pub fn build_ui(app: &adw::Application) {
             }
         });
 
-        gtk::ColumnViewColumn::builder()
+        let column = gtk::ColumnViewColumn::builder()
             .title(title)
             .factory(&factory)
             .expand(true)
-            .build()
+            .build();
+
+        if let Some(sp) = sort_prop {
+            let sorter = gtk::StringSorter::builder()
+                .expression(gtk::PropertyExpression::new(
+                    KeybindObject::static_type(),
+                    None::<gtk::Expression>,
+                    sp,
+                ))
+                .build();
+            column.set_sorter(Some(&sorter));
+        }
+
+        column
     };
-    
-    column_view.append_column(&create_column("Modifiers", "mods"));
-    column_view.append_column(&create_column("Key", "key"));
-    column_view.append_column(&create_column("Action", "dispatcher"));
-    
+
+    let col_mods = create_column("Modifiers", "mods", Some("clean-mods"));
+    let col_key = create_column("Key", "key", Some("key"));
+    let col_disp = create_column("Action", "dispatcher", Some("dispatcher"));
+
+    column_view.append_column(&col_mods);
+    column_view.append_column(&col_key);
+    column_view.append_column(&col_disp);
+
+    let mut default_sort_col = match config.default_sort.as_str() {
+        "mods" | "modifiers" => Some(col_mods),
+        "key" => Some(col_key),
+        "dispatcher" | "action" => Some(col_disp),
+        _ => None,
+    };
+
     if config.show_args {
-        column_view.append_column(&create_column("Arguments", "args"));
+        let col_args = create_column("Arguments", "args", Some("args"));
+        column_view.append_column(&col_args);
+        if config.default_sort == "args" || config.default_sort == "arguments" {
+            default_sort_col = Some(col_args);
+        }
     }
-    
+
     if config.show_submaps {
-        column_view.append_column(&create_column("Submap", "submap"));
+        let col_submap = create_column("Submap", "submap", Some("submap"));
+        column_view.append_column(&col_submap);
+        if config.default_sort == "submap" {
+            default_sort_col = Some(col_submap);
+        }
     }
+
+    if let Some(col) = default_sort_col {
+        column_view.sort_by_column(Some(&col), gtk::SortType::Ascending);
+    }
+
+    // Ensure the first row is selected/focused after sorting
+    selection_model.set_selected(0);
+    column_view.scroll_to(0, None::<&gtk::ColumnViewColumn>, gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT, None::<gtk::ScrollInfo>);
+
 
     // Compact Top Bar Layout
     let search_entry = gtk::SearchEntry::builder()
@@ -251,6 +295,7 @@ pub fn build_ui(app: &adw::Application) {
     let search_entry_focus = search_entry.clone();
     let window_clone = window.clone();
     let root_stack_c = root_stack.clone();
+    let column_view_focus = column_view.clone();
 
     let selection_model_key = selection_model.clone();
     let model_key = model.clone();
@@ -265,6 +310,13 @@ pub fn build_ui(app: &adw::Application) {
 
         let home_visible = root_stack_c.visible_child_name().as_deref() == Some("home");
         let search_focused = search_entry_focus.has_focus();
+
+        if home_visible && search_focused {
+             if key == gtk::gdk::Key::Down {
+                column_view_focus.grab_focus();
+                return glib::Propagation::Stop;
+            }
+        }
 
         if home_visible && !search_focused {
             if mods.is_empty() {

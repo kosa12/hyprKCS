@@ -11,6 +11,8 @@ pub struct StyleConfig {
     pub height: i32,
     pub show_submaps: bool,
     pub show_args: bool,
+    pub alternating_row_colors: bool,
+    pub default_sort: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
     
@@ -29,6 +31,8 @@ impl Default for StyleConfig {
             height: 500,
             show_submaps: false,
             show_args: true,
+            alternating_row_colors: true,
+            default_sort: "key".to_string(),
             monitor_margin: 12,
             row_padding: 2,
             errors: Vec::new(),
@@ -71,10 +75,12 @@ impl StyleConfig {
                         if let Some(num) = parse_pixels(val) {
                             if num < 100 {
                                 config.errors.push(format!("Width '{}' is too small (min 100px). Using default.", val));
-                            } else {
+                            }
+                            else {
                                 config.width = num;
                             }
-                        } else {
+                        }
+                        else {
                             config.errors.push(format!("Invalid width value '{}'.", val));
                         }
                     }
@@ -82,10 +88,12 @@ impl StyleConfig {
                         if let Some(num) = parse_pixels(val) {
                             if num < 100 {
                                 config.errors.push(format!("Height '{}' is too small (min 100px). Using default.", val));
-                            } else {
+                            }
+                            else {
                                 config.height = num;
                             }
-                        } else {
+                        }
+                        else {
                             config.errors.push(format!("Invalid height value '{}'.", val));
                         }
                     }
@@ -94,6 +102,12 @@ impl StyleConfig {
                     }
                     if let Some(val) = vars.get("showArgs") {
                         config.show_args = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("alternatingRowColors") {
+                        config.alternating_row_colors = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("defaultSort") {
+                        config.default_sort = val.to_lowercase();
                     }
                     if let Some(val) = vars.get("monitorMargin") {
                         if let Some(num) = parse_pixels(val) {

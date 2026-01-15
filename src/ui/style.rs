@@ -25,6 +25,14 @@ fn generate_css(config: &StyleConfig) -> String {
     let win_margin = config.monitor_margin;
     let row_margin = config.row_padding;
 
+    let alternating_css = if config.alternating_row_colors {
+        "columnview row:nth-child(even) {
+            background-color: alpha(@window_fg_color, 0.03);
+        }"
+    } else {
+        ""
+    };
+
     format!("
         /* Modern Keycap Look */
         .key-label, .mod-label {{
@@ -85,10 +93,12 @@ fn generate_css(config: &StyleConfig) -> String {
         }}
 
         columnview row {{
-            border-radius: {key_radius};
+            border_radius: {key_radius};
             margin: {row_margin}px 0;
             transition: background-color 200ms ease;
         }}
+
+        {alternating_css}
 
         columnview row:hover {{
             background-color: alpha(@window_fg_color, 0.04);

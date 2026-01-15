@@ -90,6 +90,8 @@ rowPadding = 5px
 | `borderRadius` | Main window corner radius | `12px` |
 | `showSubmaps` | Toggles visibility of the "Submap" column | `false` |
 | `showArgs` | Toggles visibility of the "Arguments" column | `true` |
+| `alternatingRowColors` | Toggles striped rows for the list view | `true` |
+| `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`) | `key` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
 
