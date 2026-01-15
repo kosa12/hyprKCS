@@ -88,7 +88,7 @@ rowPadding = 5px
 | `fontSize` | Global font size (e.g., `10pt`, `1rem`) | `0.9rem` |
 | `borderSize` | Global border thickness | `1px` |
 | `borderRadius` | Main window corner radius | `12px` |
-| `showSubmaps` | Toggles visibility of the "Submap" column | `true` |
+| `showSubmaps` | Toggles visibility of the "Submap" column | `false` |
 | `showArgs` | Toggles visibility of the "Arguments" column | `true` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |

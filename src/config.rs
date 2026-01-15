@@ -27,7 +27,7 @@ impl Default for StyleConfig {
             opacity: None,
             width: 700,
             height: 500,
-            show_submaps: true,
+            show_submaps: false,
             show_args: true,
             monitor_margin: 12,
             row_padding: 2,
