@@ -59,30 +59,6 @@ cargo build --release
 
 You can customize the appearance and behavior of hyprKCS by creating a configuration file at `~/.config/hyprkcs/hyprkcs.conf`. If a value is invalid or omitted, a default will be used.
 
-**Example `hyprkcs.conf`:**
-```ini
-# Window dimensions
-width = 1000px
-height = 800px
-
-# Appearance
-opacity = 0.95
-fontSize = 10pt
-borderSize = 2px
-borderRadius = 10px
-alternatingRowColors = true
-shadowSize = 0 4px 24px rgba(0,0,0,0.4)
-
-# UI Elements
-showSubmaps = true
-showArgs = true
-defaultSort = mods
-
-# Spacing
-monitorMargin = 20px
-rowPadding = 5px
-```
-
 | Option | Description | Default |
 | --- | --- | --- |
 | `width` | Window width (in pixels) | `700` |
@@ -98,6 +74,33 @@ rowPadding = 5px
 | `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
+
+<details>
+<summary>Example Configuration</summary>
+
+```ini
+# Window dimensions
+width = 1000px
+height = 800px
+
+# Appearance
+opacity = 0.95
+fontSize = 10pt
+borderSize = 2px
+borderRadius = 10px
+alternatingRowColors = true
+shadowSize = 0 4px 24px rgba(0,0,0,0.4)
+
+# UI Elements
+showSubmaps = false
+showArgs = true
+defaultSort = mods
+
+# Spacing
+monitorMargin = 20px
+rowPadding = 5px
+```
+</details>
 
 ## Usage
 
