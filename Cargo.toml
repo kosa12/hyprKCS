@@ -16,9 +16,6 @@ clap = { version = "4.5.54", features = ["derive", "cargo"] }
 fuzzy-matcher = "0.3.7"
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "std"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = "0.6"
-
 [[bin]]
 name = "hyprKCS"
 path = "src/main.rs"

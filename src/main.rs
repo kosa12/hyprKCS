@@ -5,10 +5,6 @@ use gtk::{glib, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 
-#[cfg(target_os = "linux")]
-#[global_allocator]
-static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
-
 mod keybind_object;
 mod parser;
 mod ui;
