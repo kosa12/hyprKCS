@@ -70,10 +70,12 @@ opacity = 0.95
 fontSize = 10pt
 borderSize = 2px
 borderRadius = 10px
+alternatingRowColors = true
 
 # UI Elements
 showSubmaps = true
 showArgs = true
+defaultSort = mods
 
 # Spacing
 monitorMargin = 20px
