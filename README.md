@@ -41,9 +41,9 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 yay -S hyprkcs-git
 ```
 
-### From Crates.io
+### From Nix
 ```bash
-cargo install hyprkcs
+nix run github:kosa12/hyprKCS
 ```
 
 ### From Source
