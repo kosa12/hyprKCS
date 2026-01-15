@@ -71,6 +71,7 @@ fontSize = 10pt
 borderSize = 2px
 borderRadius = 10px
 alternatingRowColors = true
+shadowSize = 0 4px 24px rgba(0,0,0,0.4)
 
 # UI Elements
 showSubmaps = true
@@ -93,7 +94,8 @@ rowPadding = 5px
 | `showSubmaps` | Toggles visibility of the "Submap" column | `false` |
 | `showArgs` | Toggles visibility of the "Arguments" column | `true` |
 | `alternatingRowColors` | Toggles striped rows for the list view | `true` |
-| `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`) | `key` |
+| `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`, etc.) | `key` |
+| `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
 

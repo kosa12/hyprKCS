@@ -13,6 +13,7 @@ pub struct StyleConfig {
     pub show_args: bool,
     pub alternating_row_colors: bool,
     pub default_sort: String,
+    pub shadow_size: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
     
@@ -33,6 +34,7 @@ impl Default for StyleConfig {
             show_args: true,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
+            shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,
             errors: Vec::new(),
@@ -108,6 +110,9 @@ impl StyleConfig {
                     }
                     if let Some(val) = vars.get("defaultSort") {
                         config.default_sort = val.to_lowercase();
+                    }
+                    if let Some(val) = vars.get("shadowSize") {
+                        config.shadow_size = val.clone();
                     }
                     if let Some(val) = vars.get("monitorMargin") {
                         if let Some(num) = parse_pixels(val) {

@@ -24,6 +24,7 @@ fn generate_css(config: &StyleConfig) -> String {
     
     let win_margin = config.monitor_margin;
     let row_margin = config.row_padding;
+    let shadow = &config.shadow_size;
 
     let alternating_css = if config.alternating_row_colors {
         "columnview row:nth-child(even) {
@@ -93,7 +94,7 @@ fn generate_css(config: &StyleConfig) -> String {
         }}
 
         columnview row {{
-            border_radius: {key_radius};
+            border-radius: {key_radius};
             margin: {row_margin}px 0;
             transition: background-color 200ms ease;
         }}
@@ -140,7 +141,7 @@ fn generate_css(config: &StyleConfig) -> String {
             background-color: alpha(@theme_bg_color, {opacity});
             border: {border_size} solid alpha(@window_fg_color, 0.15);
             border-radius: {border_radius};
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4); 
+            box-shadow: {shadow}; 
             margin: {win_margin}px;
         }}
 
@@ -186,7 +187,8 @@ fn generate_css(config: &StyleConfig) -> String {
     key_radius = key_radius,
     opacity = opacity,
     win_margin = win_margin,
-    row_margin = row_margin
+    row_margin = row_margin,
+    shadow = shadow
     )
 }
 
