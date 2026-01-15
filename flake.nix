@@ -19,7 +19,7 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "1.12.5";
+            version = "1.12.6";
 
             src = ./.;
 
@@ -67,7 +67,6 @@
               gtk4
               libadwaita
               gtk4-layer-shell
-              fuzzy-matcher
             ];
           };
         });

@@ -1,6 +1,6 @@
 [package]
 name = "hyprKCS"
-version = "1.12.4"
+version = "1.12.6"
 edition = "2021"
 license = "MIT"
 
@@ -20,8 +20,16 @@ chrono = { version = "0.4.42", default-features = false, features = ["clock", "s
 name = "hyprKCS"
 path = "src/main.rs"
 
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
-lto = true
-codegen-units = 1
+lto = "thin"
+codegen-units = 16
 strip = true
 panic = "abort"
