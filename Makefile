@@ -26,7 +26,7 @@ clean:
 install: build
 	install -Dm755 target/release/hyprKCS $(DESTDIR)$(BIN_DIR)/$(APP_NAME)
 	install -Dm644 hyprkcs.desktop $(DESTDIR)$(APP_DIR)/$(APP_NAME).desktop
-	install -Dm644 assets/icon.svg $(DESTDIR)$(ICON_DIR)/$(APP_NAME).svg
+	install -Dm644 assets/hyprkcs.svg $(DESTDIR)$(ICON_DIR)/$(APP_NAME).svg
 
 install-user: build
 	# Install to ~/.local/bin and ~/.local/share/applications
