@@ -1,6 +1,6 @@
 # Maintainer: Kosa Matyas <kosa03matyas@gmail.com>
 pkgname=hyprkcs-git
-pkgver=1.12.9
+pkgver=1.12.10
 pkgrel=1
 pkgdesc="A fast, minimal Hyprland keybind cheat sheet and editor written in Rust/GTK4"
 arch=('x86_64')
@@ -33,5 +33,5 @@ build() {
 
 package() {
     cd "$srcdir/${pkgname%-git}"
-    install -Dm755 "target/release/hyprKCS" "$pkgdir/usr/bin/hyprKCS"
+    install -Dm755 "target/release/hyprKCS" "$pkgdir/usr/bin/hyprkcs"
 }

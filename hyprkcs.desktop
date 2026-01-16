@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=hyprKCS
+Comment=Hyprland Keybind Manager
+Exec=hyprkcs
+Icon=hyprkcs
+Terminal=false
+Type=Application
+Categories=Utility;GTK;System;
+Keywords=hyprland;keybinds;manager;config;
+StartupNotify=true

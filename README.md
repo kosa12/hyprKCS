@@ -48,6 +48,16 @@ nix run github:kosa12/hyprKCS
 
 ### From Source
 Ensure you have `rust`, `cargo`, and `gtk4` development headers installed.
+
+**Using Make (Recommended):**
+```bash
+git clone https://github.com/kosa12/hyprKCS.git
+cd hyprKCS
+make
+sudo make install
+```
+
+**Using Cargo directly:**
 ```bash
 git clone https://github.com/kosa12/hyprKCS.git
 cd hyprKCS
