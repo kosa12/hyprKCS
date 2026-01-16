@@ -1,6 +1,7 @@
+use crate::config::favorites::{is_favorite, load_favorites};
 use crate::keybind_object::KeybindObject;
-use gtk4 as gtk;
 use gtk::gio;
+use gtk4 as gtk;
 
 pub fn normalize(mods: &str, key: &str) -> (Vec<String>, String) {
     let mut mod_vec: Vec<String> = mods
@@ -67,8 +68,17 @@ pub fn reload_keybinds(model: &gio::ListStore) {
     });
 
     let conflicts = detect_conflicts(&keybinds);
+    let favs = load_favorites();
 
     for (kb, conflict) in keybinds.into_iter().zip(conflicts.into_iter()) {
-        model.append(&KeybindObject::new(kb, conflict));
+        let is_fav = is_favorite(
+            &favs,
+            &kb.clean_mods,
+            &kb.key,
+            kb.submap.as_deref().unwrap_or(""),
+            &kb.dispatcher,
+            &kb.args,
+        );
+        model.append(&KeybindObject::new(kb, conflict, is_fav));
     }
 }

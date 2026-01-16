@@ -1,3 +1,5 @@
+pub mod favorites;
+
 use std::collections::HashMap;
 use std::fs;
 
@@ -11,13 +13,13 @@ pub struct StyleConfig {
     pub height: i32,
     pub show_submaps: bool,
     pub show_args: bool,
+    pub show_favorites: bool,
     pub alternating_row_colors: bool,
     pub default_sort: String,
     pub shadow_size: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
     
-    // Internal use for UI feedback
     pub errors: Vec<String>,
 }
 
@@ -32,6 +34,7 @@ impl Default for StyleConfig {
             height: 500,
             show_submaps: false,
             show_args: true,
+            show_favorites: true,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
@@ -48,6 +51,40 @@ impl StyleConfig {
 
         if let Some(config_dir) = dirs::config_dir() {
             let config_path = config_dir.join("hyprkcs/hyprkcs.conf");
+            
+            if !config_path.exists() {
+                // Create default config
+                if let Some(parent) = config_path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                
+                let default_content = r#"# Window dimensions
+width = 700px
+height = 500px
+
+# Appearance
+# fontSize = 0.9rem
+# borderSize = 1px
+# borderRadius = 12px
+# opacity = 1.0
+
+# UI Elements
+showSubmaps = false
+showArgs = true
+showFavorites = true
+alternatingRowColors = true
+defaultSort = key
+shadowSize = 0 4px 24px rgba(0,0,0,0.4)
+
+# Spacing
+monitorMargin = 12px
+rowPadding = 2px
+"#;
+                if let Err(e) = fs::write(&config_path, default_content) {
+                    eprintln!("Failed to write default config: {}", e);
+                }
+            }
+
             if config_path.exists() {
                 if let Ok(content) = fs::read_to_string(config_path) {
                     let vars = parse_ini_like(&content);
@@ -104,6 +141,9 @@ impl StyleConfig {
                     }
                     if let Some(val) = vars.get("showArgs") {
                         config.show_args = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("showFavorites") {
+                        config.show_favorites = val.to_lowercase() == "true";
                     }
                     if let Some(val) = vars.get("alternatingRowColors") {
                         config.alternating_row_colors = val.to_lowercase() == "true";

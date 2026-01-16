@@ -1,3 +1,4 @@
+use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
 use crate::parser;
@@ -28,6 +29,75 @@ pub fn build_ui(app: &adw::Application) {
     column_view.set_show_row_separators(false);
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
+
+    if config.show_favorites {
+        // --- Favorites Column ---
+        let col_fav = gtk::ColumnViewColumn::builder()
+            .title("")
+            .expand(false)
+            .fixed_width(40)
+            .build();
+
+        let factory_fav = gtk::SignalListItemFactory::new();
+        
+        factory_fav.connect_setup(move |_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
+            let btn = gtk::Button::builder()
+                .css_classes(["flat", "circular"])
+                .valign(gtk::Align::Center)
+                .halign(gtk::Align::Center)
+                .build();
+            
+            // Handle Click
+            let list_item_weak = list_item.downgrade();
+            btn.connect_clicked(move |b| {
+                if let Some(list_item) = list_item_weak.upgrade() {
+                     if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
+                        let mut favs = load_favorites();
+                        let item = FavoriteKeybind {
+                            mods: obj.property::<String>("clean-mods"),
+                            key: obj.property::<String>("key"),
+                            submap: obj.property::<String>("submap"),
+                            dispatcher: obj.property::<String>("dispatcher"),
+                            args: obj.property::<String>("args"),
+                        };
+                        
+                        let new_state = toggle_favorite(&mut favs, item);
+                        let _ = save_favorites(&favs);
+                        
+                        obj.set_property("is-favorite", new_state);
+                        
+                        b.set_icon_name(if new_state { "starred-symbolic" } else { "non-starred-symbolic" });
+                        if new_state {
+                             b.add_css_class("warning");
+                        } else {
+                             b.remove_css_class("warning");
+                        }
+                     }
+                }
+            });
+
+            list_item.set_child(Some(&btn));
+        });
+
+        factory_fav.connect_bind(move |_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
+            let btn = list_item.child().and_downcast::<gtk::Button>().unwrap();
+            let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
+            
+            let is_fav = keybind.property::<bool>("is-favorite");
+            btn.set_icon_name(if is_fav { "starred-symbolic" } else { "non-starred-symbolic" });
+            if is_fav {
+                 btn.add_css_class("warning");
+            } else {
+                 btn.remove_css_class("warning");
+            }
+        });
+
+        col_fav.set_factory(Some(&factory_fav));
+        column_view.append_column(&col_fav);
+        // -------------------------
+    }
 
     let create_column = |title: &str, property_name: &str, sort_prop: Option<&str>| {
         let factory = gtk::SignalListItemFactory::new();
@@ -191,7 +261,11 @@ pub fn build_ui(app: &adw::Application) {
         .visible(false)
         .build();
 
-    let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom", "Mouse"]);
+    let mut cat_list = vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
+    if config.show_favorites {
+        cat_list.push("Favorites");
+    }
+    let categories = gtk::StringList::new(&cat_list);
     let category_dropdown = gtk::DropDown::builder()
         .model(&categories)
         .selected(0)
@@ -560,6 +634,7 @@ pub fn build_ui(app: &adw::Application) {
                 }
                 4 => dispatcher == "exec", // Custom/Script
                 5 => key_lower.contains("mouse"),
+                6 => kb.property::<bool>("is-favorite"),
                 _ => true,
             };
 

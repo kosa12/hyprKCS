@@ -125,6 +125,16 @@ fn generate_css(config: &StyleConfig) -> String {
         columnview row:selected .args-label {{
             color: alpha(black, 0.55);
         }}
+
+        columnview row:selected .error-icon,
+        columnview row:selected button {{
+            color: #242424;
+        }}
+
+        columnview row:selected .warning, 
+        columnview row:selected button.warning {{
+            color: #7a5000;
+        }}
         
         /* Clean Search Entry */
         searchbar > revealer > box {{

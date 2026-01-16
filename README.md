@@ -79,6 +79,7 @@ You can customize the appearance and behavior of hyprKCS by creating a configura
 | `borderRadius` | Main window corner radius | `12px` |
 | `showSubmaps` | Toggles visibility of the "Submap" column | `false` |
 | `showArgs` | Toggles visibility of the "Arguments" column | `true` |
+| `showFavorites` | Toggles visibility of the "Favorites" column and category | `true` |
 | `alternatingRowColors` | Toggles striped rows for the list view | `true` |
 | `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`, etc.) | `key` |
 | `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
@@ -104,6 +105,7 @@ shadowSize = 0 4px 24px rgba(0,0,0,0.4)
 # UI Elements
 showSubmaps = false
 showArgs = true
+showFavorites = true
 defaultSort = mods
 
 # Spacing
@@ -153,9 +155,9 @@ hyprKCS also includes a powerful CLI for quick lookups and scripting.
 - Fuzzy search and category filtering in the UI.
 - Conflict detection and an interactive resolution wizard.
 - Smart autocomplete for Hyprland dispatchers.
+- Pinned or "favorite" keybinds.
 
 **Planned Features:**
-- Pinned or "favorite" keybinds.
 - A visual statistics dashboard for keybind analysis.
 
 ## Troubleshooting

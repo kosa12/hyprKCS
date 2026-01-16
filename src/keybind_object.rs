@@ -8,7 +8,7 @@ glib::wrapper! {
 }
 
 impl KeybindObject {
-    pub fn new(keybind: Keybind, conflict_reason: Option<String>) -> Self {
+    pub fn new(keybind: Keybind, conflict_reason: Option<String>, is_favorite: bool) -> Self {
         let obj: Self = glib::Object::new();
 
         {
@@ -23,6 +23,7 @@ impl KeybindObject {
             data.submap = keybind.submap.unwrap_or_default();
             data.line_number = keybind.line_number as u64;
             data.file_path = keybind.file_path.to_str().unwrap_or("").to_string();
+            data.is_favorite = is_favorite;
 
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
@@ -56,6 +57,7 @@ mod imp {
         pub file_path: String,
         pub is_conflicted: bool,
         pub conflict_reason: String,
+        pub is_favorite: bool,
     }
 
     #[derive(Default)]
@@ -84,6 +86,7 @@ mod imp {
                     glib::ParamSpecString::builder("file-path").build(),
                     glib::ParamSpecBoolean::builder("is-conflicted").build(),
                     glib::ParamSpecString::builder("conflict-reason").build(),
+                    glib::ParamSpecBoolean::builder("is-favorite").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -102,6 +105,7 @@ mod imp {
                 "file-path" => data.file_path = value.get().unwrap(),
                 "is-conflicted" => data.is_conflicted = value.get().unwrap(),
                 "conflict-reason" => data.conflict_reason = value.get().unwrap(),
+                "is-favorite" => data.is_favorite = value.get().unwrap(),
                 _ => unimplemented!(),
             }
         }
@@ -119,6 +123,7 @@ mod imp {
                 "file-path" => data.file_path.to_value(),
                 "is-conflicted" => data.is_conflicted.to_value(),
                 "conflict-reason" => data.conflict_reason.to_value(),
+                "is-favorite" => data.is_favorite.to_value(),
                 _ => unimplemented!(),
             }
         }
