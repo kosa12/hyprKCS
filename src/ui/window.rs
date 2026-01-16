@@ -191,7 +191,7 @@ pub fn build_ui(app: &adw::Application) {
         .visible(false)
         .build();
 
-    let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom"]);
+    let categories = gtk::StringList::new(&["All", "Workspace", "Window", "Media", "Custom", "Mouse"]);
     let category_dropdown = gtk::DropDown::builder()
         .model(&categories)
         .selected(0)
@@ -537,6 +537,7 @@ pub fn build_ui(app: &adw::Application) {
             let key = kb.property::<String>("key");
             let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
             let args = kb.property::<String>("args").to_lowercase();
+            let key_lower = key.to_lowercase();
 
             // Category Filter
             let category_match = match category {
@@ -558,6 +559,7 @@ pub fn build_ui(app: &adw::Application) {
                         || dispatcher.contains("audio")
                 }
                 4 => dispatcher == "exec", // Custom/Script
+                5 => key_lower.contains("mouse"),
                 _ => true,
             };
 
