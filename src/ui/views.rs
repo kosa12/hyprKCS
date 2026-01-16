@@ -1,12 +1,13 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
 use crate::ui::utils::{
-    execute_hyprctl, execute_keybind, reload_keybinds, setup_dispatcher_completion,
+    command_exists, execute_hyprctl, execute_keybind, reload_keybinds, setup_dispatcher_completion,
 };
 use gtk::{gdk, gio, glib, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
@@ -160,7 +161,11 @@ pub fn create_add_view(
     stack: &gtk::Stack,
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
-) -> gtk::Box {
+) -> gtk::Widget {
+    let local_stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::SlideLeftRight)
+        .build();
+
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(12)
@@ -169,6 +174,8 @@ pub fn create_add_view(
         .margin_start(24)
         .margin_end(24)
         .build();
+
+    local_stack.add_named(&container, Some("form"));
 
     let title_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let title = gtk::Label::builder()
@@ -271,6 +278,58 @@ pub fn create_add_view(
     button_box.append(&add_btn);
     container.append(&button_box);
 
+    // --- Confirmation View Construction ---
+    let confirm_container = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(24)
+        .valign(gtk::Align::Center)
+        .halign(gtk::Align::Center)
+        .build();
+    
+    let confirm_icon = gtk::Image::builder()
+        .icon_name("dialog-warning-symbolic")
+        .pixel_size(64)
+        .css_classes(["error-icon"])
+        .build();
+    confirm_container.append(&confirm_icon);
+
+    let confirm_title = gtk::Label::builder()
+        .label("Command Not Found")
+        .css_classes(["title-2"])
+        .build();
+    confirm_container.append(&confirm_title);
+
+    let confirm_label = gtk::Label::builder()
+        .label("Placeholder text")
+        .justify(gtk::Justification::Center)
+        .wrap(true)
+        .max_width_chars(40)
+        .build();
+    confirm_container.append(&confirm_label);
+
+    let confirm_buttons = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .halign(gtk::Align::Center)
+        .build();
+    
+    let confirm_back_btn = gtk::Button::builder()
+        .label("Back")
+        .build();
+    
+    let confirm_proceed_btn = gtk::Button::builder()
+        .label("Add Anyway")
+        .css_classes(["destructive-action"])
+        .build();
+
+    confirm_buttons.append(&confirm_back_btn);
+    confirm_buttons.append(&confirm_proceed_btn);
+    confirm_container.append(&confirm_buttons);
+
+    local_stack.add_named(&confirm_container, Some("confirm"));
+
+    // --- Logic ---
+
     let entry_dispatcher_exec = entry_dispatcher.clone();
     let entry_args_exec = entry_args.clone();
     exec_btn.connect_clicked(move |_| {
@@ -286,7 +345,18 @@ pub fn create_add_view(
         stack_c.set_visible_child_name("home");
     });
 
-    let stack_c = stack.clone();
+    let local_stack_c = local_stack.clone();
+    confirm_back_btn.connect_clicked(move |_| {
+        local_stack_c.set_visible_child_name("form");
+    });
+
+    // We need to store the pending action (add)
+    // Since we don't have easy state management, we'll re-trigger the add logic
+    // but bypass validation. Or simpler: use a RefCell for the pending add closure?
+    // Actually, create_add_view is one-shot.
+    // We can just define the "do_add" logic and call it from confirm_proceed_btn.
+    // But confirm_proceed_btn needs access to the entry values.
+
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let entry_mods_c = entry_mods.clone();
@@ -294,8 +364,10 @@ pub fn create_add_view(
     let entry_dispatcher_c = entry_dispatcher.clone();
     let entry_args_c = entry_args.clone();
     let entry_submap_c = entry_submap.clone();
+    let stack_c = stack.clone();
 
-    add_btn.connect_clicked(move |_| {
+    // Core Add Logic
+    let perform_add = Rc::new(move || {
         let mods = entry_mods_c.text().to_string();
         let key = entry_key_c.text().to_string();
         let dispatcher = entry_dispatcher_c.text().to_string();
@@ -306,15 +378,6 @@ pub fn create_add_view(
         } else {
             Some(submap_raw.trim().to_string())
         };
-
-        if key.trim().is_empty() || dispatcher.trim().is_empty() {
-            let toast = adw::Toast::builder()
-                .title("Error: Key and Dispatcher cannot be empty")
-                .timeout(3)
-                .build();
-            toast_overlay_clone.add_toast(toast);
-            return;
-        }
 
         let config_path = parser::get_config_path().unwrap();
         match parser::add_keybind(
@@ -327,20 +390,11 @@ pub fn create_add_view(
         ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
-
                 let toast = adw::Toast::builder()
                     .title("Keybind added successfully")
                     .timeout(3)
                     .build();
                 toast_overlay_clone.add_toast(toast);
-
-                // Clear fields
-                entry_mods_c.set_text("");
-                entry_key_c.set_text("");
-                entry_dispatcher_c.set_text("");
-                entry_args_c.set_text("");
-                entry_submap_c.set_text("");
-
                 stack_c.set_visible_child_name("home");
             }
             Err(e) => {
@@ -353,7 +407,49 @@ pub fn create_add_view(
         }
     });
 
-    container
+    let perform_add_c = perform_add.clone();
+    confirm_proceed_btn.connect_clicked(move |_| {
+        perform_add_c();
+    });
+
+    let entry_key_c = entry_key.clone();
+    let entry_dispatcher_c = entry_dispatcher.clone();
+    let entry_args_c = entry_args.clone();
+    let toast_overlay_clone = toast_overlay.clone();
+    let local_stack_c = local_stack.clone();
+    let confirm_label_c = confirm_label.clone();
+
+    add_btn.connect_clicked(move |_| {
+        let key = entry_key_c.text().to_string();
+        let dispatcher = entry_dispatcher_c.text().to_string();
+        let args = entry_args_c.text().to_string();
+
+        if key.trim().is_empty() || dispatcher.trim().is_empty() {
+            let toast = adw::Toast::builder()
+                .title("Error: Key and Dispatcher cannot be empty")
+                .timeout(3)
+                .build();
+            toast_overlay_clone.add_toast(toast);
+            return;
+        }
+
+        // Validation
+        if dispatcher == "exec" || dispatcher == "execr" {
+            let cmd = args.trim();
+            if !command_exists(cmd) {
+                confirm_label_c.set_label(&format!(
+                    "The command '{}' was not found in your PATH.\nAre you sure you want to add this keybind?",
+                    cmd
+                ));
+                local_stack_c.set_visible_child_name("confirm");
+                return;
+            }
+        }
+
+        perform_add();
+    });
+
+    local_stack.upcast::<gtk::Widget>()
 }
 
 pub fn create_edit_view(
@@ -362,11 +458,11 @@ pub fn create_edit_view(
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
     _editing_page: &gtk::Box,
-) -> gtk::Box {
-    // Note: We create a fresh box because repurposing a live widget in a stack can be tricky without proper subclassing
-    // However, for simplicity here, we build a new UI structure every time connect_activate is called,
-    // OR we can perform binding updates.
-    // Given the architecture, recreating the child of "edit_page" is easiest.
+) -> gtk::Widget {
+    // We use a local stack to switch between the Edit Form and the Confirmation View
+    let local_stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::SlideLeftRight)
+        .build();
 
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -376,6 +472,8 @@ pub fn create_edit_view(
         .margin_start(24)
         .margin_end(24)
         .build();
+    
+    local_stack.add_named(&container, Some("form"));
 
     let title_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let title = gtk::Label::builder()
@@ -510,6 +608,58 @@ pub fn create_edit_view(
     button_box.append(&save_btn);
     container.append(&button_box);
 
+    // --- Confirmation View Construction ---
+    let confirm_container = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(24)
+        .valign(gtk::Align::Center)
+        .halign(gtk::Align::Center)
+        .build();
+    
+    let confirm_icon = gtk::Image::builder()
+        .icon_name("dialog-warning-symbolic")
+        .pixel_size(64)
+        .css_classes(["error-icon"])
+        .build();
+    confirm_container.append(&confirm_icon);
+
+    let confirm_title = gtk::Label::builder()
+        .label("Command Not Found")
+        .css_classes(["title-2"])
+        .build();
+    confirm_container.append(&confirm_title);
+
+    let confirm_label = gtk::Label::builder()
+        .label("Placeholder text")
+        .justify(gtk::Justification::Center)
+        .wrap(true)
+        .max_width_chars(40)
+        .build();
+    confirm_container.append(&confirm_label);
+
+    let confirm_buttons = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .halign(gtk::Align::Center)
+        .build();
+    
+    let confirm_back_btn = gtk::Button::builder()
+        .label("Back")
+        .build();
+    
+    let confirm_proceed_btn = gtk::Button::builder()
+        .label("Save Anyway")
+        .css_classes(["destructive-action"])
+        .build();
+
+    confirm_buttons.append(&confirm_back_btn);
+    confirm_buttons.append(&confirm_proceed_btn);
+    confirm_container.append(&confirm_buttons);
+
+    local_stack.add_named(&confirm_container, Some("confirm"));
+
+    // --- Logic ---
+
     let entry_dispatcher_exec = entry_dispatcher.clone();
     let entry_args_exec = entry_args.clone();
     exec_btn.connect_clicked(move |_| {
@@ -525,23 +675,94 @@ pub fn create_edit_view(
         stack_c.set_visible_child_name("home");
     });
 
+    let local_stack_c = local_stack.clone();
+    confirm_back_btn.connect_clicked(move |_| {
+        local_stack_c.set_visible_child_name("form");
+    });
+
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let file_path_str = obj.property::<String>("file-path");
     let file_path = PathBuf::from(&file_path_str);
     let stack_c = stack.clone();
+    
+    // Core Save Logic
+    let do_save = {
+        let file_path = file_path.clone();
+        let model_clone = model_clone.clone();
+        let toast_overlay_clone = toast_overlay_clone.clone();
+        let stack_c = stack_c.clone();
+        let entry_mods = entry_mods.clone();
+        let entry_key = entry_key.clone();
+        let entry_dispatcher = entry_dispatcher.clone();
+        let entry_args = entry_args.clone();
+
+        Rc::new(move || {
+            let input_mods = entry_mods.text().to_string();
+            let new_mods = if mods_had_prefix {
+                format!("${}", input_mods)
+            } else {
+                input_mods
+            };
+
+            let new_key = entry_key.text().to_string();
+            let new_dispatcher = entry_dispatcher.text().to_string();
+            let input_args = entry_args.text().to_string();
+            let new_args = if args_had_prefix {
+                format!("${}", input_args)
+            } else {
+                input_args
+            };
+
+            match parser::update_line(
+                file_path.clone(),
+                line_number,
+                &new_mods,
+                &new_key,
+                &new_dispatcher,
+                &new_args,
+            ) {
+                Ok(_) => {
+                    reload_keybinds(&model_clone);
+                    let toast = adw::Toast::builder()
+                        .title("Keybind saved")
+                        .timeout(3)
+                        .build();
+                    toast_overlay_clone.add_toast(toast);
+                    stack_c.set_visible_child_name("home");
+                }
+                Err(e) => {
+                    let toast = adw::Toast::builder()
+                        .title(&format!("Error: {}", e))
+                        .timeout(5)
+                        .build();
+                    toast_overlay_clone.add_toast(toast);
+                }
+            }
+        })
+    };
+
+    let do_save_c = do_save.clone();
+    confirm_proceed_btn.connect_clicked(move |_| {
+        do_save_c();
+    });
 
     let entry_dispatcher_save = entry_dispatcher.clone();
-    save_btn.connect_clicked(move |_| {
-        let input_mods = entry_mods.text().to_string();
-        let new_mods = if mods_had_prefix {
-            format!("${}", input_mods)
-        } else {
-            input_mods
-        };
+    let local_stack_c = local_stack.clone();
+    let confirm_label_c = confirm_label.clone();
+    let toast_overlay_clone = toast_overlay.clone();
+    let entry_key_c = entry_key.clone();
+    let entry_args_c = entry_args.clone();
 
-        let new_key = entry_key.text().to_string();
+    save_btn.connect_clicked(move |_| {
+        let new_key = entry_key_c.text().to_string();
         let new_dispatcher = entry_dispatcher_save.text().to_string();
+        let input_args = entry_args_c.text().to_string();
+        let new_args = if args_had_prefix {
+            format!("${}", input_args)
+        } else {
+            input_args
+        };
 
         if new_key.trim().is_empty() || new_dispatcher.trim().is_empty() {
             let toast = adw::Toast::builder()
@@ -552,38 +773,23 @@ pub fn create_edit_view(
             return;
         }
 
-        let input_args = entry_args.text().to_string();
-        let new_args = if args_had_prefix {
-            format!("${}", input_args)
-        } else {
-            input_args
-        };
-
-        match parser::update_line(
-            file_path.clone(),
-            line_number,
-            &new_mods,
-            &new_key,
-            &new_dispatcher,
-            &new_args,
-        ) {
-            Ok(_) => {
-                reload_keybinds(&model_clone);
-                let toast = adw::Toast::builder()
-                    .title("Keybind saved")
-                    .timeout(3)
-                    .build();
-                toast_overlay_clone.add_toast(toast);
-                stack_c.set_visible_child_name("home");
-            }
-            Err(e) => {
-                let toast = adw::Toast::builder()
-                    .title(&format!("Error: {}", e))
-                    .timeout(5)
-                    .build();
-                toast_overlay_clone.add_toast(toast);
+        // Command Validation for exec
+        if new_dispatcher == "exec" || new_dispatcher == "execr" {
+            let cmd = new_args.trim();
+            // Don't validate if it looks like a variable
+            if !cmd.starts_with('$') {
+                if !command_exists(cmd) {
+                    confirm_label_c.set_label(&format!(
+                        "The command '{}' was not found in your PATH.\nAre you sure you want to save this keybind?",
+                        cmd
+                    ));
+                    local_stack_c.set_visible_child_name("confirm");
+                    return;
+                }
             }
         }
+
+        do_save();
     });
 
     let model_clone = model.clone();
@@ -613,5 +819,5 @@ pub fn create_edit_view(
         }
     });
 
-    container
+    local_stack.upcast()
 }

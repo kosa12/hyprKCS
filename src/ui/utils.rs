@@ -134,6 +134,38 @@ pub fn execute_hyprctl(args: &[&str]) {
     }
 }
 
+pub fn command_exists(command: &str) -> bool {
+    let cmd_name = if let Some(first_part) = command.split_whitespace().next() {
+        first_part
+    } else {
+        return false;
+    };
+
+    if std::path::Path::new(cmd_name).is_absolute() {
+        return std::path::Path::new(cmd_name).exists();
+    }
+
+    if let Ok(path) = std::env::var("PATH") {
+        for p in std::env::split_paths(&path) {
+            let full_path = p.join(cmd_name);
+            if full_path.is_file() {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(metadata) = std::fs::metadata(&full_path) {
+                        if metadata.permissions().mode() & 0o111 != 0 {
+                            return true;
+                        }
+                    }
+                }
+                #[cfg(not(unix))]
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[allow(deprecated)]
 pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
     let dispatchers = [
