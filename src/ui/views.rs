@@ -434,6 +434,16 @@ pub fn create_edit_view(
     setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
     form_box.append(&recorder_box);
 
+    let file_path_display = obj.property::<String>("file-path");
+    if !file_path_display.is_empty() {
+        let path_label = gtk::Label::builder()
+            .label(&format!("Source: {}", file_path_display))
+            .halign(gtk::Align::Start)
+            .css_classes(["caption", "dim-label"]) // Use adwaita/gtk style classes for smaller text
+            .build();
+        form_box.append(&path_label);
+    }
+
     let label_mods = gtk::Label::new(Some("Modifiers:"));
     label_mods.set_halign(gtk::Align::Start);
     form_box.append(&label_mods);
