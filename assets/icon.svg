@@ -1,8 +1,5 @@
-<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
-
- <g>
-  <title>Layer 1</title>
-  <ellipse stroke-dasharray="5,2,2,2" ry="62" rx="62" id="svg_4" cy="64" cx="64" stroke="#000" fill="#000000"/>
-  <text style="cursor: move;" transform="matrix(0.987708, 0, 0, 2.0524, 95.8138, -67.1483)" font-style="normal" font-weight="bold" xml:space="preserve" text-anchor="start" font-family="monospace" font-size="24" id="svg_2" y="73.42832" x="-81.87708" stroke-width="0" stroke="#000" fill="#ffaaaa">hyprKCS</text>
- </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="8" y="8" width="112" height="112" rx="24" ry="24" fill="#333333" stroke="#555555" stroke-width="4"/>
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#ffffff" font-weight="900">KCS</text>
+  <path d="M 20 64 L 108 64" stroke="#ffffff" stroke-width="2" stroke-opacity="0.2" />
 </svg>
