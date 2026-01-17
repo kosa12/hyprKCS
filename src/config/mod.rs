@@ -1,4 +1,5 @@
 pub mod favorites;
+pub mod constants;
 
 use std::collections::HashMap;
 use std::fs;
@@ -50,7 +51,7 @@ impl StyleConfig {
         let mut config = StyleConfig::default();
 
         if let Some(config_dir) = dirs::config_dir() {
-            let config_path = config_dir.join("hyprkcs/hyprkcs.conf");
+            let config_path = config_dir.join(constants::HYPRKCS_DIR).join(constants::HYPRKCS_CONF);
             
             if !config_path.exists() {
                 // Create default config
@@ -183,7 +184,7 @@ rowPadding = 2px
     }
     pub fn save(&self) -> Result<(), std::io::Error> {
         if let Some(config_dir) = dirs::config_dir() {
-            let config_path = config_dir.join("hyprkcs/hyprkcs.conf");
+            let config_path = config_dir.join(constants::HYPRKCS_DIR).join(constants::HYPRKCS_CONF);
             if let Some(parent) = config_path.parent() {
                 fs::create_dir_all(parent)?;
             }

@@ -134,18 +134,18 @@ hyprKCS also includes a powerful CLI for quick lookups and scripting.
 
 - **Print all keybinds:**
   ```bash
-  hyprKCS --print
-  # Short: hyprKCS -p
+  hyprkcs --print
+  # Short: hyprkcs -p
   ```
 - **Search for a keybind:**
   ```bash
-  hyprKCS --search "firefox"
-  # Short: hyprKCS -s "firefox"
+  hyprkcs --search "firefox"
+  # Short: hyprkcs -s "firefox"
   ```
 - **Use a custom config file:**
   ```bash
-  hyprKCS --config ~/.config/hypr/custom.conf
-  # Short: hyprKCS -c ~/.config/hypr/custom.conf
+  hyprkcs --config ~/.config/hypr/custom.conf
+  # Short: hyprkcs -c ~/.config/hypr/custom.conf
   ```
 
 ## Project Status

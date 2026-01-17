@@ -503,7 +503,7 @@ pub fn build_ui(app: &adw::Application) {
         match parser::get_all_config_files() {
             Ok(files) => {
                 if let Some(config_dir) = dirs::config_dir() {
-                    let backup_root = config_dir.join("hypr/backups");
+                    let backup_root = config_dir.join(crate::config::constants::HYPR_DIR).join(crate::config::constants::BACKUP_DIR);
                     let backup_dir = backup_root.join(&timestamp);
                     
                     if let Err(e) = fs::create_dir_all(&backup_dir) {
@@ -530,8 +530,11 @@ pub fn build_ui(app: &adw::Application) {
                     }
 
                     let toast = adw::Toast::new(&format!(
-                        "Backed up {} files to ~/.config/hypr/backups/{}",
-                        success_count, timestamp
+                        "Backed up {} files to ~/.config/{}/{}/{}",
+                        success_count,
+                        crate::config::constants::HYPR_DIR,
+                        crate::config::constants::BACKUP_DIR,
+                        timestamp
                     ));
                     toast_overlay_backup.add_toast(toast);
                 }

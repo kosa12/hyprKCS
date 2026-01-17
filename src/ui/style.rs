@@ -303,7 +303,7 @@ fn start_theme_monitor(app_provider: gtk::CssProvider, theme_provider: gtk::CssP
                                         std::time::Duration::from_millis(200),
                                         move || {
                                             theme_prov.load_from_file(&f);
-                                            // Also reload our app config in case user changed hyprkcs.conf
+                                            // Also reload our app config in case user changed the config file
                                             let cfg = StyleConfig::load();
                                             app_prov.load_from_string(&generate_css(&cfg));
                                             glib::ControlFlow::Break
