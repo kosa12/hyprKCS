@@ -22,8 +22,7 @@ jobs:
       - name: Nix Magic Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
-            - name: Build
-
-              run: nix build -L
+      - name: Build
+        run: nix build -L
 
       
