@@ -358,9 +358,15 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     ));
     group_community.add(&create_link(
         "Donate", 
-        "Support the project", 
+        "Support the project on Ko-fi", 
         "favorite-symbolic", 
         "https://ko-fi.com/kosa12m"
+    ));
+    group_community.add(&create_link(
+        "Donate", 
+        "Support the project on Github Sponsors", 
+        "favorite-symbolic", 
+        "https://github.com/sponsors/kosa12"
     ));
 
     page_feedback.add(&group_community);
