@@ -6,6 +6,7 @@ use std::cell::RefCell;
 
 thread_local! {
     static THEME_MONITOR: RefCell<Option<gio::FileMonitor>> = RefCell::new(None);
+    static APP_PROVIDER: RefCell<Option<gtk::CssProvider>> = RefCell::new(None);
 }
 
 fn generate_css(config: &StyleConfig) -> String {
@@ -202,12 +203,26 @@ fn generate_css(config: &StyleConfig) -> String {
     )
 }
 
+pub fn reload_style() {
+    APP_PROVIDER.with(|p| {
+        if let Some(provider) = p.borrow().as_ref() {
+            let config = StyleConfig::load();
+            let css_content = generate_css(&config);
+            provider.load_from_string(&css_content);
+        }
+    });
+}
+
 pub fn load_css() {
     let config = StyleConfig::load();
     let css_content = generate_css(&config);
 
     let app_provider = gtk::CssProvider::new();
     app_provider.load_from_string(&css_content);
+
+    APP_PROVIDER.with(|p| {
+        *p.borrow_mut() = Some(app_provider.clone());
+    });
 
     let theme_provider = gtk::CssProvider::new();
     let display = gtk::gdk::Display::default().expect("Could not connect to a display.");
