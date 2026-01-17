@@ -351,8 +351,8 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
         "https://github.com/kosa12/hyprKCS"
     ));
     group_community.add(&create_link(
-        "Report a Bug", 
-        "Found an issue? Let me know.", 
+        "Report a Bug or Suggest a Feature", 
+        "Found an issue? Have a suggestion? Let me know.", 
         "bug-symbolic", 
         "https://github.com/kosa12/hyprKCS/issues"
     ));
