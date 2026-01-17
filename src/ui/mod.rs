@@ -3,3 +3,4 @@ pub mod utils;
 pub mod views;
 pub mod window;
 pub mod wizards;
+pub mod settings;

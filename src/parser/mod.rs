@@ -23,8 +23,8 @@ pub fn get_config_path() -> Result<PathBuf> {
     }
 
     let mut path = config_dir().context("Could not find config directory")?;
-    path.push("hypr");
-    path.push("hyprland.conf");
+    path.push(crate::config::constants::HYPR_DIR);
+    path.push(crate::config::constants::HYPRLAND_CONF);
     Ok(path)
 }
 

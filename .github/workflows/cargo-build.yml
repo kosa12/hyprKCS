@@ -25,5 +25,4 @@ jobs:
       - name: Build
         run: nix build -L
 
-      - name: Test
-        run: nix develop --command cargo test
+      

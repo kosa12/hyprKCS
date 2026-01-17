@@ -1,4 +1,5 @@
 pub mod favorites;
+pub mod constants;
 
 use std::collections::HashMap;
 use std::fs;
@@ -50,7 +51,7 @@ impl StyleConfig {
         let mut config = StyleConfig::default();
 
         if let Some(config_dir) = dirs::config_dir() {
-            let config_path = config_dir.join("hyprkcs/hyprkcs.conf");
+            let config_path = config_dir.join(constants::HYPRKCS_DIR).join(constants::HYPRKCS_CONF);
             
             if !config_path.exists() {
                 // Create default config
@@ -180,6 +181,56 @@ rowPadding = 2px
             }
         }
         config
+    }
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        if let Some(config_dir) = dirs::config_dir() {
+            let config_path = config_dir.join(constants::HYPRKCS_DIR).join(constants::HYPRKCS_CONF);
+            if let Some(parent) = config_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            let content = format!(
+                r#"# Window dimensions
+width = {}px
+height = {}px
+
+# Appearance
+fontSize = {}
+borderSize = {}
+borderRadius = {}
+opacity = {}
+
+# UI Elements
+showSubmaps = {}
+showArgs = {}
+showFavorites = {}
+alternatingRowColors = {}
+defaultSort = {}
+shadowSize = {}
+
+# Spacing
+monitorMargin = {}px
+rowPadding = {}px
+"#,
+                self.width,
+                self.height,
+                self.font_size.as_deref().unwrap_or("0.9rem"),
+                self.border_size.as_deref().unwrap_or("1px"),
+                self.border_radius.as_deref().unwrap_or("12px"),
+                self.opacity.unwrap_or(1.0),
+                self.show_submaps,
+                self.show_args,
+                self.show_favorites,
+                self.alternating_row_colors,
+                self.default_sort,
+                self.shadow_size,
+                self.monitor_margin,
+                self.row_padding
+            );
+
+            fs::write(config_path, content)?;
+        }
+        Ok(())
     }
 }
 

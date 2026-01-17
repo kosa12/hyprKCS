@@ -254,6 +254,12 @@ pub fn build_ui(app: &adw::Application) {
         .css_classes(["flat"])
         .build();
 
+    let settings_button = gtk::Button::builder()
+        .icon_name("emblem-system-symbolic")
+        .tooltip_text("Settings")
+        .css_classes(["flat"])
+        .build();
+
     let conflict_button = gtk::Button::builder()
         .icon_name("dialog-warning-symbolic")
         .label("Resolve Conflicts")
@@ -286,6 +292,7 @@ pub fn build_ui(app: &adw::Application) {
     top_box.append(&conflict_button);
     top_box.append(&add_button);
     top_box.append(&backup_button);
+    top_box.append(&settings_button);
 
     // Status Page (Empty State)
     let status_page = adw::StatusPage::builder()
@@ -330,6 +337,9 @@ pub fn build_ui(app: &adw::Application) {
 
     let wizard_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&wizard_page_container, Some("wizard"));
+
+    let settings_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root_stack.add_named(&settings_page_container, Some("settings"));
 
     let window_content = gtk::Box::builder()
         .css_classes(["window-content"])
@@ -493,7 +503,7 @@ pub fn build_ui(app: &adw::Application) {
         match parser::get_all_config_files() {
             Ok(files) => {
                 if let Some(config_dir) = dirs::config_dir() {
-                    let backup_root = config_dir.join("hypr/backups");
+                    let backup_root = config_dir.join(crate::config::constants::HYPR_DIR).join(crate::config::constants::BACKUP_DIR);
                     let backup_dir = backup_root.join(&timestamp);
                     
                     if let Err(e) = fs::create_dir_all(&backup_dir) {
@@ -520,8 +530,11 @@ pub fn build_ui(app: &adw::Application) {
                     }
 
                     let toast = adw::Toast::new(&format!(
-                        "Backed up {} files to ~/.config/hypr/backups/{}",
-                        success_count, timestamp
+                        "Backed up {} files to ~/.config/{}/{}/{}",
+                        success_count,
+                        crate::config::constants::HYPR_DIR,
+                        crate::config::constants::BACKUP_DIR,
+                        timestamp
                     ));
                     toast_overlay_backup.add_toast(toast);
                 }
@@ -668,6 +681,18 @@ pub fn build_ui(app: &adw::Application) {
         let text = search_entry_ref.text().to_string();
         let cat = dropdown.selected();
         filter_func_2(text, cat);
+    });
+
+    let stack_settings = root_stack.clone();
+    let container_settings = settings_page_container.clone();
+    let window_settings = window.clone();
+    settings_button.connect_clicked(move |_| {
+        while let Some(child) = container_settings.first_child() {
+            container_settings.remove(&child);
+        }
+        let view = crate::ui::settings::create_settings_view(&window_settings, &stack_settings);
+        container_settings.append(&view);
+        stack_settings.set_visible_child_name("settings");
     });
 
     window.present();
