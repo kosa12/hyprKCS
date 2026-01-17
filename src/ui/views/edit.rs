@@ -101,7 +101,23 @@ pub fn create_edit_view(
         .build();
 
     let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    
+    let description = obj.property::<String>("description");
+    if !description.is_empty() {
+        let desc_label = gtk::Label::builder()
+            .label(&format!("Description: {}", description))
+            .css_classes(["dim-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build();
+        recorder_box.append(&desc_label);
+    } else {
+        let spacer = gtk::Box::builder().hexpand(true).build();
+        recorder_box.append(&spacer);
+    }
+    
     setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
+
     form_box.append(&recorder_box);
 
     let label_mods = gtk::Label::new(Some("Modifiers:"));

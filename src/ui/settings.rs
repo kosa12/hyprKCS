@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use crate::config::StyleConfig;
 
-pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack) -> gtk::Widget {
+pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack, on_desc_toggle: Rc<dyn Fn(bool)>) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
 
     let main_box = gtk::Box::builder()
@@ -319,6 +319,20 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
         glib::Propagation::Proceed 
     });
     group_cols.add(&fav_row);
+
+    // Description
+    let desc_switch = gtk::Switch::builder().active(config.borrow().show_description).valign(gtk::Align::Center).build();
+    let desc_row = adw::ActionRow::builder().title("Show Description").activatable_widget(&desc_switch).build();
+    desc_row.add_suffix(&desc_switch);
+    let c = config.clone();
+    let on_toggle = on_desc_toggle.clone();
+    desc_switch.connect_state_set(move |_, s| { 
+        c.borrow_mut().show_description = s; 
+        let _ = c.borrow().save();
+        on_toggle(s);
+        glib::Propagation::Proceed 
+    });
+    group_cols.add(&desc_row);
 
     let group_sort = adw::PreferencesGroup::builder().title("Sorting").build();
     

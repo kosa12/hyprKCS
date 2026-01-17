@@ -15,6 +15,7 @@ pub struct StyleConfig {
     pub show_submaps: bool,
     pub show_args: bool,
     pub show_favorites: bool,
+    pub show_description: bool,
     pub alternating_row_colors: bool,
     pub default_sort: String,
     pub shadow_size: String,
@@ -41,6 +42,7 @@ impl Default for StyleConfig {
             show_submaps: false,
             show_args: true,
             show_favorites: true,
+            show_description: false,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
@@ -83,6 +85,7 @@ opacity = 1.0
 showSubmaps = false
 showArgs = true
 showFavorites = true
+showDescription = false
 alternatingRowColors = true
 defaultSort = key
 shadowSize = 0 4px 24px rgba(0,0,0,0.4)
@@ -161,6 +164,9 @@ rowPadding = 2px
                     if let Some(val) = vars.get("showFavorites") {
                         config.show_favorites = val.to_lowercase() == "true";
                     }
+                    if let Some(val) = vars.get("showDescription") {
+                        config.show_description = val.to_lowercase() == "true";
+                    }
                     if let Some(val) = vars.get("alternatingRowColors") {
                         config.alternating_row_colors = val.to_lowercase() == "true";
                     }
@@ -232,6 +238,7 @@ opacity = {}
 showSubmaps = {}
 showArgs = {}
 showFavorites = {}
+showDescription = {}
 alternatingRowColors = {}
 defaultSort = {}
 shadowSize = {}
@@ -254,6 +261,7 @@ rowPadding = {}px
                 self.show_submaps,
                 self.show_args,
                 self.show_favorites,
+                self.show_description,
                 self.alternating_row_colors,
                 self.default_sort,
                 self.shadow_size,

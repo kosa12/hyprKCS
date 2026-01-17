@@ -96,7 +96,7 @@ pub fn build_ui(app: &adw::Application) {
         // -------------------------
     }
 
-    let create_column = |title: &str, property_name: &str, sort_prop: Option<&str>| {
+    let create_column = move |title: &str, property_name: &str, sort_prop: Option<&str>| {
         let factory = gtk::SignalListItemFactory::new();
         let prop_name = property_name.to_string();
         let prop_name_css = property_name.to_string();
@@ -104,6 +104,7 @@ pub fn build_ui(app: &adw::Application) {
         let prop_name_css_clone = prop_name_css.clone();
         factory.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
+            
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
                 .margin_start(8)
@@ -119,6 +120,7 @@ pub fn build_ui(app: &adw::Application) {
                 "dispatcher" => label.add_css_class("dispatcher-label"),
                 "args" => label.add_css_class("args-label"),
                 "submap" => label.add_css_class("submap-label"),
+                "description" => label.add_css_class("description-label"),
                 _ => {}
             }
 
@@ -213,6 +215,16 @@ pub fn build_ui(app: &adw::Application) {
         column_view.append_column(&col_args);
         if config.default_sort == "args" || config.default_sort == "arguments" {
             default_sort_col = Some(col_args);
+        }
+    }
+
+    let col_desc = create_column("Description", "description", Some("description"));
+    column_view.append_column(&col_desc);
+    col_desc.set_visible(config.show_description);
+
+    if config.show_description {
+        if config.default_sort == "description" || config.default_sort == "desc" {
+            default_sort_col = Some(col_desc.clone());
         }
     }
 
@@ -584,6 +596,7 @@ pub fn build_ui(app: &adw::Application) {
             let key = kb.property::<String>("key");
             let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
             let args = kb.property::<String>("args").to_lowercase();
+            let description = kb.property::<String>("description").to_lowercase();
             let key_lower = key.to_lowercase();
 
             // Category Filter
@@ -623,6 +636,7 @@ pub fn build_ui(app: &adw::Application) {
                 || matcher.fuzzy_match(&key, &text).is_some()
                 || matcher.fuzzy_match(&dispatcher, &text).is_some()
                 || matcher.fuzzy_match(&args, &text).is_some()
+                || matcher.fuzzy_match(&description, &text).is_some()
         });
     };
 
@@ -646,11 +660,17 @@ pub fn build_ui(app: &adw::Application) {
     let stack_settings = root_stack.clone();
     let container_settings = settings_page_container.clone();
     let window_settings = window.clone();
+    let col_desc_clone = col_desc.clone();
     settings_button.connect_clicked(move |_| {
         while let Some(child) = container_settings.first_child() {
             container_settings.remove(&child);
         }
-        let view = crate::ui::settings::create_settings_view(&window_settings, &stack_settings);
+        let col_desc_c = col_desc_clone.clone();
+        let view = crate::ui::settings::create_settings_view(
+            &window_settings, 
+            &stack_settings,
+            std::rc::Rc::new(move |s| col_desc_c.set_visible(s))
+        );
         container_settings.append(&view);
         stack_settings.set_visible_child_name("settings");
     });
