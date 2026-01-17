@@ -33,6 +33,9 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click.
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
+- **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
+- **Favorites**: Pin frequently used keybinds for quick access.
+- **Style Customization**: Adjust window size, opacity, font size, and other UI elements via a settings dialog or a simple configuration file.
 
 ## Installation
 

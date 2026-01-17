@@ -97,7 +97,6 @@ fn generate_css(config: &StyleConfig) -> String {
         columnview row {{
             border-radius: {key_radius};
             margin: {row_margin}px 0;
-            transition: background-color 200ms ease;
         }}
 
         {alternating_css}

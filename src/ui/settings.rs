@@ -52,7 +52,7 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
         .build();
     
     let settings_stack = gtk::Stack::builder()
-        .transition_type(gtk::StackTransitionType::Crossfade)
+        .transition_type(gtk::StackTransitionType::None)
         .vexpand(true)
         .hexpand(true)
         .build();
@@ -312,6 +312,59 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     page_ui.add(&group_cols);
     page_ui.add(&group_sort);
     settings_stack.add_titled(&page_ui, Some("ui"), "UI Elements");
+
+
+    // ================== PAGE 4: FEEDBACK ==================
+    let page_feedback = adw::PreferencesPage::builder().build();
+    let group_community = adw::PreferencesGroup::builder().title("Community").build();
+
+    let create_link = |title: &str, subtitle: &str, icon: &str, url: &str| {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(subtitle)
+            .activatable(true)
+            .build();
+        
+        let img = gtk::Image::from_icon_name(icon);
+        row.add_prefix(&img);
+        
+        let suffix = gtk::Image::from_icon_name("external-link-symbolic");
+        row.add_suffix(&suffix);
+
+        let u = url.to_string();
+        let w = window.clone();
+        row.connect_activated(move |_| {
+            let launcher = gtk::UriLauncher::new(&u);
+            launcher.launch(Some(&w), None::<&gtk::gio::Cancellable>, |res| {
+                if let Err(e) = res {
+                    eprintln!("Failed to launch URL: {}", e);
+                }
+            });
+        });
+        row
+    };
+
+    group_community.add(&create_link(
+        "GitHub Repository", 
+        "Star the project on GitHub!", 
+        "starred-symbolic", 
+        "https://github.com/kosa12/hyprKCS"
+    ));
+    group_community.add(&create_link(
+        "Report a Bug", 
+        "Found an issue? Let me know.", 
+        "bug-symbolic", 
+        "https://github.com/kosa12/hyprKCS/issues"
+    ));
+    group_community.add(&create_link(
+        "Donate", 
+        "Support the project", 
+        "favorite-symbolic", 
+        "https://ko-fi.com/kosa12m"
+    ));
+
+    page_feedback.add(&group_community);
+    settings_stack.add_titled(&page_feedback, Some("feedback"), "Feedback");
 
 
     main_box.upcast::<gtk::Widget>()
