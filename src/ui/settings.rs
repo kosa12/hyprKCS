@@ -75,7 +75,50 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     main_box.append(&sidebar_box);
 
 
-    // ================== PAGE 1: WINDOW ==================
+    // ================== PAGE 1: GENERAL ==================
+    let page_general = adw::PreferencesPage::builder().build();
+    let group_backup = adw::PreferencesGroup::builder().title("Backup and Restore").build();
+
+    // Auto-Backup
+    let auto_backup_switch = gtk::Switch::builder().active(config.borrow().auto_backup).valign(gtk::Align::Center).build();
+    let auto_backup_row = adw::ActionRow::builder().title("Auto-Backup").subtitle("Backup config on every save").activatable_widget(&auto_backup_switch).build();
+    auto_backup_row.add_suffix(&auto_backup_switch);
+    let c = config.clone();
+    auto_backup_switch.connect_state_set(move |_, s| { c.borrow_mut().auto_backup = s; let _ = c.borrow().save(); glib::Propagation::Proceed });
+    group_backup.add(&auto_backup_row);
+
+    // Max Backups Enabled
+    let max_backups_switch = gtk::Switch::builder().active(config.borrow().max_backups_enabled).valign(gtk::Align::Center).build();
+    let max_backups_row = adw::ActionRow::builder().title("Limit Backups").subtitle("Delete old backups").activatable_widget(&max_backups_switch).build();
+    max_backups_row.add_suffix(&max_backups_switch);
+    
+    // Backup Count
+    let count_adj = gtk::Adjustment::new(config.borrow().max_backups_count as f64, 1.0, 1000.0, 1.0, 10.0, 0.0);
+    let count_spin = gtk::SpinButton::builder().adjustment(&count_adj).valign(gtk::Align::Center).build();
+    let count_row = adw::ActionRow::builder().title("Max Backups").subtitle("Number of backups to keep").build();
+    count_row.add_suffix(&count_spin);
+    let c = config.clone();
+    count_spin.connect_value_changed(move |s| { c.borrow_mut().max_backups_count = s.value() as i32; let _ = c.borrow().save(); });
+    
+    // Initial state
+    count_row.set_sensitive(config.borrow().max_backups_enabled);
+
+    let count_row_ref = count_row.clone();
+    let c = config.clone();
+    max_backups_switch.connect_state_set(move |_, s| { 
+        c.borrow_mut().max_backups_enabled = s; 
+        let _ = c.borrow().save();
+        count_row_ref.set_sensitive(s);
+        glib::Propagation::Proceed 
+    });
+    group_backup.add(&max_backups_row);
+    group_backup.add(&count_row);
+
+    page_general.add(&group_backup);
+    settings_stack.add_titled(&page_general, Some("general"), "General");
+
+
+    // ================== PAGE 2: WINDOW ==================
     let page_window = adw::PreferencesPage::builder().build();
     let group_dims = adw::PreferencesGroup::builder().title("Dimensions").build();
     
@@ -177,7 +220,7 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     settings_stack.add_titled(&page_window, Some("window"), "Window");
 
 
-    // ================== PAGE 2: APPEARANCE ==================
+    // ================== PAGE 3: APPEARANCE ==================
     let page_app = adw::PreferencesPage::builder().build();
     let group_font = adw::PreferencesGroup::builder().title("Typography and Borders").build();
 
@@ -234,7 +277,7 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     settings_stack.add_titled(&page_app, Some("appearance"), "Appearance");
 
 
-    // ================== PAGE 3: UI ELEMENTS ==================
+    // ================== PAGE 4: UI ELEMENTS ==================
     let page_ui = adw::PreferencesPage::builder().build();
     let group_cols = adw::PreferencesGroup::builder().title("Table Columns").build();
 
@@ -314,7 +357,7 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     settings_stack.add_titled(&page_ui, Some("ui"), "UI Elements");
 
 
-    // ================== PAGE 4: FEEDBACK ==================
+    // ================== PAGE 5: FEEDBACK ==================
     let page_feedback = adw::PreferencesPage::builder().build();
     let group_community = adw::PreferencesGroup::builder().title("Community").build();
 
@@ -353,19 +396,19 @@ pub fn create_settings_view(window: &adw::ApplicationWindow, stack: &gtk::Stack)
     group_community.add(&create_link(
         "Report a Bug or Suggest a Feature", 
         "Found an issue? Have a suggestion? Let me know.", 
-        "bug-symbolic", 
+        "dialog-warning-symbolic", 
         "https://github.com/kosa12/hyprKCS/issues"
     ));
     group_community.add(&create_link(
         "Donate", 
         "Support the project on Ko-fi", 
-        "favorite-symbolic", 
-        "https://ko-fi.com/kosa12m"
+        "emblem-favorite-symbolic", 
+        "https://ko-fi.com/kosa12"
     ));
     group_community.add(&create_link(
         "Donate", 
         "Support the project on Github Sponsors", 
-        "favorite-symbolic", 
+        "emblem-favorite-symbolic", 
         "https://github.com/sponsors/kosa12"
     ));
 

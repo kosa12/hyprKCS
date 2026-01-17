@@ -21,6 +21,11 @@ pub struct StyleConfig {
     pub monitor_margin: i32,
     pub row_padding: i32,
     
+    // New fields
+    pub auto_backup: bool,
+    pub max_backups_enabled: bool,
+    pub max_backups_count: i32,
+
     pub errors: Vec<String>,
 }
 
@@ -41,6 +46,11 @@ impl Default for StyleConfig {
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,
+            
+            auto_backup: true,
+            max_backups_enabled: false,
+            max_backups_count: 10,
+
             errors: Vec::new(),
         }
     }
@@ -76,6 +86,11 @@ showFavorites = true
 alternatingRowColors = true
 defaultSort = key
 shadowSize = 0 4px 24px rgba(0,0,0,0.4)
+
+# Behavior
+autoBackup = true
+maxBackupsEnabled = false
+maxBackupsCount = 10
 
 # Spacing
 monitorMargin = 12px
@@ -177,6 +192,19 @@ rowPadding = 2px
                             config.errors.push(format!("Invalid rowPadding '{}'.", val));
                         }
                     }
+                    
+                    // New Fields Parsing
+                    if let Some(val) = vars.get("autoBackup") {
+                        config.auto_backup = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("maxBackupsEnabled") {
+                        config.max_backups_enabled = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("maxBackupsCount") {
+                        if let Ok(num) = val.parse::<i32>() {
+                            config.max_backups_count = num;
+                        }
+                    }
                 }
             }
         }
@@ -208,6 +236,11 @@ alternatingRowColors = {}
 defaultSort = {}
 shadowSize = {}
 
+# Behavior
+autoBackup = {}
+maxBackupsEnabled = {}
+maxBackupsCount = {}
+
 # Spacing
 monitorMargin = {}px
 rowPadding = {}px
@@ -224,6 +257,9 @@ rowPadding = {}px
                 self.alternating_row_colors,
                 self.default_sort,
                 self.shadow_size,
+                self.auto_backup,
+                self.max_backups_enabled,
+                self.max_backups_count,
                 self.monitor_margin,
                 self.row_padding
             );

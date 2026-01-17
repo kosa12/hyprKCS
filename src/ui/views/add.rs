@@ -5,6 +5,7 @@ use crate::ui::utils::{
     reload_keybinds,
     setup_dispatcher_completion,
     setup_key_recorder,
+    perform_backup,
 };
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
@@ -244,6 +245,11 @@ pub fn create_add_view(
         ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
+                
+                if let Err(e) = perform_backup(false) {
+                    eprintln!("Auto-backup failed: {}", e);
+                }
+
                 let toast = adw::Toast::builder()
                     .title("Keybind added successfully")
                     .timeout(3)
