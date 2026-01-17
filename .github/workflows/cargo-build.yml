@@ -4,14 +4,23 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  check-and-build:
+    name: Check & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +31,29 @@ jobs:
       - name: Nix Magic Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check Formatting
+        run: nix develop --command cargo fmt -- --check
+
+      - name: Build (Release)
+        run: nix develop --command cargo build --release --verbose
+
+      - name: Run Tests
+        run: nix develop --command cargo test --verbose
+
+  build-nix:
+    name: Nix Build (Pure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Nix Magic Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
       - name: Build
         run: nix build -L
-
-      

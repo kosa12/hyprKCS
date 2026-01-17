@@ -228,7 +228,7 @@ pub fn create_conflict_wizard(
                 toast_overlay_c.add_toast(toast);
             } else {
                 crate::ui::utils::reload_keybinds(&model_c);
-                
+
                 if let Err(e) = perform_backup(false) {
                     eprintln!("Auto-backup failed: {}", e);
                 }

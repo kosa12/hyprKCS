@@ -1,21 +1,23 @@
+use crate::config::constants;
+use crate::config::StyleConfig;
+use crate::parser;
 use anyhow::{Context, Result};
 use chrono::Local;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::config::constants;
-use crate::config::StyleConfig;
-use crate::parser;
 
 pub fn perform_backup(force: bool) -> Result<String> {
     let config = StyleConfig::load();
-    
+
     if !force && !config.auto_backup {
         return Ok("Auto-backup disabled".to_string());
     }
 
     let config_dir = dirs::config_dir().context("Could not find config directory")?;
-    let backup_root = config_dir.join(constants::HYPR_DIR).join(constants::BACKUP_DIR);
-    
+    let backup_root = config_dir
+        .join(constants::HYPR_DIR)
+        .join(constants::BACKUP_DIR);
+
     let now = Local::now();
     let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
     let backup_dir = backup_root.join(&timestamp);

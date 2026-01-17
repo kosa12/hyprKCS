@@ -5,10 +5,10 @@ use gtk::{glib, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 
+mod config;
 mod keybind_object;
 mod parser;
 mod ui;
-mod config;
 
 const APP_ID: &str = "com.github.hyprkcs";
 
@@ -56,9 +56,9 @@ fn main() -> glib::ExitCode {
                 // Simple manual table printing
                 // Calculate max widths for alignment
                 let mut w_mods = 9; // "Modifiers".len()
-                let mut w_key = 3;  // "Key".len()
+                let mut w_key = 3; // "Key".len()
                 let mut w_disp = 6; // "Action".len()
-                
+
                 for b in &binds {
                     w_mods = w_mods.max(b.mods.len());
                     w_key = w_key.max(b.key.len());
