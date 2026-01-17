@@ -413,3 +413,6 @@ pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
