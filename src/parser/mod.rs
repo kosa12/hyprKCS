@@ -94,7 +94,7 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
             // Prepare sorted keys from current variables for resolution
             // This happens per-line but only for variable/source lines, which is acceptable
             let mut sorted_keys: Vec<_> = vars.keys().cloned().collect();
-            sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
+            sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
 
             if let Some(caps) = var_re.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
@@ -129,7 +129,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
     // Sort keys ONCE for the entire parsing process
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
-    sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
+    sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
 
     let mut visited = HashSet::new();
     let mut current_submap: Option<String> = None;
@@ -149,7 +149,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
         let content = std::fs::read_to_string(&path).unwrap_or_default();
         let lines: Vec<&str> = content.lines().collect();
-        
+
         // Regex to match "bind" or "bindl", "binde" etc, and capture the flags + the rest of the line
         let bind_re = Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap();
         let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
@@ -175,12 +175,12 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 // Extract description:
                 // 1. Inline comment: "bind = ... # My Desc"
                 // 2. Preceding comment: "# My Desc \n bind = ..."
-                
+
                 let mut description = None;
-                
+
                 // Check inline
                 if let Some(idx) = line.find('#') {
-                    let comment = line[idx+1..].trim();
+                    let comment = line[idx + 1..].trim();
                     if !comment.is_empty() {
                         description = Some(comment.to_string());
                     }
@@ -268,10 +268,10 @@ pub fn get_all_config_files() -> Result<Vec<PathBuf>> {
     let main_path = get_config_path()?;
     let variables = get_variables()?;
     let sorted_keys: Vec<_> = variables.keys().cloned().collect();
-    
+
     let mut files = Vec::new();
     let mut visited = HashSet::new();
-    
+
     fn collect_files(
         path: PathBuf,
         files: &mut Vec<PathBuf>,
@@ -308,8 +308,14 @@ pub fn get_all_config_files() -> Result<Vec<PathBuf>> {
         }
         Ok(())
     }
-    
-    collect_files(main_path, &mut files, &mut visited, &variables, &sorted_keys)?;
+
+    collect_files(
+        main_path,
+        &mut files,
+        &mut visited,
+        &variables,
+        &sorted_keys,
+    )?;
     Ok(files)
 }
 
@@ -386,8 +392,8 @@ pub fn add_keybind(
             if trimmed == submap_decl {
                 found_submap = true;
                 // Look ahead for the end of this submap
-                for j in (i + 1)..lines.len() {
-                    let next_trimmed = lines[j].trim();
+                for (j, line_j) in lines.iter().enumerate().skip(i + 1) {
+                    let next_trimmed = line_j.trim();
                     if next_trimmed.starts_with("submap =") {
                         // Found end of block (either reset or another submap start)
                         insert_index = Some(j);

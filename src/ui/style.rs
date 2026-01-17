@@ -5,8 +5,8 @@ use libadwaita as adw;
 use std::cell::RefCell;
 
 thread_local! {
-    static THEME_MONITOR: RefCell<Option<gio::FileMonitor>> = RefCell::new(None);
-    static APP_PROVIDER: RefCell<Option<gtk::CssProvider>> = RefCell::new(None);
+    static THEME_MONITOR: RefCell<Option<gio::FileMonitor>> = const { RefCell::new(None) };
+    static APP_PROVIDER: RefCell<Option<gtk::CssProvider>> = const { RefCell::new(None) };
 }
 
 fn generate_css(config: &StyleConfig) -> String {
@@ -17,12 +17,12 @@ fn generate_css(config: &StyleConfig) -> String {
     } else {
         "0.8rem".to_string()
     };
-    
+
     let border_size = config.border_size.as_deref().unwrap_or("1px");
     let border_radius = config.border_radius.as_deref().unwrap_or("12px");
     let key_radius = config.border_radius.as_deref().unwrap_or("6px");
     let opacity = config.opacity.unwrap_or(1.0);
-    
+
     let win_margin = config.monitor_margin;
     let row_margin = config.row_padding;
     let shadow = &config.shadow_size;
@@ -35,7 +35,8 @@ fn generate_css(config: &StyleConfig) -> String {
         ""
     };
 
-    format!("
+    format!(
+        "
         /* Modern Keycap Look */
         .key-label, .mod-label {{
             font-family: monospace;
@@ -199,15 +200,15 @@ fn generate_css(config: &StyleConfig) -> String {
              outline: none;
         }}
     ",
-    font_size = font_size,
-    submap_font_size = submap_font_size,
-    border_size = border_size,
-    border_radius = border_radius,
-    key_radius = key_radius,
-    opacity = opacity,
-    win_margin = win_margin,
-    row_margin = row_margin,
-    shadow = shadow
+        font_size = font_size,
+        submap_font_size = submap_font_size,
+        border_size = border_size,
+        border_radius = border_radius,
+        key_radius = key_radius,
+        opacity = opacity,
+        win_margin = win_margin,
+        row_margin = row_margin,
+        shadow = shadow
     )
 }
 
@@ -254,10 +255,10 @@ pub fn load_css() {
         &app_provider,
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
-    
+
     // We capture the config to regenerate CSS on theme changes
     // Ideally we should reload config too, but for now reuse it.
-    
+
     if let Some(settings) = gtk::Settings::default() {
         let app_prov = app_provider.clone();
         let theme_prov = theme_provider.clone();
@@ -297,7 +298,7 @@ fn start_theme_monitor(app_provider: gtk::CssProvider, theme_provider: gtk::CssP
                 monitor.connect_changed(move |_, file, _, event| {
                     let path = file.path();
                     if let Some(path) = path {
-                        if path.file_name().map_or(false, |n| n == "gtk.css") {
+                        if path.file_name().is_some_and(|n| n == "gtk.css") {
                             match event {
                                 gio::FileMonitorEvent::ChangesDoneHint
                                 | gio::FileMonitorEvent::Changed

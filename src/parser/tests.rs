@@ -1,7 +1,7 @@
 use super::*;
+use once_cell::sync::Lazy;
 use std::io::Write;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
 
 static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -12,13 +12,18 @@ struct TempFile {
 impl TempFile {
     fn new(content: &str) -> Self {
         let mut path = std::env::temp_dir();
-        let filename = format!("hyprkcs_test_{}_{}.conf", 
+        let filename = format!(
+            "hyprkcs_test_{}_{}.conf",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         );
         path.push(filename);
         let mut file = std::fs::File::create(&path).expect("Failed to create temp file");
-        file.write_all(content.as_bytes()).expect("Failed to write temp content");
+        file.write_all(content.as_bytes())
+            .expect("Failed to write temp content");
         Self { path }
     }
 }
@@ -68,7 +73,7 @@ fn test_variable_precedence() {
 #[test]
 fn test_parse_config_simple() {
     let _guard = ENV_LOCK.lock().unwrap();
-    
+
     let content = r#"$
 $mainMod = SUPER
 bind = $mainMod, Q, exec, kitty
@@ -96,21 +101,22 @@ bind = CTRL, C, killactive,
 #[test]
 fn test_add_keybind() {
     let _guard = ENV_LOCK.lock().unwrap();
-    
+
     let content = r#"$
 $mainMod = SUPER
 bind = $mainMod, Q, exec, kitty
 "#;
     let temp = TempFile::new(content);
-    
+
     add_keybind(
         temp.path.clone(),
         "SUPER SHIFT",
         "F",
         "fullscreen",
         "0",
-        None
-    ).expect("Failed to add keybind");
+        None,
+    )
+    .expect("Failed to add keybind");
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("bind = SUPER SHIFT, F, fullscreen, 0"));
@@ -123,16 +129,16 @@ bind = $mainMod, Q, exec, kitty
 #[test]
 fn test_delete_keybind() {
     let _guard = ENV_LOCK.lock().unwrap();
-    
+
     let content = r#"$
 bind = SUPER, 1, workspace, 1
 bind = SUPER, 2, workspace, 2
 bind = SUPER, 3, workspace, 3
 "#;
     let temp = TempFile::new(content);
-    
+
     delete_keybind(temp.path.clone(), 2).expect("Failed to delete");
-    
+
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(!new_content.contains("workspace, 2"));
     assert!(new_content.contains("workspace, 1"));
@@ -145,12 +151,12 @@ fn test_source_inclusion() {
 
     let sourced_content = "bind = ALT, F4, killactive,";
     let sourced_file = TempFile::new(sourced_content);
-    
+
     let main_content = format!("source = {}\n", sourced_file.path.to_str().unwrap());
     let main_file = TempFile::new(&main_content);
-    
+
     std::env::set_var("HYPRKCS_CONFIG", &main_file.path);
-    
+
     let binds = parse_config().expect("Failed to parse");
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].mods, "ALT");
@@ -171,15 +177,15 @@ bind = SUPER, Return, exec, alacritty
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
     let binds = parse_config().expect("Failed to parse submaps");
-    
-    // Should have: 
+
+    // Should have:
     // 1. SUPER, R -> submap resize (Global)
     // 2. , l -> resizeactive (resize submap)
     // 3. , escape -> submap reset (resize submap)
     // 4. SUPER, Return -> exec alacritty (Global)
-    
+
     assert_eq!(binds.len(), 4);
-    
+
     assert_eq!(binds[0].submap, None);
     assert_eq!(binds[0].dispatcher, "submap");
     assert_eq!(binds[0].args, "resize");
@@ -189,7 +195,7 @@ bind = SUPER, Return, exec, alacritty
     assert_eq!(binds[1].dispatcher, "resizeactive");
 
     assert_eq!(binds[2].submap, Some("resize".to_string()));
-    
+
     assert_eq!(binds[3].submap, None);
     assert_eq!(binds[3].key, "Return");
 }
@@ -203,30 +209,32 @@ bind = , k, killactive,
 submap = reset
 "#;
     let temp = TempFile::new(content);
-    
+
     // Add to existing submap
     add_keybind(
         temp.path.clone(),
-        "", 
-        "m", 
-        "movefocus", 
-        "l", 
-        Some("existing".to_string())
-    ).expect("Failed to add to existing submap");
-    
+        "",
+        "m",
+        "movefocus",
+        "l",
+        Some("existing".to_string()),
+    )
+    .expect("Failed to add to existing submap");
+
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("bind = , m, movefocus, l"));
-    
+
     // Add to NEW submap
     add_keybind(
         temp.path.clone(),
-        "", 
-        "q", 
-        "quit", 
-        "", 
-        Some("newmap".to_string())
-    ).expect("Failed to add to new submap");
-    
+        "",
+        "q",
+        "quit",
+        "",
+        Some("newmap".to_string()),
+    )
+    .expect("Failed to add to new submap");
+
     let new_content_2 = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content_2.contains("submap = newmap"));
     assert!(new_content_2.contains("bind = , q, quit"));
@@ -248,7 +256,7 @@ bind = SUPER, C, exec, code # Launch VS Code
     assert_eq!(binds.len(), 2);
 
     assert_eq!(binds[0].key, "C");
-    assert_eq!(binds[0].args, "code"); 
+    assert_eq!(binds[0].args, "code");
 
     assert_eq!(binds[1].mods, "ALT");
     assert_eq!(binds[1].key, "Tab");
@@ -269,7 +277,7 @@ bind = SUPER, Return, $myExec
     let binds = parse_config().expect("Failed to parse variable chain");
 
     assert_eq!(binds.len(), 1);
-    assert_eq!(binds[0].dispatcher, "exec"); 
+    assert_eq!(binds[0].dispatcher, "exec");
     assert_eq!(binds[0].args, "alacritty");
 }
 
@@ -286,9 +294,8 @@ bind = SUPER, W, exec
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
     let binds = parse_config().expect("Should not crash on malformed lines");
-    
+
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].key, "W");
     assert_eq!(binds[0].dispatcher, "exec");
 }
-

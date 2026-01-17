@@ -1,11 +1,7 @@
 use crate::parser;
 use crate::ui::utils::{
-    command_exists,
-    execute_keybind,
-    reload_keybinds,
-    setup_dispatcher_completion,
+    command_exists, execute_keybind, perform_backup, reload_keybinds, setup_dispatcher_completion,
     setup_key_recorder,
-    perform_backup,
 };
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
@@ -140,7 +136,7 @@ pub fn create_add_view(
         .valign(gtk::Align::Center)
         .halign(gtk::Align::Center)
         .build();
-    
+
     let confirm_icon = gtk::Image::builder()
         .icon_name("dialog-warning-symbolic")
         .pixel_size(64)
@@ -167,11 +163,9 @@ pub fn create_add_view(
         .spacing(12)
         .halign(gtk::Align::Center)
         .build();
-    
-    let confirm_back_btn = gtk::Button::builder()
-        .label("Back")
-        .build();
-    
+
+    let confirm_back_btn = gtk::Button::builder().label("Back").build();
+
     let confirm_proceed_btn = gtk::Button::builder()
         .label("Add Anyway")
         .css_classes(["destructive-action"])
@@ -245,7 +239,7 @@ pub fn create_add_view(
         ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
-                
+
                 if let Err(e) = perform_backup(false) {
                     eprintln!("Auto-backup failed: {}", e);
                 }

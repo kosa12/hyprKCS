@@ -1,12 +1,8 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
 use crate::ui::utils::{
-    command_exists,
-    execute_keybind,
-    reload_keybinds,
-    setup_dispatcher_completion,
+    command_exists, execute_keybind, perform_backup, reload_keybinds, setup_dispatcher_completion,
     setup_key_recorder,
-    perform_backup,
 };
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
@@ -34,7 +30,7 @@ pub fn create_edit_view(
         .margin_start(24)
         .margin_end(24)
         .build();
-    
+
     local_stack.add_named(&container, Some("form"));
 
     let title_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -101,7 +97,7 @@ pub fn create_edit_view(
         .build();
 
     let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    
+
     let description = obj.property::<String>("description");
     if !description.is_empty() {
         let desc_label = gtk::Label::builder()
@@ -115,7 +111,7 @@ pub fn create_edit_view(
         let spacer = gtk::Box::builder().hexpand(true).build();
         recorder_box.append(&spacer);
     }
-    
+
     setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
 
     form_box.append(&recorder_box);
@@ -193,7 +189,7 @@ pub fn create_edit_view(
         .valign(gtk::Align::Center)
         .halign(gtk::Align::Center)
         .build();
-    
+
     let confirm_icon = gtk::Image::builder()
         .icon_name("dialog-warning-symbolic")
         .pixel_size(64)
@@ -220,11 +216,9 @@ pub fn create_edit_view(
         .spacing(12)
         .halign(gtk::Align::Center)
         .build();
-    
-    let confirm_back_btn = gtk::Button::builder()
-        .label("Back")
-        .build();
-    
+
+    let confirm_back_btn = gtk::Button::builder().label("Back").build();
+
     let confirm_proceed_btn = gtk::Button::builder()
         .label("Save Anyway")
         .css_classes(["destructive-action"])
@@ -263,7 +257,7 @@ pub fn create_edit_view(
     let file_path_str = obj.property::<String>("file-path");
     let file_path = PathBuf::from(&file_path_str);
     let stack_c = stack.clone();
-    
+
     // Core Save Logic
     let do_save = {
         let file_path = file_path.clone();
@@ -302,7 +296,7 @@ pub fn create_edit_view(
             ) {
                 Ok(_) => {
                     reload_keybinds(&model_clone);
-                    
+
                     if let Err(e) = perform_backup(false) {
                         eprintln!("Auto-backup failed: {}", e);
                     }
@@ -385,7 +379,7 @@ pub fn create_edit_view(
         match parser::delete_keybind(file_path.clone(), line_number) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
-                
+
                 if let Err(e) = perform_backup(false) {
                     eprintln!("Auto-backup failed: {}", e);
                 }

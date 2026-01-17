@@ -36,7 +36,7 @@ pub fn build_ui(app: &adw::Application) {
             .build();
 
         let factory_fav = gtk::SignalListItemFactory::new();
-        
+
         factory_fav.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let btn = gtk::Button::builder()
@@ -44,12 +44,12 @@ pub fn build_ui(app: &adw::Application) {
                 .valign(gtk::Align::Center)
                 .halign(gtk::Align::Center)
                 .build();
-            
+
             // Handle Click
             let list_item_weak = list_item.downgrade();
             btn.connect_clicked(move |b| {
                 if let Some(list_item) = list_item_weak.upgrade() {
-                     if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
+                    if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
                         let mut favs = load_favorites();
                         let item = FavoriteKeybind {
                             mods: obj.property::<String>("clean-mods"),
@@ -58,19 +58,23 @@ pub fn build_ui(app: &adw::Application) {
                             dispatcher: obj.property::<String>("dispatcher"),
                             args: obj.property::<String>("args"),
                         };
-                        
+
                         let new_state = toggle_favorite(&mut favs, item);
                         let _ = save_favorites(&favs);
-                        
+
                         obj.set_property("is-favorite", new_state);
-                        
-                        b.set_icon_name(if new_state { "starred-symbolic" } else { "non-starred-symbolic" });
-                        if new_state {
-                             b.add_css_class("warning");
+
+                        b.set_icon_name(if new_state {
+                            "starred-symbolic"
                         } else {
-                             b.remove_css_class("warning");
+                            "non-starred-symbolic"
+                        });
+                        if new_state {
+                            b.add_css_class("warning");
+                        } else {
+                            b.remove_css_class("warning");
                         }
-                     }
+                    }
                 }
             });
 
@@ -81,13 +85,17 @@ pub fn build_ui(app: &adw::Application) {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let btn = list_item.child().and_downcast::<gtk::Button>().unwrap();
             let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
-            
+
             let is_fav = keybind.property::<bool>("is-favorite");
-            btn.set_icon_name(if is_fav { "starred-symbolic" } else { "non-starred-symbolic" });
-            if is_fav {
-                 btn.add_css_class("warning");
+            btn.set_icon_name(if is_fav {
+                "starred-symbolic"
             } else {
-                 btn.remove_css_class("warning");
+                "non-starred-symbolic"
+            });
+            if is_fav {
+                btn.add_css_class("warning");
+            } else {
+                btn.remove_css_class("warning");
             }
         });
 
@@ -104,7 +112,7 @@ pub fn build_ui(app: &adw::Application) {
         let prop_name_css_clone = prop_name_css.clone();
         factory.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
-            
+
             let label = gtk::Label::builder()
                 .halign(gtk::Align::Start)
                 .margin_start(8)
@@ -242,8 +250,12 @@ pub fn build_ui(app: &adw::Application) {
 
     // Ensure the first row is selected/focused after sorting
     selection_model.set_selected(0);
-    column_view.scroll_to(0, None::<&gtk::ColumnViewColumn>, gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT, None::<gtk::ScrollInfo>);
-
+    column_view.scroll_to(
+        0,
+        None::<&gtk::ColumnViewColumn>,
+        gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
+        None::<gtk::ScrollInfo>,
+    );
 
     // Compact Top Bar Layout
     let search_entry = gtk::SearchEntry::builder()
@@ -359,7 +371,7 @@ pub fn build_ui(app: &adw::Application) {
 
     let toast_overlay = adw::ToastOverlay::new();
     toast_overlay.set_child(Some(&window_content));
-    
+
     // Log configuration errors to stderr
     for error in &config.errors {
         eprintln!("[Config Error] {}", error);
@@ -405,7 +417,7 @@ pub fn build_ui(app: &adw::Application) {
         let search_focused = search_entry_focus.has_focus();
 
         if home_visible && search_focused {
-             if key == gtk::gdk::Key::Down {
+            if key == gtk::gdk::Key::Down {
                 column_view_focus.grab_focus();
                 return glib::Propagation::Stop;
             }
@@ -505,16 +517,14 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     let toast_overlay_backup = toast_overlay.clone();
-    backup_button.connect_clicked(move |_| {
-        match crate::ui::utils::perform_backup(true) {
-            Ok(msg) => {
-                let toast = adw::Toast::new(&msg);
-                toast_overlay_backup.add_toast(toast);
-            }
-            Err(e) => {
-                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
-                toast_overlay_backup.add_toast(toast);
-            }
+    backup_button.connect_clicked(move |_| match crate::ui::utils::perform_backup(true) {
+        Ok(msg) => {
+            let toast = adw::Toast::new(&msg);
+            toast_overlay_backup.add_toast(toast);
+        }
+        Err(e) => {
+            let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+            toast_overlay_backup.add_toast(toast);
         }
     });
 
@@ -667,9 +677,9 @@ pub fn build_ui(app: &adw::Application) {
         }
         let col_desc_c = col_desc_clone.clone();
         let view = crate::ui::settings::create_settings_view(
-            &window_settings, 
+            &window_settings,
             &stack_settings,
-            std::rc::Rc::new(move |s| col_desc_c.set_visible(s))
+            std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
         );
         container_settings.append(&view);
         stack_settings.set_visible_child_name("settings");
