@@ -63,10 +63,10 @@ width = 700px
 height = 500px
 
 # Appearance
-# fontSize = 0.9rem
-# borderSize = 1px
-# borderRadius = 12px
-# opacity = 1.0
+fontSize = 0.9rem
+borderSize = 1px
+borderRadius = 12px
+opacity = 1.0
 
 # UI Elements
 showSubmaps = false
