@@ -1,17 +1,14 @@
 use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
-use crate::parser;
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
-use chrono::Local;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use gtk::{gio, glib, prelude::*};
 use gtk4 as gtk;
 use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
 use libadwaita as adw;
-use std::fs;
 
 pub fn build_ui(app: &adw::Application) {
     let config = StyleConfig::load();
@@ -497,51 +494,14 @@ pub fn build_ui(app: &adw::Application) {
 
     let toast_overlay_backup = toast_overlay.clone();
     backup_button.connect_clicked(move |_| {
-        let now = Local::now();
-        let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
-        
-        match parser::get_all_config_files() {
-            Ok(files) => {
-                if let Some(config_dir) = dirs::config_dir() {
-                    let backup_root = config_dir.join(crate::config::constants::HYPR_DIR).join(crate::config::constants::BACKUP_DIR);
-                    let backup_dir = backup_root.join(&timestamp);
-                    
-                    if let Err(e) = fs::create_dir_all(&backup_dir) {
-                        let toast = adw::Toast::new(&format!("Failed to create backup dir: {}", e));
-                        toast_overlay_backup.add_toast(toast);
-                        return;
-                    }
-
-                    let mut success_count = 0;
-                    for file_path in files {
-                        if let Some(name) = file_path.file_name() {
-                            let dest = backup_dir.join(name);
-                            // If multiple files have the same name, we might overwrite. 
-                            // Simple solution: if exists, append a number/hash? 
-                            // For now, let's assume they are unique or just overwrite (last one wins).
-                            // Better: Replicate structure? Too complex for now.
-                            // Let's just copy flat.
-                            if let Err(e) = fs::copy(&file_path, &dest) {
-                                eprintln!("Failed to backup {:?}: {}", file_path, e);
-                            } else {
-                                success_count += 1;
-                            }
-                        }
-                    }
-
-                    let toast = adw::Toast::new(&format!(
-                        "Backed up {} files to ~/.config/{}/{}/{}",
-                        success_count,
-                        crate::config::constants::HYPR_DIR,
-                        crate::config::constants::BACKUP_DIR,
-                        timestamp
-                    ));
-                    toast_overlay_backup.add_toast(toast);
-                }
-            },
+        match crate::ui::utils::perform_backup(true) {
+            Ok(msg) => {
+                let toast = adw::Toast::new(&msg);
+                toast_overlay_backup.add_toast(toast);
+            }
             Err(e) => {
-                 let toast = adw::Toast::new(&format!("Could not find config files: {}", e));
-                 toast_overlay_backup.add_toast(toast);
+                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                toast_overlay_backup.add_toast(toast);
             }
         }
     });

@@ -31,11 +31,12 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
-- **Configuration Backup**: Create a timestamped backup of your configuration files with a single click.
+- **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Favorites**: Pin frequently used keybinds for quick access.
-- **Style Customization**: Adjust window size, opacity, font size, and other UI elements via a settings dialog or a simple configuration file.
+- **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
+- **Automatic Backups**: Automatically backup your configuration on every change, with optional retention limits.
 
 ## Installation
 
@@ -88,6 +89,9 @@ You can customize the appearance and behavior of hyprKCS by creating a configura
 | `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
+| `autoBackup` | Automatically backup config on save | `true` |
+| `maxBackupsEnabled` | Enable limiting the number of backups | `false` |
+| `maxBackupsCount` | Maximum number of backups to keep | `10` |
 
 <details>
 <summary>Example Configuration</summary>
@@ -110,6 +114,11 @@ showSubmaps = false
 showArgs = true
 showFavorites = true
 defaultSort = mods
+
+# Behavior
+autoBackup = true
+maxBackupsEnabled = true
+maxBackupsCount = 20
 
 # Spacing
 monitorMargin = 20px
@@ -159,6 +168,10 @@ hyprKCS also includes a powerful CLI for quick lookups and scripting.
 - Conflict detection and an interactive resolution wizard.
 - Smart autocomplete for Hyprland dispatchers.
 - Pinned or "favorite" keybinds.
+- Comprehensive unit tests and CI/CD pipeline.
+- Real-time settings editor with sidebar layout.
+- Automatic backup system with pruning.
+- In-app feedback and community links.
 
 **Planned Features:**
 - A visual statistics dashboard for keybind analysis.

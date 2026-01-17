@@ -1,6 +1,6 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
-use crate::ui::utils::normalize;
+use crate::ui::utils::{normalize, perform_backup};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -228,6 +228,11 @@ pub fn create_conflict_wizard(
                 toast_overlay_c.add_toast(toast);
             } else {
                 crate::ui::utils::reload_keybinds(&model_c);
+                
+                if let Err(e) = perform_backup(false) {
+                    eprintln!("Auto-backup failed: {}", e);
+                }
+
                 refresh_wizard(
                     &stack_c,
                     &model_c,
