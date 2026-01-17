@@ -19,36 +19,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-native:
-    name: Native Check & Build
-    runs-on: ubuntu-24.04
+  check-and-build:
+    name: Check & Build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Nix Magic Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
       - name: Check Formatting
-        run: cargo fmt -- --check
+        run: nix develop --command cargo fmt -- --check
 
       - name: Build (Release)
-        run: cargo build --release --verbose
+        run: nix develop --command cargo build --release --verbose
 
       - name: Run Tests
-        run: cargo test --verbose
-        
+        run: nix develop --command cargo test --verbose
+
   build-nix:
-    name: Nix Build
+    name: Nix Build (Pure)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
