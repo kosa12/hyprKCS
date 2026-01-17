@@ -80,6 +80,11 @@ fn generate_css(config: &StyleConfig) -> String {
             font-size: {font_size};
         }}
 
+        .description-label {{
+            color: alpha(@window_fg_color, 0.70);
+            font-size: {font_size};
+        }}
+
         /* Conflict Styling */
         .error-icon {{
             color: @error_color;
@@ -124,6 +129,10 @@ fn generate_css(config: &StyleConfig) -> String {
 
         columnview row:selected .args-label {{
             color: alpha(black, 0.55);
+        }}
+
+        columnview row:selected .description-label {{
+            color: alpha(black, 0.70);
         }}
 
         columnview row:selected .error-icon,

@@ -20,6 +20,7 @@ impl KeybindObject {
             data.key = keybind.key;
             data.dispatcher = keybind.dispatcher;
             data.args = keybind.args;
+            data.description = keybind.description.unwrap_or_default();
             data.submap = keybind.submap.unwrap_or_default();
             data.line_number = keybind.line_number as u64;
             data.file_path = keybind.file_path.to_str().unwrap_or("").to_string();
@@ -52,6 +53,7 @@ mod imp {
         pub key: String,
         pub dispatcher: String,
         pub args: String,
+        pub description: String,
         pub submap: String,
         pub line_number: u64,
         pub file_path: String,
@@ -81,6 +83,7 @@ mod imp {
                     glib::ParamSpecString::builder("key").build(),
                     glib::ParamSpecString::builder("dispatcher").build(),
                     glib::ParamSpecString::builder("args").build(),
+                    glib::ParamSpecString::builder("description").build(),
                     glib::ParamSpecString::builder("submap").build(),
                     glib::ParamSpecUInt64::builder("line-number").build(),
                     glib::ParamSpecString::builder("file-path").build(),
@@ -100,6 +103,7 @@ mod imp {
                 "key" => data.key = value.get().unwrap(),
                 "dispatcher" => data.dispatcher = value.get().unwrap(),
                 "args" => data.args = value.get().unwrap(),
+                "description" => data.description = value.get().unwrap(),
                 "submap" => data.submap = value.get().unwrap(),
                 "line-number" => data.line_number = value.get().unwrap(),
                 "file-path" => data.file_path = value.get().unwrap(),
@@ -118,6 +122,7 @@ mod imp {
                 "key" => data.key.to_value(),
                 "dispatcher" => data.dispatcher.to_value(),
                 "args" => data.args.to_value(),
+                "description" => data.description.to_value(),
                 "submap" => data.submap.to_value(),
                 "line-number" => data.line_number.to_value(),
                 "file-path" => data.file_path.to_value(),

@@ -109,6 +109,7 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
         .label("Record Combo")
         .tooltip_text("Click then press your key combination")
         .css_classes(["record-btn"])
+        .margin_end(24)
         .build();
 
     // Create the controller once and attach it to the button

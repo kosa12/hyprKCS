@@ -12,6 +12,7 @@ pub struct Keybind {
     pub key: String,
     pub dispatcher: String,
     pub args: String,
+    pub description: Option<String>,
     pub submap: Option<String>,
     pub line_number: usize,
     pub file_path: PathBuf,
@@ -147,12 +148,14 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         visited.insert(path.clone());
 
         let content = std::fs::read_to_string(&path).unwrap_or_default();
+        let lines: Vec<&str> = content.lines().collect();
+        
         // Regex to match "bind" or "bindl", "binde" etc, and capture the flags + the rest of the line
         let bind_re = Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap();
         let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
         let submap_re = Regex::new(r"^\s*submap\s*=\s*(.*)$").unwrap();
 
-        for (index, line) in content.lines().enumerate() {
+        for (index, line) in lines.iter().enumerate() {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
                 continue;
@@ -169,10 +172,35 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
                 let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
 
+                // Extract description:
+                // 1. Inline comment: "bind = ... # My Desc"
+                // 2. Preceding comment: "# My Desc \n bind = ..."
+                
+                let mut description = None;
+                
+                // Check inline
+                if let Some(idx) = line.find('#') {
+                    let comment = line[idx+1..].trim();
+                    if !comment.is_empty() {
+                        description = Some(comment.to_string());
+                    }
+                }
+
+                // Check preceding line if no inline description found
+                if description.is_none() && index > 0 {
+                    let prev_line = lines[index - 1].trim();
+                    if prev_line.starts_with('#') {
+                        let comment = prev_line.trim_start_matches('#').trim();
+                        if !comment.is_empty() {
+                            description = Some(comment.to_string());
+                        }
+                    }
+                }
+
                 // 1. Resolve variables in the content string using PRE-SORTED keys
                 let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
 
-                // 2. Strip comments
+                // 2. Strip comments for parsing parts
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
 
                 // 3. Split by comma to get arguments
@@ -196,6 +224,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         key,
                         dispatcher,
                         args,
+                        description,
                         submap: current_submap.clone(),
                         line_number: index,
                         file_path: path.clone(),
