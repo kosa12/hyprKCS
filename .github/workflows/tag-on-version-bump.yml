@@ -40,14 +40,35 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Get Tag Message
+        if: steps.check_ver.outputs.changed == 'true'
+        id: tag_msg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Try to get PR title associated with this commit
+          # We search for the commit SHA in merged PRs
+          PR_TITLE=$(gh pr list --search "${{ github.sha }}" --state merged --json title --jq '.[0].title')
+          
+          if [ -z "$PR_TITLE" ] || [ "$PR_TITLE" == "null" ]; then
+            echo "No PR found, using commit message."
+            # Fallback to commit message (first line)
+            PR_TITLE=$(git log -1 --pretty=%s)
+          fi
+          
+          echo "Tag Message found: $PR_TITLE"
+          echo "msg=$PR_TITLE" >> $GITHUB_OUTPUT
+
       - name: Create Tag
         if: steps.check_ver.outputs.changed == 'true'
         run: |
           VERSION="v${{ steps.check_ver.outputs.version }}"
-          echo "Pushing tag $VERSION"
+          MSG="${{ steps.tag_msg.outputs.msg }}"
+          
+          echo "Pushing tag $VERSION with message: $MSG"
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git tag -a "$VERSION" -m "Release $VERSION"
+          git tag -a "$VERSION" -m "$MSG"
           git push origin "$VERSION"
