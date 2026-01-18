@@ -19,7 +19,7 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "1.16.0";
+            version = "1.16.1";
 
             src = let
               fs = pkgs.lib.fileset;

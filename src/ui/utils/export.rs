@@ -11,6 +11,7 @@ pub fn export_keybinds_to_markdown(model: &gio::ListStore, path: &Path) -> Resul
     let mut file = File::create(path)?;
 
     writeln!(file, "# Hyprland Keybinds\n")?;
+    writeln!(file, "(Exported with HyprKCS)\n")?;
     writeln!(file, "| Modifiers | Key | Action | Arguments | Submap | Description |")?;
     writeln!(file, "|---|---|---|---|---|---|")?;
 
