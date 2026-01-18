@@ -12,6 +12,11 @@ use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
 use libadwaita as adw;
 
 pub fn build_ui(app: &adw::Application) {
+    if let Some(window) = app.active_window() {
+        window.present();
+        return;
+    }
+
     let config = StyleConfig::load();
     let model = gio::ListStore::new::<KeybindObject>();
     crate::ui::utils::reload_keybinds(&model);
