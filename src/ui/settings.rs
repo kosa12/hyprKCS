@@ -601,7 +601,9 @@ pub fn create_settings_view(
 
     // ================== PAGE 6: ABOUT ==================
     let page_about = adw::PreferencesPage::builder().build();
-    let group_about = adw::PreferencesGroup::builder().title("Application Information").build();
+    let group_about = adw::PreferencesGroup::builder()
+        .title("Application Information")
+        .build();
 
     let ver_row = adw::ActionRow::builder()
         .title("Version")
