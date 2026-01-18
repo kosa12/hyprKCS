@@ -69,6 +69,40 @@ fn generate_css(config: &StyleConfig) -> String {
             margin: 4px 0;
         }}
 
+        /* Visual Keyboard */
+        .keyboard-container {{
+            background-color: alpha(@window_fg_color, 0.03);
+            border-radius: {border_radius};
+            padding: 12px;
+        }}
+
+        .keyboard-key {{
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 0.9em;
+            padding: 0;
+            margin: 0;
+            background-color: alpha(@window_fg_color, 0.1);
+            color: alpha(@window_fg_color, 0.7);
+            border-radius: 4px;
+            border: 1px solid alpha(@window_fg_color, 0.1);
+        }}
+
+        .keyboard-key:hover {{
+             background-color: alpha(@window_fg_color, 0.2);
+        }}
+
+        .keyboard-key.accent {{
+            background-color: @accent_bg_color;
+            color: @accent_fg_color;
+            border-color: @accent_color;
+            box-shadow: 0 0 4px @accent_color;
+        }}
+
+        .dim-label {{
+             opacity: 0.6;
+        }}
+
         .dispatcher-label {{
             font-weight: 700;
             color: @window_fg_color;
