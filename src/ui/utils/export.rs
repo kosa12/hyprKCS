@@ -1,8 +1,8 @@
 use crate::keybind_object::KeybindObject;
 use anyhow::Result;
-use gtk4 as gtk;
 use gtk::gio;
 use gtk::prelude::*;
+use gtk4 as gtk;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -11,7 +11,11 @@ pub fn export_keybinds_to_markdown(model: &gio::ListStore, path: &Path) -> Resul
     let mut file = File::create(path)?;
 
     writeln!(file, "# Hyprland Keybinds\n")?;
-    writeln!(file, "| Modifiers | Key | Action | Arguments | Submap | Description |")?;
+    writeln!(file, "(Exported with HyprKCS)\n")?;
+    writeln!(
+        file,
+        "| Modifiers | Key | Action | Arguments | Submap | Description |"
+    )?;
     writeln!(file, "|---|---|---|---|---|---|")?;
 
     for i in 0..model.n_items() {
