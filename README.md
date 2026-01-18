@@ -187,24 +187,6 @@ hyprKCS also includes a CLI for quick lookups and scripting.
   # Short: hyprkcs -c ~/.config/hypr/custom.conf
   ```
 
-## Project Status
-
-**Completed Features:**
-- CLI for searching and printing keybinds.
-- Fuzzy search and category filtering in the UI.
-- Advanced search syntax with field-specific tags.
-- Visual Keyboard Map for interactive keybind analysis.
-- Conflict detection and an interactive resolution wizard.
-- Smart autocomplete for Hyprland dispatchers.
-- Pinned or "favorite" keybinds.
-- Comprehensive unit tests and CI/CD pipeline.
-- Real-time settings editor with sidebar layout.
-- Automatic backup system with pruning.
-- In-app feedback and community links.
-
-**Planned Features:**
-- A visual statistics dashboard for keybind analysis.
-
 ## Troubleshooting
 
 ### GPG Key Import Issues
