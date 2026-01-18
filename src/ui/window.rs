@@ -369,10 +369,9 @@ pub fn build_ui(app: &adw::Application) {
 
     let settings_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&settings_page_container, Some("settings"));
-    
+
     let keyboard_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&keyboard_page_container, Some("keyboard"));
-
 
     let window_content = gtk::Box::builder()
         .css_classes(["window-content"])
@@ -731,13 +730,10 @@ pub fn build_ui(app: &adw::Application) {
     let container_keyboard = keyboard_page_container.clone();
     let model_keyboard = model.clone();
     keyboard_button.connect_clicked(move |_| {
-         while let Some(child) = container_keyboard.first_child() {
+        while let Some(child) = container_keyboard.first_child() {
             container_keyboard.remove(&child);
         }
-        let view = crate::ui::views::create_keyboard_view(
-            &stack_keyboard,
-            &model_keyboard,
-        );
+        let view = crate::ui::views::create_keyboard_view(&stack_keyboard, &model_keyboard);
         container_keyboard.append(&view);
         stack_keyboard.set_visible_child_name("keyboard");
     });
