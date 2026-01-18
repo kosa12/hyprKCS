@@ -719,57 +719,57 @@ pub fn build_ui(app: &adw::Application) {
     let col_submap_clone = col_submap.clone();
     let col_key_clone = col_key.clone();
     let col_mods_clone = col_mods.clone();
-            let col_disp_clone = col_disp.clone();
-            let column_view_clone = column_view.clone();
-            let model_settings = model.clone();
-            let toast_overlay_settings = toast_overlay.clone();
-        
-            settings_button.connect_clicked(move |_| {
-                while let Some(child) = container_settings.first_child() {
-                    container_settings.remove(&child);
+    let col_disp_clone = col_disp.clone();
+    let column_view_clone = column_view.clone();
+    let model_settings = model.clone();
+    let toast_overlay_settings = toast_overlay.clone();
+
+    settings_button.connect_clicked(move |_| {
+        while let Some(child) = container_settings.first_child() {
+            container_settings.remove(&child);
+        }
+        let col_desc_c = col_desc_clone.clone();
+        let col_fav_c = col_fav_clone.clone();
+        let col_args_c = col_args_clone.clone();
+        let col_submap_c = col_submap_clone.clone();
+
+        let col_key_c = col_key_clone.clone();
+        let col_mods_c = col_mods_clone.clone();
+        let col_disp_c = col_disp_clone.clone();
+        let col_args_sort_c = col_args_clone.clone();
+        let col_submap_sort_c = col_submap_clone.clone();
+        let col_view_c = column_view_clone.clone();
+        let model_s = model_settings.clone();
+        let toast_s = toast_overlay_settings.clone();
+
+        let view = crate::ui::settings::create_settings_view(
+            &window_settings,
+            &stack_settings,
+            &model_s,
+            std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_fav_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_args_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_submap_c.set_visible(s)),
+            std::rc::Rc::new(move |sort_key| {
+                let col = match sort_key.as_str() {
+                    "mods" => Some(&col_mods_c),
+                    "dispatcher" => Some(&col_disp_c),
+                    "args" => Some(&col_args_sort_c),
+                    "submap" => Some(&col_submap_sort_c),
+                    _ => Some(&col_key_c), // Default key
+                };
+                if let Some(c) = col {
+                    col_view_c.sort_by_column(Some(c), gtk::SortType::Ascending);
                 }
-                let col_desc_c = col_desc_clone.clone();
-                let col_fav_c = col_fav_clone.clone();
-                let col_args_c = col_args_clone.clone();
-                let col_submap_c = col_submap_clone.clone();
-                
-                let col_key_c = col_key_clone.clone();
-                let col_mods_c = col_mods_clone.clone();
-                let col_disp_c = col_disp_clone.clone();
-                let col_args_sort_c = col_args_clone.clone();
-                let col_submap_sort_c = col_submap_clone.clone();
-                let col_view_c = column_view_clone.clone();
-                let model_s = model_settings.clone();
-                let toast_s = toast_overlay_settings.clone();
-        
-                let view = crate::ui::settings::create_settings_view(
-                    &window_settings,
-                    &stack_settings,
-                    &model_s,
-                    std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
-                    std::rc::Rc::new(move |s| col_fav_c.set_visible(s)),
-                    std::rc::Rc::new(move |s| col_args_c.set_visible(s)),
-                    std::rc::Rc::new(move |s| col_submap_c.set_visible(s)),
-                    std::rc::Rc::new(move |sort_key| {
-                        let col = match sort_key.as_str() {
-                            "mods" => Some(&col_mods_c),
-                            "dispatcher" => Some(&col_disp_c),
-                            "args" => Some(&col_args_sort_c),
-                            "submap" => Some(&col_submap_sort_c),
-                            _ => Some(&col_key_c), // Default key
-                        };
-                        if let Some(c) = col {
-                            col_view_c.sort_by_column(Some(c), gtk::SortType::Ascending);
-                        }
-                    }),
-                    std::rc::Rc::new(move |msg| {
-                        let toast = adw::Toast::new(&msg);
-                        toast_s.add_toast(toast);
-                    }),
-                );
-                container_settings.append(&view);
-                stack_settings.set_visible_child_name("settings");
-            });
+            }),
+            std::rc::Rc::new(move |msg| {
+                let toast = adw::Toast::new(&msg);
+                toast_s.add_toast(toast);
+            }),
+        );
+        container_settings.append(&view);
+        stack_settings.set_visible_child_name("settings");
+    });
 
     let stack_keyboard = root_stack.clone();
     let container_keyboard = keyboard_page_container.clone();

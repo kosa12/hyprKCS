@@ -162,9 +162,7 @@ pub fn create_settings_view(
     page_general.add(&group_backup);
 
     // Export Group
-    let group_export = adw::PreferencesGroup::builder()
-        .title("Export")
-        .build();
+    let group_export = adw::PreferencesGroup::builder().title("Export").build();
 
     let export_row = adw::ActionRow::builder()
         .title("Export Keybinds")
@@ -173,7 +171,7 @@ pub fn create_settings_view(
         .build();
     let export_icon = gtk::Image::from_icon_name("document-save-as-symbolic");
     export_row.add_prefix(&export_icon);
-    
+
     let suffix = gtk::Image::from_icon_name("go-next-symbolic");
     export_row.add_suffix(&suffix);
 
@@ -187,25 +185,29 @@ pub fn create_settings_view(
             .accept_label("Export")
             .initial_name("keybinds.md")
             .build();
-        
+
         let m = model_c.clone();
         let t_cb = toast_cb.clone();
-        file_dialog.save(Some(&window_c), None::<&gtk::gio::Cancellable>, move |res| {
-            match res {
-                Ok(file) => {
-                    if let Some(path) = file.path() {
-                        match crate::ui::utils::export_keybinds_to_markdown(&m, &path) {
-                            Ok(_) => t_cb(format!("Successfully exported to {:?}", path)),
-                            Err(e) => t_cb(format!("Export failed: {}", e)),
+        file_dialog.save(
+            Some(&window_c),
+            None::<&gtk::gio::Cancellable>,
+            move |res| {
+                match res {
+                    Ok(file) => {
+                        if let Some(path) = file.path() {
+                            match crate::ui::utils::export_keybinds_to_markdown(&m, &path) {
+                                Ok(_) => t_cb(format!("Successfully exported to {:?}", path)),
+                                Err(e) => t_cb(format!("Export failed: {}", e)),
+                            }
                         }
                     }
+                    Err(e) => {
+                        // User cancelled usually
+                        println!("Export cancelled/error: {}", e);
+                    }
                 }
-                Err(e) => {
-                    // User cancelled usually
-                    println!("Export cancelled/error: {}", e);
-                }
-            }
-        });
+            },
+        );
     });
     group_export.add(&export_row);
     page_general.add(&group_export);
