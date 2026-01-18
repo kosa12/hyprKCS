@@ -28,6 +28,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 
 - **Native GTK4 Interface**: Integrates seamlessly with your system theme, supporting both light and dark modes via Libadwaita.
 - **Real-time Fuzzy Search**: Instantly find keybinds as you type.
+- **Advanced Search Syntax**: Use tags like `mod:`, `key:`, `action:`, or `desc:` to filter keybinds with precision.
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
@@ -140,9 +141,19 @@ Launch `hyprKCS` from your application menu or terminal to open the main window.
 | `Ctrl` + `f` | Focus the search bar |
 | `Esc` | Clear search or close the window |
 
+**Advanced Search Syntax**
+The search bar supports specific tags to filter results:
+- `mod:<value>` / `mods:<value>`: Filter by modifiers (e.g., `mod:super`).
+- `key:<value>`: Filter by key (e.g., `key:return`).
+- `action:<value>` / `disp:<value>`: Filter by dispatcher/action (e.g., `action:exec`).
+- `arg:<value>`: Filter by arguments (e.g., `arg:volume`).
+- `desc:<value>`: Filter by description (e.g., `desc:screenshot`).
+
+*Example:* `mod:super action:exec firefox` finds all Super-bound execution commands for Firefox.
+
 ### Command-Line Interface
 
-hyprKCS also includes a powerful CLI for quick lookups and scripting.
+hyprKCS also includes a CLI for quick lookups and scripting.
 
 - **Print all keybinds:**
   ```bash
@@ -153,6 +164,10 @@ hyprKCS also includes a powerful CLI for quick lookups and scripting.
   ```bash
   hyprkcs --search "firefox"
   # Short: hyprkcs -s "firefox"
+  ```
+- **Advanced search via CLI:**
+  ```bash
+  hyprkcs --search "mod:super action:exec"
   ```
 - **Use a custom config file:**
   ```bash
@@ -165,6 +180,7 @@ hyprKCS also includes a powerful CLI for quick lookups and scripting.
 **Completed Features:**
 - CLI for searching and printing keybinds.
 - Fuzzy search and category filtering in the UI.
+- Advanced search syntax with field-specific tags.
 - Conflict detection and an interactive resolution wizard.
 - Smart autocomplete for Hyprland dispatchers.
 - Pinned or "favorite" keybinds.

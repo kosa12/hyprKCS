@@ -1,6 +1,7 @@
 use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
+use crate::ui::utils::SearchQuery;
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -599,6 +600,7 @@ pub fn build_ui(app: &adw::Application) {
 
     let filter_func = move |text: String, category: u32| {
         let matcher = SkimMatcherV2::default();
+        let query = SearchQuery::parse(&text);
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
@@ -638,15 +640,44 @@ pub fn build_ui(app: &adw::Application) {
                 return false;
             }
 
-            if text.is_empty() {
+            // Advanced Search Filters
+            if let Some(ref q_mods) = query.mods {
+                if !mods.to_lowercase().contains(&q_mods.to_lowercase()) {
+                    return false;
+                }
+            }
+            if let Some(ref q_key) = query.key {
+                if !key.to_lowercase().contains(&q_key.to_lowercase()) {
+                    return false;
+                }
+            }
+            if let Some(ref q_action) = query.action {
+                if !dispatcher.contains(&q_action.to_lowercase()) {
+                    return false;
+                }
+            }
+            if let Some(ref q_args) = query.args {
+                if !args.contains(&q_args.to_lowercase()) {
+                    return false;
+                }
+            }
+            if let Some(ref q_desc) = query.description {
+                if !description.contains(&q_desc.to_lowercase()) {
+                    return false;
+                }
+            }
+
+            if query.general_query.is_empty() {
                 return true;
             }
 
-            matcher.fuzzy_match(&mods, &text).is_some()
-                || matcher.fuzzy_match(&key, &text).is_some()
-                || matcher.fuzzy_match(&dispatcher, &text).is_some()
-                || matcher.fuzzy_match(&args, &text).is_some()
-                || matcher.fuzzy_match(&description, &text).is_some()
+            let text_to_match = &query.general_query;
+
+            matcher.fuzzy_match(&mods, text_to_match).is_some()
+                || matcher.fuzzy_match(&key, text_to_match).is_some()
+                || matcher.fuzzy_match(&dispatcher, text_to_match).is_some()
+                || matcher.fuzzy_match(&args, text_to_match).is_some()
+                || matcher.fuzzy_match(&description, text_to_match).is_some()
         });
     };
 
