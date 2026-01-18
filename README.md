@@ -93,7 +93,7 @@ You can customize the appearance and behavior of hyprKCS by creating a configura
 | `autoBackup` | Automatically backup config on save | `true` |
 | `maxBackupsEnabled` | Enable limiting the number of backups | `false` |
 | `maxBackupsCount` | Maximum number of backups to keep | `10` |
-
+| `showDescription` | Toggles visibility of the "Description" column (parsed comments from config files) | `false` |
 <details>
 <summary>Example Configuration</summary>
 
@@ -115,6 +115,7 @@ showSubmaps = false
 showArgs = true
 showFavorites = true
 defaultSort = mods
+showDescription = true
 
 # Behavior
 autoBackup = true
