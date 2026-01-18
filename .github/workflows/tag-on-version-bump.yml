@@ -1,0 +1,53 @@
+name: Auto Tag on Version Bump
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'Cargo.toml'
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit to compare
+
+      - name: Check for Version Change
+        id: check_ver
+        run: |
+          # Extract version from current Cargo.toml
+          NEW_VER=$(grep "^version" Cargo.toml | head -n 1 | awk -F '"' '{print $2}')
+          
+          # Extract version from previous commit's Cargo.toml
+          OLD_VER=$(git show HEAD~1:Cargo.toml | grep "^version" | head -n 1 | awk -F '"' '{print $2}')
+          
+          echo "Old Version: $OLD_VER"
+          echo "New Version: $NEW_VER"
+          
+          if [ "$NEW_VER" != "$OLD_VER" ]; then
+            echo "Version changed!"
+            echo "version=$NEW_VER" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Tag
+        if: steps.check_ver.outputs.changed == 'true'
+        run: |
+          VERSION="v${{ steps.check_ver.outputs.version }}"
+          echo "Pushing tag $VERSION"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
