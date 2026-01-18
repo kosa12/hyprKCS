@@ -599,5 +599,51 @@ pub fn create_settings_view(
     page_feedback.add(&group_community);
     settings_stack.add_titled(&page_feedback, Some("feedback"), "Feedback");
 
+    // ================== PAGE 6: ABOUT ==================
+    let page_about = adw::PreferencesPage::builder().build();
+    let group_about = adw::PreferencesGroup::builder().title("Application Information").build();
+
+    let ver_row = adw::ActionRow::builder()
+        .title("Version")
+        .subtitle(env!("CARGO_PKG_VERSION"))
+        .build();
+    let ver_img = gtk::Image::from_icon_name("help-about-symbolic");
+    ver_row.add_prefix(&ver_img);
+    group_about.add(&ver_row);
+
+    let dev_row = adw::ActionRow::builder()
+        .title("Developer")
+        .subtitle("kosa12")
+        .build();
+    let dev_img = gtk::Image::from_icon_name("avatar-default-symbolic");
+    dev_row.add_prefix(&dev_img);
+    group_about.add(&dev_row);
+
+    let lic_row = adw::ActionRow::builder()
+        .title("License")
+        .subtitle("MIT")
+        .build();
+    let lic_img = gtk::Image::from_icon_name("dialog-information-symbolic");
+    lic_row.add_prefix(&lic_img);
+    group_about.add(&lic_row);
+
+    let group_links = adw::PreferencesGroup::builder().title("Links").build();
+    group_links.add(&create_link(
+        "Source Code",
+        "View on GitHub",
+        "document-properties-symbolic",
+        "https://github.com/kosa12/hyprKCS",
+    ));
+    group_links.add(&create_link(
+        "Wiki",
+        "Documentation and Guides",
+        "system-help-symbolic",
+        "https://github.com/kosa12/hyprKCS/wiki",
+    ));
+
+    page_about.add(&group_about);
+    page_about.add(&group_links);
+    settings_stack.add_titled(&page_about, Some("about"), "About");
+
     main_box.upcast::<gtk::Widget>()
 }
