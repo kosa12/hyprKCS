@@ -2,7 +2,7 @@ use crate::keybind_object::KeybindObject;
 use crate::ui::utils::normalize;
 use gtk4 as gtk;
 use gtk::prelude::*;
-use gtk::{gio, glib};
+use gtk::gio;
 use std::collections::{HashMap, HashSet};
 
 struct KeyDef {
@@ -20,6 +20,24 @@ impl KeyDef {
         }
     }
 }
+
+const ROW_FUNC: &[KeyDef] = &[
+    KeyDef::new("Esc", "Escape", 1.0),
+    KeyDef::new("F1", "F1", 1.0),
+    KeyDef::new("F2", "F2", 1.0),
+    KeyDef::new("F3", "F3", 1.0),
+    KeyDef::new("F4", "F4", 1.0),
+    KeyDef::new("F5", "F5", 1.0),
+    KeyDef::new("F6", "F6", 1.0),
+    KeyDef::new("F7", "F7", 1.0),
+    KeyDef::new("F8", "F8", 1.0),
+    KeyDef::new("F9", "F9", 1.0),
+    KeyDef::new("F10", "F10", 1.0),
+    KeyDef::new("F11", "F11", 1.0),
+    KeyDef::new("F12", "F12", 1.0),
+    KeyDef::new("PrtSc", "Print", 1.0),
+    KeyDef::new("Del", "Delete", 1.0),
+];
 
 // Standard ANSI Layout
 const ROW_1: &[KeyDef] = &[
@@ -98,12 +116,19 @@ const ROW_5: &[KeyDef] = &[
     KeyDef::new("Ctrl", "Control_R", 1.25),
 ];
 
+const ROW_ARROWS: &[KeyDef] = &[
+    KeyDef::new("<", "Left", 1.0),
+    KeyDef::new("v", "Down", 1.0),
+    KeyDef::new("^", "Up", 1.0),
+    KeyDef::new(">", "Right", 1.0),
+];
+
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
-    let container = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    container.set_margin_top(24);
-    container.set_margin_bottom(24);
-    container.set_margin_start(24);
-    container.set_margin_end(24);
+    let container = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    container.set_margin_top(8);
+    container.set_margin_bottom(8);
+    container.set_margin_start(12);
+    container.set_margin_end(12);
     container.set_halign(gtk::Align::Center);
     container.set_valign(gtk::Align::Center);
 
@@ -132,14 +157,14 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     // Modifier Toggles
     let mod_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     mod_box.set_halign(gtk::Align::Center);
-    mod_box.set_margin_bottom(12);
+    mod_box.set_margin_bottom(4);
 
     mod_box.append(&gtk::Label::new(Some("Modifiers:")));
 
-    let btn_super = gtk::ToggleButton::builder().label("SUPER").build();
-    let btn_shift = gtk::ToggleButton::builder().label("SHIFT").build();
-    let btn_ctrl = gtk::ToggleButton::builder().label("CTRL").build();
-    let btn_alt = gtk::ToggleButton::builder().label("ALT").build();
+    let btn_super = gtk::ToggleButton::builder().label("SUPER").css_classes(["small", "mod-toggle"]).build();
+    let btn_shift = gtk::ToggleButton::builder().label("SHIFT").css_classes(["small", "mod-toggle"]).build();
+    let btn_ctrl = gtk::ToggleButton::builder().label("CTRL").css_classes(["small", "mod-toggle"]).build();
+    let btn_alt = gtk::ToggleButton::builder().label("ALT").css_classes(["small", "mod-toggle"]).build();
 
     // Default to SUPER enabled as it's most common
     btn_super.set_active(true);
@@ -152,11 +177,11 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     container.append(&mod_box);
 
     // Keyboard Grid
-    let keyboard_grid = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let keyboard_grid = gtk::Box::new(gtk::Orientation::Vertical, 2);
     keyboard_grid.add_css_class("keyboard-container");
 
     let create_row = |keys: &[KeyDef]| {
-        let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
         row_box.set_halign(gtk::Align::Center);
         for k in keys {
             let btn = gtk::Button::builder()
@@ -164,7 +189,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                 .css_classes(["keyboard-key"])
                 .build();
 
-            let base_width = 54;
+            let base_width = 40;
             let width = (base_width as f64 * k.width) as i32;
             btn.set_width_request(width);
             btn.set_height_request(base_width);
@@ -178,11 +203,14 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         row_box
     };
 
+    keyboard_grid.append(&create_row(ROW_FUNC));
     keyboard_grid.append(&create_row(ROW_1));
     keyboard_grid.append(&create_row(ROW_2));
     keyboard_grid.append(&create_row(ROW_3));
     keyboard_grid.append(&create_row(ROW_4));
     keyboard_grid.append(&create_row(ROW_5));
+    
+    keyboard_grid.append(&create_row(ROW_ARROWS));
 
     container.append(&keyboard_grid);
 
@@ -206,7 +234,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
             let mut key_actions: HashMap<String, String> = HashMap::new();
 
             let (target_mods, _) = normalize(&active_mods.join(" "), "");
-
+            
             for i in 0..model.n_items() {
                 if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
                     let mods_str = obj.property::<String>("clean-mods");
@@ -215,14 +243,20 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                     let args = obj.property::<String>("args");
                     let submap = obj.property::<String>("submap");
 
-                    // Filter out non-global binds for now (or make submap selectable later)
-                    if !submap.is_empty() {
+                    // Filter out non-global binds.
+                    // Empty string, "global", or "reset" are considered global.
+                    let is_global = submap.is_empty() 
+                        || submap.eq_ignore_ascii_case("global") 
+                        || submap.eq_ignore_ascii_case("reset");
+                        
+                    if !is_global {
                         continue;
                     }
 
                     let (kb_mods, kb_key) = normalize(&mods_str, &key_str);
-
+                    
                     if kb_mods == target_mods {
+                        // println!("DEBUG: Match found! Key: {} Action: {}", kb_key, disp);
                         bound_keys.insert(kb_key.clone());
                         let action = if args.is_empty() {
                             disp

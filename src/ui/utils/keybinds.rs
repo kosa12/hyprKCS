@@ -5,6 +5,7 @@ use gtk4 as gtk;
 
 pub fn normalize(mods: &str, key: &str) -> (Vec<String>, String) {
     let mut mod_vec: Vec<String> = mods
+        .replace("+", " ") // Handle Super+Shift style
         .split_whitespace()
         .map(|s| s.to_uppercase())
         .filter(|s| !s.is_empty())

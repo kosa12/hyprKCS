@@ -29,6 +29,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Native GTK4 Interface**: Integrates seamlessly with your system theme, supporting both light and dark modes via Libadwaita.
 - **Real-time Fuzzy Search**: Instantly find keybinds as you type.
 - **Advanced Search Syntax**: Use tags like `mod:`, `key:`, `action:`, or `desc:` to filter keybinds with precision.
+- **Visual Keyboard Map**: Interactive layout to visualize used and available keys for any modifier combination.
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
@@ -152,6 +153,16 @@ The search bar supports specific tags to filter results:
 
 *Example:* `mod:super action:exec firefox` finds all Super-bound execution commands for Firefox.
 
+**Visual Keyboard Map**
+Click the keyboard icon in the top toolbar to open an interactive keyboard layout.
+- **Select Modifiers**: Toggle SUPER, SHIFT, CTRL, or ALT to see which keys are bound to those modifiers.
+- **Color Coding**: Keys bound to actions are highlighted. Hover over them to see the exact dispatcher and arguments.
+- **Find Free Keys**: Easily spot unhighlighted keys to find available shortcuts for your configuration.
+
+<p align="center">
+    <img src="./assets/image_4.png" width="80%" />
+</p>
+
 ### Command-Line Interface
 
 hyprKCS also includes a CLI for quick lookups and scripting.
@@ -182,6 +193,7 @@ hyprKCS also includes a CLI for quick lookups and scripting.
 - CLI for searching and printing keybinds.
 - Fuzzy search and category filtering in the UI.
 - Advanced search syntax with field-specific tags.
+- Visual Keyboard Map for interactive keybind analysis.
 - Conflict detection and an interactive resolution wizard.
 - Smart autocomplete for Hyprland dispatchers.
 - Pinned or "favorite" keybinds.

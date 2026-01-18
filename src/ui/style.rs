@@ -79,7 +79,7 @@ fn generate_css(config: &StyleConfig) -> String {
         .keyboard-key {{
             font-family: monospace;
             font-weight: bold;
-            font-size: 0.9em;
+            font-size: 0.85em;
             padding: 0;
             margin: 0;
             background-color: alpha(@window_fg_color, 0.1);
@@ -88,12 +88,19 @@ fn generate_css(config: &StyleConfig) -> String {
             border: 1px solid alpha(@window_fg_color, 0.1);
         }}
 
+        .mod-toggle {{
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            min-height: 24px;
+        }}
+
         .keyboard-key:hover {{
              background-color: alpha(@window_fg_color, 0.2);
         }}
 
         .keyboard-key.accent {{
             background-color: @accent_bg_color;
+            background-image: none;
             color: @accent_fg_color;
             border-color: @accent_color;
             box-shadow: 0 0 4px @accent_color;
