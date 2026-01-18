@@ -730,7 +730,7 @@ pub fn build_ui(app: &adw::Application) {
         let col_fav_c = col_fav_clone.clone();
         let col_args_c = col_args_clone.clone();
         let col_submap_c = col_submap_clone.clone();
-        
+
         let col_key_c = col_key_clone.clone();
         let col_mods_c = col_mods_clone.clone();
         let col_disp_c = col_disp_clone.clone();
