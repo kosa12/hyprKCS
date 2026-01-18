@@ -64,7 +64,7 @@ mod tests {
         assert_eq!(q.mods, Some("SHIFT".to_string()));
         // Last one wins if duplicates, but here we just check if they are picked up.
         // My implementation overwrites.
-        assert_eq!(q.action, Some("ignore".to_string())); 
+        assert_eq!(q.action, Some("ignore".to_string()));
         assert_eq!(q.args, Some("something".to_string()));
     }
 

@@ -49,7 +49,8 @@ fn main() -> glib::ExitCode {
                             let key = &b.key;
                             let dispatcher = b.dispatcher.to_lowercase();
                             let args = b.args.to_lowercase();
-                            let description = b.description.clone().unwrap_or_default().to_lowercase();
+                            let description =
+                                b.description.clone().unwrap_or_default().to_lowercase();
 
                             if let Some(ref q_mods) = query.mods {
                                 if !mods.to_lowercase().contains(&q_mods.to_lowercase()) {

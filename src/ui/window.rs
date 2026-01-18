@@ -1,8 +1,8 @@
 use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
-use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::utils::SearchQuery;
+use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
