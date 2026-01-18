@@ -1,8 +1,8 @@
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::normalize;
-use gtk4 as gtk;
-use gtk::prelude::*;
 use gtk::gio;
+use gtk::prelude::*;
+use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 struct KeyDef {
@@ -71,7 +71,7 @@ const ROW_2: &[KeyDef] = &[
     KeyDef::new("P", "P", 1.0),
     KeyDef::new("[", "bracketleft", 1.0),
     KeyDef::new("]", "bracketright", 1.0),
-    KeyDef::new("\\", "backslash", 1.5),
+    KeyDef::new("\\\\", "backslash", 1.5),
 ];
 
 const ROW_3: &[KeyDef] = &[
@@ -86,7 +86,7 @@ const ROW_3: &[KeyDef] = &[
     KeyDef::new("K", "K", 1.0),
     KeyDef::new("L", "L", 1.0),
     KeyDef::new(";", "semicolon", 1.0),
-    KeyDef::new("'", "apostrophe", 1.0),
+    KeyDef::new("APOS", "apostrophe", 1.0),
     KeyDef::new("Enter", "Return", 2.25),
 ];
 
@@ -129,11 +129,12 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     container.set_margin_bottom(8);
     container.set_margin_start(12);
     container.set_margin_end(12);
-    container.set_halign(gtk::Align::Center);
-    container.set_valign(gtk::Align::Center);
+    container.set_halign(gtk::Align::Fill);
+    container.set_valign(gtk::Align::Fill);
 
     // Title / Back Button
     let header_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    header_box.set_halign(gtk::Align::Center);
     let back_btn = gtk::Button::builder()
         .icon_name("go-previous-symbolic")
         .css_classes(["flat", "circular"])
@@ -161,10 +162,22 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     mod_box.append(&gtk::Label::new(Some("Modifiers:")));
 
-    let btn_super = gtk::ToggleButton::builder().label("SUPER").css_classes(["small", "mod-toggle"]).build();
-    let btn_shift = gtk::ToggleButton::builder().label("SHIFT").css_classes(["small", "mod-toggle"]).build();
-    let btn_ctrl = gtk::ToggleButton::builder().label("CTRL").css_classes(["small", "mod-toggle"]).build();
-    let btn_alt = gtk::ToggleButton::builder().label("ALT").css_classes(["small", "mod-toggle"]).build();
+    let btn_super = gtk::ToggleButton::builder()
+        .label("SUPER")
+        .css_classes(["small", "mod-toggle"])
+        .build();
+    let btn_shift = gtk::ToggleButton::builder()
+        .label("SHIFT")
+        .css_classes(["small", "mod-toggle"])
+        .build();
+    let btn_ctrl = gtk::ToggleButton::builder()
+        .label("CTRL")
+        .css_classes(["small", "mod-toggle"])
+        .build();
+    let btn_alt = gtk::ToggleButton::builder()
+        .label("ALT")
+        .css_classes(["small", "mod-toggle"])
+        .build();
 
     // Default to SUPER enabled as it's most common
     btn_super.set_active(true);
@@ -177,42 +190,76 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     container.append(&mod_box);
 
     // Keyboard Grid
-    let keyboard_grid = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    keyboard_grid.add_css_class("keyboard-container");
+    let grid = gtk::Grid::builder()
+        .column_homogeneous(true)
+        .row_homogeneous(true)
+        .column_spacing(2)
+        .row_spacing(2)
+        .hexpand(true)
+        .vexpand(true)
+        .halign(gtk::Align::Fill)
+        .valign(gtk::Align::Fill)
+        .build();
 
-    let create_row = |keys: &[KeyDef]| {
-        let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-        row_box.set_halign(gtk::Align::Center);
+    grid.add_css_class("keyboard-container");
+
+    let mut row_idx = 0;
+
+    let add_row = |keys: &[KeyDef], r_idx: i32, g: &gtk::Grid| {
+        let mut col_idx = 0;
         for k in keys {
+            let width_cells = (k.width * 4.0).round() as i32;
             let btn = gtk::Button::builder()
                 .label(k.label)
                 .css_classes(["keyboard-key"])
+                .hexpand(true)
+                .vexpand(true)
                 .build();
-
-            let base_width = 40;
-            let width = (base_width as f64 * k.width) as i32;
-            btn.set_width_request(width);
-            btn.set_height_request(base_width);
 
             // Store normalized key name
             let (_, norm_key) = normalize("", k.hypr_name);
-
             btn.set_widget_name(&norm_key);
-            row_box.append(&btn);
+
+            g.attach(&btn, col_idx, r_idx, width_cells, 1);
+            col_idx += width_cells;
         }
-        row_box
     };
 
-    keyboard_grid.append(&create_row(ROW_FUNC));
-    keyboard_grid.append(&create_row(ROW_1));
-    keyboard_grid.append(&create_row(ROW_2));
-    keyboard_grid.append(&create_row(ROW_3));
-    keyboard_grid.append(&create_row(ROW_4));
-    keyboard_grid.append(&create_row(ROW_5));
-    
-    keyboard_grid.append(&create_row(ROW_ARROWS));
+    add_row(ROW_FUNC, row_idx, &grid);
+    row_idx += 1;
+    add_row(ROW_1, row_idx, &grid);
+    row_idx += 1;
+    add_row(ROW_2, row_idx, &grid);
+    row_idx += 1;
+    add_row(ROW_3, row_idx, &grid);
+    row_idx += 1;
+    add_row(ROW_4, row_idx, &grid);
+    row_idx += 1;
+    add_row(ROW_5, row_idx, &grid);
+    row_idx += 1;
 
-    container.append(&keyboard_grid);
+    // Arrow keys
+    // Total columns approx 60.
+    // Arrows are 4 keys = 4 width each = 16 cols.
+    // Centered start = (60 - 16) / 2 = 22.
+    let arrow_start_col = 22;
+    let mut arrow_col = arrow_start_col;
+    for k in ROW_ARROWS {
+         let width_cells = 4; // 1.0 * 4
+         let btn = gtk::Button::builder()
+            .label(k.label)
+            .css_classes(["keyboard-key"])
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+         let (_, norm_key) = normalize("", k.hypr_name);
+         btn.set_widget_name(&norm_key);
+         
+         grid.attach(&btn, arrow_col, row_idx, width_cells, 1);
+         arrow_col += width_cells;
+    }
+
+    container.append(&grid);
 
     // Details Label
     let details_label = gtk::Label::builder()
@@ -226,15 +273,14 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     // Logic
     let update_keys = {
         let model = model.clone();
-        let keyboard_grid = keyboard_grid.clone();
-        // let details_label = details_label.clone(); // Not needed here directly
+        let grid_ref = grid.clone();
 
         move |active_mods: &[String]| {
             let mut bound_keys: HashSet<String> = HashSet::new();
             let mut key_actions: HashMap<String, String> = HashMap::new();
 
             let (target_mods, _) = normalize(&active_mods.join(" "), "");
-            
+
             for i in 0..model.n_items() {
                 if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
                     let mods_str = obj.property::<String>("clean-mods");
@@ -243,20 +289,17 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                     let args = obj.property::<String>("args");
                     let submap = obj.property::<String>("submap");
 
-                    // Filter out non-global binds.
-                    // Empty string, "global", or "reset" are considered global.
-                    let is_global = submap.is_empty() 
-                        || submap.eq_ignore_ascii_case("global") 
+                    let is_global = submap.is_empty()
+                        || submap.eq_ignore_ascii_case("global")
                         || submap.eq_ignore_ascii_case("reset");
-                        
+
                     if !is_global {
                         continue;
                     }
 
                     let (kb_mods, kb_key) = normalize(&mods_str, &key_str);
-                    
+
                     if kb_mods == target_mods {
-                        // println!("DEBUG: Match found! Key: {} Action: {}", kb_key, disp);
                         bound_keys.insert(kb_key.clone());
                         let action = if args.is_empty() {
                             disp
@@ -268,29 +311,23 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                 }
             }
 
-            // Iterate buttons
-            let mut row_child = keyboard_grid.first_child();
-            while let Some(row) = row_child {
-                if let Some(row_box) = row.downcast_ref::<gtk::Box>() {
-                    let mut btn_child = row_box.first_child();
-                    while let Some(btn_widget) = btn_child {
-                        if let Some(btn) = btn_widget.downcast_ref::<gtk::Button>() {
-                            let key_name = btn.widget_name().to_string();
+            // Iterate buttons in grid
+            let mut child = grid_ref.first_child();
+            while let Some(widget) = child {
+                if let Some(btn) = widget.downcast_ref::<gtk::Button>() {
+                    let key_name = btn.widget_name().to_string();
 
-                            if bound_keys.contains(&key_name) {
-                                btn.add_css_class("accent");
-                                if let Some(action) = key_actions.get(&key_name) {
-                                    btn.set_tooltip_text(Some(action));
-                                }
-                            } else {
-                                btn.remove_css_class("accent");
-                                btn.set_tooltip_text(None);
-                            }
+                    if bound_keys.contains(&key_name) {
+                        btn.add_css_class("accent");
+                        if let Some(action) = key_actions.get(&key_name) {
+                            btn.set_tooltip_text(Some(action));
                         }
-                        btn_child = btn_widget.next_sibling();
+                    } else {
+                        btn.remove_css_class("accent");
+                        btn.set_tooltip_text(None);
                     }
                 }
-                row_child = row.next_sibling();
+                child = widget.next_sibling();
             }
         }
     };
@@ -326,7 +363,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     let ot1 = on_toggle.clone();
     btn_super.connect_toggled(move |_| ot1());
-    
+
     let ot2 = on_toggle.clone();
     btn_shift.connect_toggled(move |_| ot2());
 
