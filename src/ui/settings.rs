@@ -1,4 +1,5 @@
 use crate::config::StyleConfig;
+use gtk::gio;
 use gtk::glib;
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -9,11 +10,13 @@ use std::rc::Rc;
 pub fn create_settings_view(
     window: &adw::ApplicationWindow,
     stack: &gtk::Stack,
+    model: &gio::ListStore,
     on_desc_toggle: Rc<dyn Fn(bool)>,
     on_fav_toggle: Rc<dyn Fn(bool)>,
     on_args_toggle: Rc<dyn Fn(bool)>,
     on_submap_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
+    on_show_toast: Rc<dyn Fn(String)>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
 
@@ -157,6 +160,56 @@ pub fn create_settings_view(
     group_backup.add(&count_row);
 
     page_general.add(&group_backup);
+
+    // Export Group
+    let group_export = adw::PreferencesGroup::builder()
+        .title("Export")
+        .build();
+
+    let export_row = adw::ActionRow::builder()
+        .title("Export Keybinds")
+        .subtitle("Save all keybinds to a Markdown file")
+        .activatable(true)
+        .build();
+    let export_icon = gtk::Image::from_icon_name("document-save-as-symbolic");
+    export_row.add_prefix(&export_icon);
+    
+    let suffix = gtk::Image::from_icon_name("go-next-symbolic");
+    export_row.add_suffix(&suffix);
+
+    let window_c = window.clone();
+    let model_c = model.clone();
+    let toast_cb = on_show_toast.clone();
+
+    export_row.connect_activated(move |_| {
+        let file_dialog = gtk::FileDialog::builder()
+            .title("Export Keybinds")
+            .accept_label("Export")
+            .initial_name("keybinds.md")
+            .build();
+        
+        let m = model_c.clone();
+        let t_cb = toast_cb.clone();
+        file_dialog.save(Some(&window_c), None::<&gtk::gio::Cancellable>, move |res| {
+            match res {
+                Ok(file) => {
+                    if let Some(path) = file.path() {
+                        match crate::ui::utils::export_keybinds_to_markdown(&m, &path) {
+                            Ok(_) => t_cb(format!("Successfully exported to {:?}", path)),
+                            Err(e) => t_cb(format!("Export failed: {}", e)),
+                        }
+                    }
+                }
+                Err(e) => {
+                    // User cancelled usually
+                    println!("Export cancelled/error: {}", e);
+                }
+            }
+        });
+    });
+    group_export.add(&export_row);
+    page_general.add(&group_export);
+
     settings_stack.add_titled(&page_general, Some("general"), "General");
 
     // ================== PAGE 2: WINDOW ==================
