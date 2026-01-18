@@ -40,13 +40,52 @@ fn main() -> glib::ExitCode {
             Ok(binds) => {
                 let binds = if let Some(term) = args.search {
                     let matcher = SkimMatcherV2::default();
+                    let query = ui::utils::SearchQuery::parse(&term);
+
                     binds
                         .into_iter()
                         .filter(|b| {
-                            matcher.fuzzy_match(&b.mods, &term).is_some()
-                                || matcher.fuzzy_match(&b.key, &term).is_some()
-                                || matcher.fuzzy_match(&b.dispatcher, &term).is_some()
-                                || matcher.fuzzy_match(&b.args, &term).is_some()
+                            let mods = &b.mods;
+                            let key = &b.key;
+                            let dispatcher = b.dispatcher.to_lowercase();
+                            let args = b.args.to_lowercase();
+                            let description = b.description.clone().unwrap_or_default().to_lowercase();
+
+                            if let Some(ref q_mods) = query.mods {
+                                if !mods.to_lowercase().contains(&q_mods.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+                            if let Some(ref q_key) = query.key {
+                                if !key.to_lowercase().contains(&q_key.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+                            if let Some(ref q_action) = query.action {
+                                if !dispatcher.contains(&q_action.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+                            if let Some(ref q_args) = query.args {
+                                if !args.contains(&q_args.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+                            if let Some(ref q_desc) = query.description {
+                                if !description.contains(&q_desc.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+
+                            if query.general_query.is_empty() {
+                                return true;
+                            }
+                            let text_to_match = &query.general_query;
+
+                            matcher.fuzzy_match(mods, text_to_match).is_some()
+                                || matcher.fuzzy_match(key, text_to_match).is_some()
+                                || matcher.fuzzy_match(&dispatcher, text_to_match).is_some()
+                                || matcher.fuzzy_match(&args, text_to_match).is_some()
                         })
                         .collect::<Vec<_>>()
                 } else {
