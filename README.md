@@ -39,6 +39,8 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Favorites**: Pin frequently used keybinds for quick access.
 - **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
 - **Automatic Backups**: Automatically backup your configuration on every change, with optional retention limits.
+- **Command-Line Interface**: Quickly search and print keybinds from the terminal.
+- **Keybind Exporting**: Export your keybinds to a simple markdown file for easy sharing or documentation.
 
 ## Installation
 
