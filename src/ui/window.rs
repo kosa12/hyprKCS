@@ -33,82 +33,81 @@ pub fn build_ui(app: &adw::Application) {
     column_view.set_show_column_separators(false);
     column_view.set_vexpand(true);
 
-    if config.show_favorites {
-        // --- Favorites Column ---
-        let col_fav = gtk::ColumnViewColumn::builder()
-            .title("")
-            .expand(false)
-            .fixed_width(40)
+    // --- Favorites Column ---
+    let col_fav = gtk::ColumnViewColumn::builder()
+        .title("")
+        .expand(false)
+        .fixed_width(40)
+        .build();
+
+    let factory_fav = gtk::SignalListItemFactory::new();
+
+    factory_fav.connect_setup(move |_, list_item| {
+        let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
+        let btn = gtk::Button::builder()
+            .css_classes(["flat", "circular"])
+            .valign(gtk::Align::Center)
+            .halign(gtk::Align::Center)
             .build();
 
-        let factory_fav = gtk::SignalListItemFactory::new();
+        // Handle Click
+        let list_item_weak = list_item.downgrade();
+        btn.connect_clicked(move |b| {
+            if let Some(list_item) = list_item_weak.upgrade() {
+                if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
+                    let mut favs = load_favorites();
+                    let item = FavoriteKeybind {
+                        mods: obj.property::<String>("clean-mods"),
+                        key: obj.property::<String>("key"),
+                        submap: obj.property::<String>("submap"),
+                        dispatcher: obj.property::<String>("dispatcher"),
+                        args: obj.property::<String>("args"),
+                    };
 
-        factory_fav.connect_setup(move |_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
-            let btn = gtk::Button::builder()
-                .css_classes(["flat", "circular"])
-                .valign(gtk::Align::Center)
-                .halign(gtk::Align::Center)
-                .build();
+                    let new_state = toggle_favorite(&mut favs, item);
+                    let _ = save_favorites(&favs);
 
-            // Handle Click
-            let list_item_weak = list_item.downgrade();
-            btn.connect_clicked(move |b| {
-                if let Some(list_item) = list_item_weak.upgrade() {
-                    if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
-                        let mut favs = load_favorites();
-                        let item = FavoriteKeybind {
-                            mods: obj.property::<String>("clean-mods"),
-                            key: obj.property::<String>("key"),
-                            submap: obj.property::<String>("submap"),
-                            dispatcher: obj.property::<String>("dispatcher"),
-                            args: obj.property::<String>("args"),
-                        };
+                    obj.set_property("is-favorite", new_state);
 
-                        let new_state = toggle_favorite(&mut favs, item);
-                        let _ = save_favorites(&favs);
-
-                        obj.set_property("is-favorite", new_state);
-
-                        b.set_icon_name(if new_state {
-                            "starred-symbolic"
-                        } else {
-                            "non-starred-symbolic"
-                        });
-                        if new_state {
-                            b.add_css_class("warning");
-                        } else {
-                            b.remove_css_class("warning");
-                        }
+                    b.set_icon_name(if new_state {
+                        "starred-symbolic"
+                    } else {
+                        "non-starred-symbolic"
+                    });
+                    if new_state {
+                        b.add_css_class("warning");
+                    } else {
+                        b.remove_css_class("warning");
                     }
                 }
-            });
-
-            list_item.set_child(Some(&btn));
-        });
-
-        factory_fav.connect_bind(move |_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
-            let btn = list_item.child().and_downcast::<gtk::Button>().unwrap();
-            let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
-
-            let is_fav = keybind.property::<bool>("is-favorite");
-            btn.set_icon_name(if is_fav {
-                "starred-symbolic"
-            } else {
-                "non-starred-symbolic"
-            });
-            if is_fav {
-                btn.add_css_class("warning");
-            } else {
-                btn.remove_css_class("warning");
             }
         });
 
-        col_fav.set_factory(Some(&factory_fav));
-        column_view.append_column(&col_fav);
-        // -------------------------
-    }
+        list_item.set_child(Some(&btn));
+    });
+
+    factory_fav.connect_bind(move |_, list_item| {
+        let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
+        let btn = list_item.child().and_downcast::<gtk::Button>().unwrap();
+        let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
+
+        let is_fav = keybind.property::<bool>("is-favorite");
+        btn.set_icon_name(if is_fav {
+            "starred-symbolic"
+        } else {
+            "non-starred-symbolic"
+        });
+        if is_fav {
+            btn.add_css_class("warning");
+        } else {
+            btn.remove_css_class("warning");
+        }
+    });
+
+    col_fav.set_factory(Some(&factory_fav));
+    col_fav.set_visible(config.show_favorites);
+    column_view.append_column(&col_fav);
+    // -------------------------
 
     let create_column = move |title: &str, property_name: &str, sort_prop: Option<&str>| {
         let factory = gtk::SignalListItemFactory::new();
@@ -218,18 +217,17 @@ pub fn build_ui(app: &adw::Application) {
     column_view.append_column(&col_disp);
 
     let mut default_sort_col = match config.default_sort.as_str() {
-        "mods" | "modifiers" => Some(col_mods),
-        "key" => Some(col_key),
-        "dispatcher" | "action" => Some(col_disp),
+        "mods" | "modifiers" => Some(col_mods.clone()),
+        "key" => Some(col_key.clone()),
+        "dispatcher" | "action" => Some(col_disp.clone()),
         _ => None,
     };
 
-    if config.show_args {
-        let col_args = create_column("Arguments", "args", Some("args"));
-        column_view.append_column(&col_args);
-        if config.default_sort == "args" || config.default_sort == "arguments" {
-            default_sort_col = Some(col_args);
-        }
+    let col_args = create_column("Arguments", "args", Some("args"));
+    col_args.set_visible(config.show_args);
+    column_view.append_column(&col_args);
+    if config.default_sort == "args" || config.default_sort == "arguments" {
+        default_sort_col = Some(col_args.clone());
     }
 
     let col_desc = create_column("Description", "description", Some("description"));
@@ -242,12 +240,11 @@ pub fn build_ui(app: &adw::Application) {
         }
     }
 
-    if config.show_submaps {
-        let col_submap = create_column("Submap", "submap", Some("submap"));
-        column_view.append_column(&col_submap);
-        if config.default_sort == "submap" {
-            default_sort_col = Some(col_submap);
-        }
+    let col_submap = create_column("Submap", "submap", Some("submap"));
+    col_submap.set_visible(config.show_submaps);
+    column_view.append_column(&col_submap);
+    if config.default_sort == "submap" {
+        default_sort_col = Some(col_submap.clone());
     }
 
     if let Some(col) = default_sort_col {
@@ -717,15 +714,49 @@ pub fn build_ui(app: &adw::Application) {
     let container_settings = settings_page_container.clone();
     let window_settings = window.clone();
     let col_desc_clone = col_desc.clone();
+    let col_fav_clone = col_fav.clone();
+    let col_args_clone = col_args.clone();
+    let col_submap_clone = col_submap.clone();
+    let col_key_clone = col_key.clone();
+    let col_mods_clone = col_mods.clone();
+    let col_disp_clone = col_disp.clone();
+    let column_view_clone = column_view.clone();
+
     settings_button.connect_clicked(move |_| {
         while let Some(child) = container_settings.first_child() {
             container_settings.remove(&child);
         }
         let col_desc_c = col_desc_clone.clone();
+        let col_fav_c = col_fav_clone.clone();
+        let col_args_c = col_args_clone.clone();
+        let col_submap_c = col_submap_clone.clone();
+
+        let col_key_c = col_key_clone.clone();
+        let col_mods_c = col_mods_clone.clone();
+        let col_disp_c = col_disp_clone.clone();
+        let col_args_sort_c = col_args_clone.clone();
+        let col_submap_sort_c = col_submap_clone.clone();
+        let col_view_c = column_view_clone.clone();
+
         let view = crate::ui::settings::create_settings_view(
             &window_settings,
             &stack_settings,
             std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_fav_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_args_c.set_visible(s)),
+            std::rc::Rc::new(move |s| col_submap_c.set_visible(s)),
+            std::rc::Rc::new(move |sort_key| {
+                let col = match sort_key.as_str() {
+                    "mods" => Some(&col_mods_c),
+                    "dispatcher" => Some(&col_disp_c),
+                    "args" => Some(&col_args_sort_c),
+                    "submap" => Some(&col_submap_sort_c),
+                    _ => Some(&col_key_c), // Default key
+                };
+                if let Some(c) = col {
+                    col_view_c.sort_by_column(Some(c), gtk::SortType::Ascending);
+                }
+            }),
         );
         container_settings.append(&view);
         stack_settings.set_visible_child_name("settings");

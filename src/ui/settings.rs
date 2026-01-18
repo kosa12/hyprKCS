@@ -10,6 +10,10 @@ pub fn create_settings_view(
     window: &adw::ApplicationWindow,
     stack: &gtk::Stack,
     on_desc_toggle: Rc<dyn Fn(bool)>,
+    on_fav_toggle: Rc<dyn Fn(bool)>,
+    on_args_toggle: Rc<dyn Fn(bool)>,
+    on_submap_toggle: Rc<dyn Fn(bool)>,
+    on_sort_change: Rc<dyn Fn(String)>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
 
@@ -427,10 +431,11 @@ pub fn create_settings_view(
         .build();
     sub_row.add_suffix(&sub_switch);
     let c = config.clone();
+    let on_sub = on_submap_toggle.clone();
     sub_switch.connect_state_set(move |_, s| {
         c.borrow_mut().show_submaps = s;
         let _ = c.borrow().save();
-        // crate::ui::style::reload_style(); // Not impacting style
+        on_sub(s);
         glib::Propagation::Proceed
     });
     group_cols.add(&sub_row);
@@ -446,10 +451,11 @@ pub fn create_settings_view(
         .build();
     args_row.add_suffix(&args_switch);
     let c = config.clone();
+    let on_args = on_args_toggle.clone();
     args_switch.connect_state_set(move |_, s| {
         c.borrow_mut().show_args = s;
         let _ = c.borrow().save();
-        // crate::ui::style::reload_style();
+        on_args(s);
         glib::Propagation::Proceed
     });
     group_cols.add(&args_row);
@@ -465,10 +471,11 @@ pub fn create_settings_view(
         .build();
     fav_row.add_suffix(&fav_switch);
     let c = config.clone();
+    let on_fav = on_fav_toggle.clone();
     fav_switch.connect_state_set(move |_, s| {
         c.borrow_mut().show_favorites = s;
         let _ = c.borrow().save();
-        // crate::ui::style::reload_style();
+        on_fav(s);
         glib::Propagation::Proceed
     });
     group_cols.add(&fav_row);
@@ -524,6 +531,7 @@ pub fn create_settings_view(
     sort_row.add_suffix(&sort_drop);
 
     let c = config.clone();
+    let on_sort = on_sort_change.clone();
     sort_drop.connect_selected_notify(move |d| {
         let val = match d.selected() {
             1 => "mods",
@@ -534,6 +542,7 @@ pub fn create_settings_view(
         };
         c.borrow_mut().default_sort = val.to_string();
         let _ = c.borrow().save();
+        on_sort(val.to_string());
     });
     group_sort.add(&sort_row);
 

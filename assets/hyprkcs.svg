@@ -1,5 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect x="8" y="8" width="112" height="112" rx="24" ry="24" fill="#333333" stroke="#555555" stroke-width="4"/>
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="42" fill="#ffffff" font-weight="900">KCS</text>
-  <path d="M 20 64 L 108 64" stroke="#ffffff" stroke-width="2" stroke-opacity="0.2" />
+  <defs>
+    <linearGradient id="capGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a4a4a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a2a2a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Keycap Base (Body/Shadow) -->
+  <rect x="10" y="14" width="108" height="108" rx="18" ry="18" fill="#111111" />
+  
+  <!-- Keycap Top Surface -->
+  <rect x="10" y="10" width="108" height="100" rx="18" ry="18" fill="url(#capGradient)" stroke="#555555" stroke-width="1.5" />
+
+  <!-- Text: Clean White Monospace -->
+  <text x="64" y="66" dy=".35em" text-anchor="middle" font-family="monospace" font-size="38" fill="#ffffff" font-weight="900" letter-spacing="-1">KCS</text>
+
 </svg>
