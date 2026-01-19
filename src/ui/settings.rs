@@ -447,6 +447,47 @@ pub fn create_settings_view(
     });
     group_font.add(&b_rad_row);
 
+    // Keyboard Layout
+    let layout_opts = ["ANSI", "ISO", "JIS", "ABNT2", "Hungarian", "Ortholinear"];
+    let layout_list = gtk::StringList::new(&layout_opts);
+
+    // Map current string to index
+    let current_layout = config.borrow().keyboard_layout.to_uppercase();
+    let layout_idx = match current_layout.as_str() {
+        "ISO" => 1,
+        "JIS" => 2,
+        "ABNT2" => 3,
+        "HU" | "HUNGARIAN" => 4,
+        "ORTHO" | "ORTHOLINEAR" => 5,
+        _ => 0,
+    };
+
+    let layout_drop = gtk::DropDown::builder()
+        .model(&layout_list)
+        .selected(layout_idx)
+        .valign(gtk::Align::Center)
+        .build();
+    let layout_row = adw::ActionRow::builder()
+        .title("Keyboard Layout")
+        .subtitle("Visual keyboard map type")
+        .build();
+    layout_row.add_suffix(&layout_drop);
+
+    let c = config.clone();
+    layout_drop.connect_selected_notify(move |d| {
+        let val = match d.selected() {
+            1 => "ISO",
+            2 => "JIS",
+            3 => "ABNT2",
+            4 => "HUNGARIAN",
+            5 => "ORTHOLINEAR",
+            _ => "ANSI",
+        };
+        c.borrow_mut().keyboard_layout = val.to_string();
+        let _ = c.borrow().save();
+    });
+    group_font.add(&layout_row);
+
     // Alternating Colors
     let alt_switch = gtk::Switch::builder()
         .active(config.borrow().alternating_row_colors)

@@ -1,129 +1,19 @@
+use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::normalize;
+use crate::ui::views::keyboard_layouts::{get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
 use gtk::gio;
 use gtk::prelude::*;
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
-struct KeyDef {
-    label: &'static str,
-    hypr_name: &'static str,
-    width: f64, // 1.0 is standard key
-}
-
-impl KeyDef {
-    const fn new(label: &'static str, hypr_name: &'static str, width: f64) -> Self {
-        Self {
-            label,
-            hypr_name,
-            width,
-        }
-    }
-}
-
-const ROW_FUNC: &[KeyDef] = &[
-    KeyDef::new("Esc", "Escape", 1.0),
-    KeyDef::new("F1", "F1", 1.0),
-    KeyDef::new("F2", "F2", 1.0),
-    KeyDef::new("F3", "F3", 1.0),
-    KeyDef::new("F4", "F4", 1.0),
-    KeyDef::new("F5", "F5", 1.0),
-    KeyDef::new("F6", "F6", 1.0),
-    KeyDef::new("F7", "F7", 1.0),
-    KeyDef::new("F8", "F8", 1.0),
-    KeyDef::new("F9", "F9", 1.0),
-    KeyDef::new("F10", "F10", 1.0),
-    KeyDef::new("F11", "F11", 1.0),
-    KeyDef::new("F12", "F12", 1.0),
-    KeyDef::new("PrtSc", "Print", 1.0),
-    KeyDef::new("Del", "Delete", 1.0),
-];
-
-// Standard ANSI Layout
-const ROW_1: &[KeyDef] = &[
-    KeyDef::new("`", "grave", 1.0),
-    KeyDef::new("1", "1", 1.0),
-    KeyDef::new("2", "2", 1.0),
-    KeyDef::new("3", "3", 1.0),
-    KeyDef::new("4", "4", 1.0),
-    KeyDef::new("5", "5", 1.0),
-    KeyDef::new("6", "6", 1.0),
-    KeyDef::new("7", "7", 1.0),
-    KeyDef::new("8", "8", 1.0),
-    KeyDef::new("9", "9", 1.0),
-    KeyDef::new("0", "0", 1.0),
-    KeyDef::new("-", "minus", 1.0),
-    KeyDef::new("=", "equal", 1.0),
-    KeyDef::new("Bksp", "BackSpace", 2.0),
-];
-
-const ROW_2: &[KeyDef] = &[
-    KeyDef::new("Tab", "Tab", 1.5),
-    KeyDef::new("Q", "Q", 1.0),
-    KeyDef::new("W", "W", 1.0),
-    KeyDef::new("E", "E", 1.0),
-    KeyDef::new("R", "R", 1.0),
-    KeyDef::new("T", "T", 1.0),
-    KeyDef::new("Y", "Y", 1.0),
-    KeyDef::new("U", "U", 1.0),
-    KeyDef::new("I", "I", 1.0),
-    KeyDef::new("O", "O", 1.0),
-    KeyDef::new("P", "P", 1.0),
-    KeyDef::new("[", "bracketleft", 1.0),
-    KeyDef::new("]", "bracketright", 1.0),
-    KeyDef::new("\\\\", "backslash", 1.5),
-];
-
-const ROW_3: &[KeyDef] = &[
-    KeyDef::new("Caps", "Caps_Lock", 1.75),
-    KeyDef::new("A", "A", 1.0),
-    KeyDef::new("S", "S", 1.0),
-    KeyDef::new("D", "D", 1.0),
-    KeyDef::new("F", "F", 1.0),
-    KeyDef::new("G", "G", 1.0),
-    KeyDef::new("H", "H", 1.0),
-    KeyDef::new("J", "J", 1.0),
-    KeyDef::new("K", "K", 1.0),
-    KeyDef::new("L", "L", 1.0),
-    KeyDef::new(";", "semicolon", 1.0),
-    KeyDef::new("APOS", "apostrophe", 1.0),
-    KeyDef::new("Enter", "Return", 2.25),
-];
-
-const ROW_4: &[KeyDef] = &[
-    KeyDef::new("Shift", "Shift_L", 2.25),
-    KeyDef::new("Z", "Z", 1.0),
-    KeyDef::new("X", "X", 1.0),
-    KeyDef::new("C", "C", 1.0),
-    KeyDef::new("V", "V", 1.0),
-    KeyDef::new("B", "B", 1.0),
-    KeyDef::new("N", "N", 1.0),
-    KeyDef::new("M", "M", 1.0),
-    KeyDef::new(",", "comma", 1.0),
-    KeyDef::new(".", "period", 1.0),
-    KeyDef::new("/", "slash", 1.0),
-    KeyDef::new("Shift", "Shift_R", 2.75),
-];
-
-const ROW_5: &[KeyDef] = &[
-    KeyDef::new("Ctrl", "Control_L", 1.25),
-    KeyDef::new("Sup", "Super_L", 1.25),
-    KeyDef::new("Alt", "Alt_L", 1.25),
-    KeyDef::new("Space", "space", 6.25),
-    KeyDef::new("Alt", "Alt_R", 1.25),
-    KeyDef::new("Sup", "Super_R", 1.25),
-    KeyDef::new("Menu", "Menu", 1.25),
-    KeyDef::new("Ctrl", "Control_R", 1.25),
-];
-
-const ROW_ARROWS: &[KeyDef] = &[
-    KeyDef::new("<", "Left", 1.0),
-    KeyDef::new("v", "Down", 1.0),
-    KeyDef::new("^", "Up", 1.0),
-    KeyDef::new(">", "Right", 1.0),
-];
-
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
+    let config = StyleConfig::load();
+    let layout = config.keyboard_layout.to_uppercase();
+
+    // Select Rows based on layout
+    let (row1, row2, row3, row4, row5) = get_layout_rows(&layout);
+
     let container = gtk::Box::new(gtk::Orientation::Vertical, 8);
     container.set_margin_top(8);
     container.set_margin_bottom(8);
@@ -147,7 +37,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     });
 
     let title = gtk::Label::builder()
-        .label("Visual Keyboard Map")
+        .label(&format!("Visual Keyboard Map ({})", layout))
         .css_classes(["title-2"])
         .build();
 
@@ -227,36 +117,38 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     add_row(ROW_FUNC, row_idx, &grid);
     row_idx += 1;
-    add_row(ROW_1, row_idx, &grid);
+    add_row(row1, row_idx, &grid);
     row_idx += 1;
-    add_row(ROW_2, row_idx, &grid);
+    add_row(row2, row_idx, &grid);
     row_idx += 1;
-    add_row(ROW_3, row_idx, &grid);
+    add_row(row3, row_idx, &grid);
     row_idx += 1;
-    add_row(ROW_4, row_idx, &grid);
+    add_row(row4, row_idx, &grid);
     row_idx += 1;
-    add_row(ROW_5, row_idx, &grid);
+    add_row(row5, row_idx, &grid);
     row_idx += 1;
 
-    // Arrow keys
-    // Total columns approx 60.
-    // Arrows are 4 keys = 4 width each = 16 cols.
-    // Centered start = (60 - 16) / 2 = 22.
-    let arrow_start_col = 22;
-    let mut arrow_col = arrow_start_col;
-    for k in ROW_ARROWS {
-        let width_cells = 4; // 1.0 * 4
-        let btn = gtk::Button::builder()
-            .label(k.label)
-            .css_classes(["keyboard-key"])
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        let (_, norm_key) = normalize("", k.hypr_name);
-        btn.set_widget_name(&norm_key);
+    // Arrow keys (Skip for Ortholinear as they are integrated)
+    if !layout.contains("ORTHO") {
+        // Total columns approx 60.
+        // Arrows are 4 keys = 4 width each = 16 cols.
+        // Centered start = (60 - 16) / 2 = 22.
+        let arrow_start_col = 22;
+        let mut arrow_col = arrow_start_col;
+        for k in ROW_ARROWS {
+            let width_cells = 4; // 1.0 * 4
+            let btn = gtk::Button::builder()
+                .label(k.label)
+                .css_classes(["keyboard-key"])
+                .hexpand(true)
+                .vexpand(true)
+                .build();
+            let (_, norm_key) = normalize("", k.hypr_name);
+            btn.set_widget_name(&norm_key);
 
-        grid.attach(&btn, arrow_col, row_idx, width_cells, 1);
-        arrow_col += width_cells;
+            grid.attach(&btn, arrow_col, row_idx, width_cells, 1);
+            arrow_col += width_cells;
+        }
     }
 
     container.append(&grid);

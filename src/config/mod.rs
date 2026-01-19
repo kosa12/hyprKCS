@@ -18,6 +18,7 @@ pub struct StyleConfig {
     pub show_description: bool,
     pub alternating_row_colors: bool,
     pub default_sort: String,
+    pub keyboard_layout: String,
     pub shadow_size: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
@@ -45,6 +46,7 @@ impl Default for StyleConfig {
             show_description: false,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
+            keyboard_layout: "ANSI".to_string(),
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,
@@ -90,6 +92,7 @@ showFavorites = true
 showDescription = false
 alternatingRowColors = true
 defaultSort = key
+keyboardLayout = ANSI
 shadowSize = 0 4px 24px rgba(0,0,0,0.4)
 
 # Behavior
@@ -186,6 +189,9 @@ rowPadding = 2px
                     if let Some(val) = vars.get("defaultSort") {
                         config.default_sort = val.to_lowercase();
                     }
+                    if let Some(val) = vars.get("keyboardLayout") {
+                        config.keyboard_layout = val.to_uppercase();
+                    }
                     if let Some(val) = vars.get("shadowSize") {
                         config.shadow_size = val.clone();
                     }
@@ -264,6 +270,7 @@ showFavorites = {}
 showDescription = {}
 alternatingRowColors = {}
 defaultSort = {}
+keyboardLayout = {}
 shadowSize = {}
 
 # Behavior
@@ -287,6 +294,7 @@ rowPadding = {}px
                 self.show_description,
                 self.alternating_row_colors,
                 self.default_sort,
+                self.keyboard_layout,
                 self.shadow_size,
                 self.auto_backup,
                 self.max_backups_enabled,

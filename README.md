@@ -29,7 +29,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Native GTK4 Interface**: Integrates seamlessly with your system theme, supporting both light and dark modes via Libadwaita.
 - **Real-time Fuzzy Search**: Instantly find keybinds as you type.
 - **Advanced Search Syntax**: Use tags like `mod:`, `key:`, `action:`, or `desc:` to filter keybinds with precision.
-- **Visual Keyboard Map**: Interactive layout to visualize used and available keys for any modifier combination.
+- **Visual Keyboard Map**: Interactive layout to visualize used and available keys for any modifier combination. Supports multiple physical layouts including ANSI, ISO, JIS, ABNT2, or Hungarian.
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
@@ -90,6 +90,7 @@ You can customize the appearance and behavior of hyprKCS by creating a configura
 | `showFavorites` | Toggles visibility of the "Favorites" column and category | `true` |
 | `alternatingRowColors` | Toggles striped rows for the list view | `true` |
 | `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`, etc.) | `key` |
+| `keyboardLayout` | Physical keyboard layout for the visualizer (`ANSI`, `ISO`, `JIS`, `ABNT2`, `HU`) | `ANSI` |
 | `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
 | `monitorMargin` | Margin around the window (in pixels) | `12` |
 | `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
@@ -118,6 +119,7 @@ showSubmaps = false
 showArgs = true
 showFavorites = true
 defaultSort = mods
+keyboardLayout = ANSI
 showDescription = true
 
 # Behavior
@@ -160,6 +162,7 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 - **Select Modifiers**: Toggle SUPER, SHIFT, CTRL, or ALT to see which keys are bound to those modifiers.
 - **Color Coding**: Keys bound to actions are highlighted. Hover over them to see the exact dispatcher and arguments.
 - **Find Free Keys**: Easily spot unhighlighted keys to find available shortcuts for your configuration.
+- **Multiple Layouts**: Switch between ANSI, ISO, JIS, ABNT2, or Hungarian layouts in the Settings to match your physical hardware.
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
