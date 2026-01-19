@@ -274,7 +274,7 @@ pub const ABNT2_ROW_2: &[KeyDef] = &[
     KeyDef::new("P", "P", 1.0),
     KeyDef::new("´ `", "dead_acute", 1.0),
     KeyDef::new("[", "bracketleft", 1.0),
-    KeyDef::new("Enter", "Return", 1.5), 
+    KeyDef::new("Enter", "Return", 1.5),
 ];
 
 pub const ABNT2_ROW_3: &[KeyDef] = &[
@@ -290,7 +290,7 @@ pub const ABNT2_ROW_3: &[KeyDef] = &[
     KeyDef::new("L", "L", 1.0),
     KeyDef::new("Ç", "ccedilla", 1.0),
     KeyDef::new("~", "dead_tilde", 1.0),
-    KeyDef::new("]", "bracketright", 1.0), 
+    KeyDef::new("]", "bracketright", 1.0),
     KeyDef::new("Enter", "Return", 1.25),
 ];
 
@@ -307,7 +307,7 @@ pub const ABNT2_ROW_4: &[KeyDef] = &[
     KeyDef::new(",", "comma", 1.0),
     KeyDef::new(".", "period", 1.0),
     KeyDef::new(";", "semicolon", 1.0),
-    KeyDef::new("/", "slash", 1.0), 
+    KeyDef::new("/", "slash", 1.0),
     KeyDef::new("Shift", "Shift_R", 1.75),
 ];
 
@@ -374,7 +374,7 @@ pub const HU_ROW_3: &[KeyDef] = &[
 pub const HU_ROW_4: &[KeyDef] = &[
     KeyDef::new("Shift", "Shift_L", 1.25),
     KeyDef::new("í", "iacute", 1.0), // LSGT key
-    KeyDef::new("Y", "Y", 1.0), // Y here
+    KeyDef::new("Y", "Y", 1.0),      // Y here
     KeyDef::new("X", "X", 1.0),
     KeyDef::new("C", "C", 1.0),
     KeyDef::new("V", "V", 1.0),
