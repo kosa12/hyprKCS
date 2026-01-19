@@ -503,12 +503,8 @@ pub fn create_settings_view(
         .title("Mouse / Touchpad")
         .build();
 
-    let follow_combo = gtk::DropDown::from_strings(&[
-        "0 - Disabled",
-        "1 - Always",
-        "2 - Cursor",
-        "3 - Loose",
-    ]);
+    let follow_combo =
+        gtk::DropDown::from_strings(&["0 - Disabled", "1 - Always", "2 - Cursor", "3 - Loose"]);
     follow_combo.set_selected(input_config.borrow().follow_mouse as u32);
     follow_combo.set_valign(gtk::Align::Center);
     let follow_row = adw::ActionRow::builder()
@@ -523,14 +519,8 @@ pub fn create_settings_view(
     group_mouse.add(&follow_row);
 
     // Sensitivity
-    let sens_adj = gtk::Adjustment::new(
-        input_config.borrow().sensitivity,
-        -1.0,
-        1.0,
-        0.1,
-        0.2,
-        0.0,
-    );
+    let sens_adj =
+        gtk::Adjustment::new(input_config.borrow().sensitivity, -1.0, 1.0, 0.1, 0.2, 0.0);
     let sens_scale = gtk::Scale::builder()
         .adjustment(&sens_adj)
         .draw_value(true)
@@ -561,14 +551,12 @@ pub fn create_settings_view(
         .build();
     let save_icon = gtk::Image::from_icon_name("document-save-symbolic");
     save_row.add_prefix(&save_icon);
-    
+
     let c = input_config.clone();
     let toast_cb_input = on_show_toast.clone();
-    save_row.connect_activated(move |_| {
-        match save_input_config(&c.borrow()) {
-            Ok(_) => toast_cb_input("Input configuration saved successfully".to_string()),
-            Err(e) => toast_cb_input(format!("Error saving config: {}", e)),
-        }
+    save_row.connect_activated(move |_| match save_input_config(&c.borrow()) {
+        Ok(_) => toast_cb_input("Input configuration saved successfully".to_string()),
+        Err(e) => toast_cb_input(format!("Error saving config: {}", e)),
     });
     group_save.add(&save_row);
     page_input.add(&group_save);
