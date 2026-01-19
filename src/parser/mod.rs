@@ -4,6 +4,8 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+pub mod input;
+
 #[derive(Debug, Clone)]
 pub struct Keybind {
     pub mods: String,

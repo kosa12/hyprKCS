@@ -37,6 +37,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Favorites**: Pin frequently used keybinds for quick access.
+- **Input Device Configuration**: Manage your `input { ... }` block (layout, sensitivity, repeat rate) directly from the settings.
 - **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
 - **Automatic Backups**: Automatically backup your configuration on every change, with optional retention limits.
 - **Command-Line Interface**: Quickly search and print keybinds from the terminal.
@@ -163,6 +164,12 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 - **Color Coding**: Keys bound to actions are highlighted. Hover over them to see the exact dispatcher and arguments.
 - **Find Free Keys**: Easily spot unhighlighted keys to find available shortcuts for your configuration.
 - **Multiple Layouts**: Switch between ANSI, ISO, JIS, ABNT2, or Hungarian layouts in the Settings to match your physical hardware.
+
+**Input Configuration**
+Manage your system's input behavior without manual text editing.
+- **Keyboard Settings**: Set your layout code, variant, options, repeat rate, and delay.
+- **Mouse/Touchpad**: Adjust mouse sensitivity and window focus behavior (Follow Mouse).
+- **Direct Save**: Changes are written directly to your `hyprland.conf` input block.
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
