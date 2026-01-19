@@ -59,7 +59,7 @@ Ensure you have `rust`, `cargo`, and `gtk4` development headers installed.
 
 **Using Make (Recommended):**
 ```bash
-git clone https://github.com/kosa12/hyprKCS.git
+git clone --depth=1 https://github.com/kosa12/hyprKCS.git
 cd hyprKCS
 make
 sudo make install
@@ -67,7 +67,7 @@ sudo make install
 
 **Using Cargo directly:**
 ```bash
-git clone https://github.com/kosa12/hyprKCS.git
+git clone --depth=1 https://github.com/kosa12/hyprKCS.git
 cd hyprKCS
 cargo build --release
 # The binary will be at ./target/release/hyprKCS
