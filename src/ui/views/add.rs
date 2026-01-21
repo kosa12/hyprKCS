@@ -30,9 +30,14 @@ pub fn create_add_view(
     local_stack.add_named(&container, Some("form"));
 
     let stack_c = stack.clone();
-    let header = create_page_header("Add New Keybind", None, "Back", move || {
-        stack_c.set_visible_child_name("home");
-    });
+    let header = create_page_header(
+        "Add New Keybind",
+        Some("Fill in the details below to add a new keybind"),
+        "Back",
+        move || {
+            stack_c.set_visible_child_name("home");
+        },
+    );
     container.append(&header);
 
     let scroll = gtk::ScrolledWindow::builder()

@@ -29,9 +29,14 @@ pub fn create_settings_view(
 
     // --- Header ---
     let stack_c = stack.clone();
-    let header = create_page_header("Settings", None, "Back", move || {
-        stack_c.set_visible_child_name("home");
-    });
+    let header = create_page_header(
+        "Settings",
+        Some("Configure your preferences"),
+        "Back",
+        move || {
+            stack_c.set_visible_child_name("home");
+        },
+    );
     header.set_margin_top(12);
     header.set_margin_bottom(12);
     header.set_margin_start(12);
