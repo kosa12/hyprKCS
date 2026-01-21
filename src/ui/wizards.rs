@@ -130,60 +130,25 @@ pub fn create_conflict_wizard(
 
     // List Items
     for obj in group {
-        let row = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .css_classes(["card"])
-            .margin_start(4)
-            .margin_end(4)
-            .build();
-
-        // Inner content
-        let content = gtk::Box::builder()
-            .orientation(gtk::Orientation::Horizontal)
-            .spacing(12)
-            .margin_top(12)
-            .margin_bottom(12)
-            .margin_start(12)
-            .margin_end(12)
-            .build();
-
-        let info_box = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(4)
-            .hexpand(true)
-            .build();
-
         let dispatcher = obj.property::<String>("dispatcher");
         let args = obj.property::<String>("args");
         let file_path = obj.property::<String>("file-path");
         let line_num = obj.property::<u64>("line-number");
 
-        let action_label = gtk::Label::builder()
-            .label(&if args.is_empty() {
-                dispatcher.clone()
-            } else {
-                format!("{} {}", dispatcher, args)
-            })
-            .halign(gtk::Align::Start)
-            .css_classes(["heading"])
-            .build();
+        let title = if args.is_empty() {
+            dispatcher.clone()
+        } else {
+            format!("{} {}", dispatcher, args)
+        };
 
-        let file_label = gtk::Label::builder()
-            .label(&format!(
-                "{}:{}",
-                std::path::Path::new(&file_path)
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
-                line_num + 1
-            ))
-            .halign(gtk::Align::Start)
-            .css_classes(["caption", "dim-label"])
-            .build();
-
-        info_box.append(&action_label);
-        info_box.append(&file_label);
-        content.append(&info_box);
+        let subtitle = format!(
+            "{}:{}",
+            std::path::Path::new(&file_path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
+            line_num + 1
+        );
 
         // Actions for this item
         let actions_box = gtk::Box::builder()
@@ -199,9 +164,8 @@ pub fn create_conflict_wizard(
 
         actions_box.append(&edit_btn);
         actions_box.append(&delete_btn);
-        content.append(&actions_box);
 
-        row.append(&content);
+        let row = crate::ui::utils::create_card_row(&title, Some(&subtitle), &actions_box);
         list_box.append(&row);
 
         // Wiring up buttons

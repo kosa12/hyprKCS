@@ -93,53 +93,14 @@ fn create_backup_row(
     toast_overlay: &adw::ToastOverlay,
     restore_container: &gtk::Box,
 ) -> gtk::Widget {
-    let row = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(12)
-        .css_classes(["card"])
-        .margin_start(4)
-        .margin_end(4)
-        .build();
-
-    let info_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(4)
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .hexpand(true)
-        .build();
-
     let timestamp = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
-    let title = gtk::Label::builder()
-        .label(&timestamp)
-        .halign(gtk::Align::Start)
-        .css_classes(["heading"])
-        .build();
-
-    let path_label = gtk::Label::builder()
-        .label(path.to_string_lossy().to_string())
-        .halign(gtk::Align::Start)
-        .css_classes(["caption", "dim-label"])
-        .ellipsize(gtk::pango::EllipsizeMode::Middle)
-        .max_width_chars(40)
-        .wrap(true)
-        .build();
-
-    info_box.append(&title);
-    info_box.append(&path_label);
-    row.append(&info_box);
-
     let actions_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(6)
-        .valign(gtk::Align::Center)
-        .margin_end(12)
         .build();
 
     let diff_btn = create_pill_button("View Diff", None);
@@ -147,13 +108,18 @@ fn create_backup_row(
 
     actions_box.append(&diff_btn);
     actions_box.append(&restore_btn);
-    row.append(&actions_box);
+
+    let row = crate::ui::utils::create_card_row(
+        &timestamp,
+        Some(&path.to_string_lossy()),
+        &actions_box,
+    );
 
     let path_c = path.clone();
     let toast_c = toast_overlay.clone();
     let stack_c = stack.clone();
     let model_c = model.clone();
-
+    
     restore_btn.connect_clicked(move |_| {
         let p = path_c.clone();
         let t = toast_c.clone();

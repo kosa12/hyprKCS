@@ -313,3 +313,57 @@ pub fn create_form_group(label_text: &str, widget: &impl IsA<gtk::Widget>) -> gt
     group.append(widget);
     group
 }
+
+pub fn create_card_row(
+    title: &str,
+    subtitle: Option<&str>,
+    actions: &impl IsA<gtk::Widget>,
+) -> gtk::Box {
+    let row = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .css_classes(["card"])
+        .margin_start(4)
+        .margin_end(4)
+        .build();
+
+    let info_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(4)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .hexpand(true)
+        .build();
+
+    let title_label = gtk::Label::builder()
+        .label(title)
+        .halign(gtk::Align::Start)
+        .css_classes(["heading"])
+        .wrap(true)
+        .build();
+    info_box.append(&title_label);
+
+    if let Some(sub) = subtitle {
+        let sub_label = gtk::Label::builder()
+            .label(sub)
+            .halign(gtk::Align::Start)
+            .css_classes(["caption", "dim-label"])
+            .ellipsize(gtk::pango::EllipsizeMode::Middle)
+            .max_width_chars(45)
+            .wrap(true)
+            .build();
+        info_box.append(&sub_label);
+    }
+
+    row.append(&info_box);
+
+    // Ensure actions are vertically centered and have some margin
+    actions.set_valign(gtk::Align::Center);
+    actions.set_margin_end(12);
+    row.append(actions);
+
+    row
+}
+
