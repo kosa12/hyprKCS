@@ -48,13 +48,16 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
     let mut block_depth = 0;
 
     let re_kv = Regex::new(r"^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)").unwrap();
-    let re_gesture = Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
+    let re_gesture =
+        Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
 
     for line in lines {
         let trimmed = line.trim();
-        
+
         // Detect block start
-        if trimmed.starts_with("input {") || (trimmed.starts_with("input") && trimmed.ends_with("{")) {
+        if trimmed.starts_with("input {")
+            || (trimmed.starts_with("input") && trimmed.ends_with("{"))
+        {
             current_block = "input";
             block_depth = 1;
             continue;
@@ -127,7 +130,10 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
     Ok((input_config, gestures_config))
 }
 
-pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesConfig) -> Result<()> {
+pub fn save_input_config(
+    input_config: &InputConfig,
+    gestures_config: &GesturesConfig,
+) -> Result<()> {
     let path = super::get_config_path()?;
     let content = std::fs::read_to_string(&path).unwrap_or_default();
     let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
@@ -143,11 +149,16 @@ pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesC
     ];
 
     let legacy_gesture_keys = [
-        "workspace_swipe", "workspace_swipe_fingers", "workspace_swipe_distance",
-        "workspace_swipe_invert", "workspace_swipe_min_speed_to_force",
-        "workspace_swipe_cancel_ratio", "workspace_swipe_create_new",
-        "workspace_swipe_direction_lock", "workspace_swipe_direction_lock_threshold",
-        "workspace_swipe_forever"
+        "workspace_swipe",
+        "workspace_swipe_fingers",
+        "workspace_swipe_distance",
+        "workspace_swipe_invert",
+        "workspace_swipe_min_speed_to_force",
+        "workspace_swipe_cancel_ratio",
+        "workspace_swipe_create_new",
+        "workspace_swipe_direction_lock",
+        "workspace_swipe_direction_lock_threshold",
+        "workspace_swipe_forever",
     ];
 
     // 1. Identify lines to remove (Gestures block and legacy keys in input)
@@ -159,7 +170,9 @@ pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesC
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if trimmed.is_empty() { continue; }
+            if trimmed.is_empty() {
+                continue;
+            }
 
             if trimmed.ends_with('{') {
                 if depth == 0 {
@@ -281,7 +294,7 @@ pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesC
             let mut insert_pos = end;
             for (key, val) in &input_updates {
                 if !updated_keys.contains(*key) && !val.is_empty() {
-                     if (key == &"kb_variant" || key == &"kb_options") && val.is_empty() {
+                    if (key == &"kb_variant" || key == &"kb_options") && val.is_empty() {
                         continue;
                     }
                     lines.insert(insert_pos, format!("    {} = {}", key, val));
@@ -303,7 +316,8 @@ pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesC
 
     // 4. Update Global 'gesture' Line
     {
-        let re_gesture = Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
+        let re_gesture =
+            Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
         let mut gesture_line_idx = None;
 
         for (i, line) in lines.iter().enumerate() {
@@ -314,7 +328,10 @@ pub fn save_input_config(input_config: &InputConfig, gestures_config: &GesturesC
         }
 
         if gestures_config.workspace_swipe {
-            let new_line = format!("gesture = {}, horizontal, workspace", gestures_config.workspace_swipe_fingers);
+            let new_line = format!(
+                "gesture = {}, horizontal, workspace",
+                gestures_config.workspace_swipe_fingers
+            );
             if let Some(idx) = gesture_line_idx {
                 lines[idx] = new_line;
             } else {

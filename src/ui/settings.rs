@@ -619,9 +619,7 @@ pub fn create_settings_view(
     page_gestures.add(&group_swipe);
 
     // Note about deprecated settings
-    let group_note = adw::PreferencesGroup::builder()
-        .title("Note")
-        .build();
+    let group_note = adw::PreferencesGroup::builder().title("Note").build();
     let note_row = adw::ActionRow::builder()
         .title("Advanced Settings Removed")
         .subtitle("Hyprland v0.51+ replaced the 'gestures' block with specific 'gesture' bindings. Fine-grained controls like speed, cancel ratio, and inversion are no longer available as global variables.")
@@ -642,9 +640,11 @@ pub fn create_settings_view(
     let c = input_config.clone();
     let g = gestures_config.clone();
     let toast_cb_g = on_show_toast.clone();
-    save_gestures_row.connect_activated(move |_| match save_input_config(&c.borrow(), &g.borrow()) {
-        Ok(_) => toast_cb_g("Gesture configuration saved successfully".to_string()),
-        Err(e) => toast_cb_g(format!("Error saving config: {}", e)),
+    save_gestures_row.connect_activated(move |_| {
+        match save_input_config(&c.borrow(), &g.borrow()) {
+            Ok(_) => toast_cb_g("Gesture configuration saved successfully".to_string()),
+            Err(e) => toast_cb_g(format!("Error saving config: {}", e)),
+        }
     });
     group_save_gestures.add(&save_gestures_row);
     page_gestures.add(&group_save_gestures);
