@@ -34,6 +34,8 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
+- **Interactive Restore**: Easily browse previous backups and restore your entire configuration tree with a single click.
+- **Visual Diffs**: Compare any backup with your current configuration using a Git-style color-coded diff view before restoring.
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Favorites**: Pin frequently used keybinds for quick access.
@@ -170,6 +172,13 @@ Manage your system's input behavior without manual text editing.
 - **Keyboard Settings**: Set your layout code, variant, options, repeat rate, and delay.
 - **Mouse/Touchpad**: Adjust mouse sensitivity and window focus behavior (Follow Mouse).
 - **Direct Save**: Changes are written directly to your `hyprland.conf` input block.
+
+**Backup and Restore**
+Safely manage your configuration versions.
+- **Full Tree Backup**: Backs up your entire `~/.config/hypr` directory recursively, preserving folder structures and external scripts.
+- **Interactive Restore**: Access the Restore menu from Settings to see all available timestamped backups.
+- **Visual Diffs**: Before restoring, click "View Diff" to see a color-coded comparison (additions/removals) between the backup and your current files.
+- **One-Click Recovery**: Restore your entire setup instantly if a change breaks your workflow.
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
