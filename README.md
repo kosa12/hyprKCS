@@ -167,6 +167,10 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 - **Find Free Keys**: Easily spot unhighlighted keys to find available shortcuts for your configuration.
 - **Multiple Layouts**: Switch between ANSI, ISO, JIS, ABNT2, or Hungarian layouts in the Settings to match your physical hardware.
 
+<p align="center">
+    <img src="./assets/image_4.png" width="80%" />
+</p>
+
 **Input Configuration**
 Manage your system's input behavior without manual text editing.
 - **Keyboard Settings**: Set your layout code, variant, options, repeat rate, and delay.
@@ -179,10 +183,6 @@ Safely manage your configuration versions.
 - **Interactive Restore**: Access the Restore menu from Settings to see all available timestamped backups.
 - **Visual Diffs**: Before restoring, click "View Diff" to see a color-coded comparison (additions/removals) between the backup and your current files.
 - **One-Click Recovery**: Restore your entire setup instantly if a change breaks your workflow.
-
-<p align="center">
-    <img src="./assets/image_4.png" width="80%" />
-</p>
 
 ### Command-Line Interface
 
