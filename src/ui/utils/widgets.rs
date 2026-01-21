@@ -219,3 +219,97 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
 
     container.append(&record_btn);
 }
+
+pub fn create_back_button(tooltip: &str) -> gtk::Button {
+    gtk::Button::builder()
+        .icon_name("go-previous-symbolic")
+        .css_classes(["flat", "circular", "small"])
+        .tooltip_text(tooltip)
+        .build()
+}
+
+pub fn create_pill_button(label: &str, icon: Option<&str>) -> gtk::Button {
+    let btn = gtk::Button::builder()
+        .label(label)
+        .css_classes(["pill", "small"])
+        .build();
+    if let Some(i) = icon {
+        btn.set_icon_name(i);
+    }
+    btn
+}
+
+pub fn create_suggested_button(label: &str, icon: Option<&str>) -> gtk::Button {
+    let btn = gtk::Button::builder()
+        .label(label)
+        .css_classes(["suggested-action", "pill", "small"])
+        .build();
+    if let Some(i) = icon {
+        btn.set_icon_name(i);
+    }
+    btn
+}
+
+pub fn create_destructive_button(label: &str, icon: Option<&str>) -> gtk::Button {
+    let btn = gtk::Button::builder()
+        .label(label)
+        .css_classes(["destructive-action", "pill", "small"])
+        .build();
+    if let Some(i) = icon {
+        btn.set_icon_name(i);
+    }
+    btn
+}
+
+pub fn create_flat_button(icon: &str, tooltip: &str) -> gtk::Button {
+    gtk::Button::builder()
+        .icon_name(icon)
+        .tooltip_text(tooltip)
+        .css_classes(["flat", "small"])
+        .build()
+}
+
+pub fn create_page_header(
+    title: &str,
+    subtitle: Option<&str>,
+    back_tooltip: &str,
+    on_back: impl Fn() + 'static,
+) -> gtk::Box {
+    let header_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    let back_btn = create_back_button(back_tooltip);
+    back_btn.connect_clicked(move |_| on_back());
+
+    let title_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    let title_label = gtk::Label::builder()
+        .label(title)
+        .css_classes(["title-2"])
+        .halign(gtk::Align::Start)
+        .build();
+    title_box.append(&title_label);
+
+    if let Some(sub) = subtitle {
+        let sub_label = gtk::Label::builder()
+            .label(sub)
+            .css_classes(["dim-label", "caption"])
+            .halign(gtk::Align::Start)
+            .wrap(true)
+            .build();
+        title_box.append(&sub_label);
+    }
+
+    header_box.append(&back_btn);
+    header_box.append(&title_box);
+    header_box
+}
+
+pub fn create_form_group(label_text: &str, widget: &impl IsA<gtk::Widget>) -> gtk::Box {
+    let group = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let label = gtk::Label::builder()
+        .label(label_text)
+        .halign(gtk::Align::Start)
+        .css_classes(["caption", "dim-label"])
+        .build();
+    group.append(&label);
+    group.append(widget);
+    group
+}

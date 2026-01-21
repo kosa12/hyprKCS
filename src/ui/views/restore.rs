@@ -1,4 +1,7 @@
-use crate::ui::utils::{generate_diff, list_backups, restore_backup};
+use crate::ui::utils::{
+    create_destructive_button, create_page_header, create_pill_button, generate_diff, list_backups,
+    restore_backup,
+};
 use gtk::glib::translate::IntoGlib;
 use gtk::prelude::*;
 use gtk4 as gtk;
@@ -27,32 +30,15 @@ pub fn create_restore_view(
         .build();
 
     // Header
-    let header_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-
-    let back_btn = gtk::Button::builder()
-        .icon_name("go-previous-symbolic")
-        .css_classes(["flat", "circular"])
-        .tooltip_text("Back to Settings")
-        .build();
-
     let stack_c = stack.clone();
-    back_btn.connect_clicked(move |_| {
-        stack_c.set_visible_child_name("settings");
-    });
-
-    let title_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    let title = gtk::Label::builder()
-        .label("Restore Backup")
-        .css_classes(["title-1"])
-        .halign(gtk::Align::Start)
-        .wrap(true)
-        .build();
-    let subtitle = gtk::Label::builder()
-        .label("Select a backup to restore your configuration. This will overwrite current files.")
-        .css_classes(["dim-label"])
-        .halign(gtk::Align::Start)
-        .wrap(true)
-        .build();
+    let header_box = create_page_header(
+        "Restore Backup",
+        Some("Select a backup to restore your configuration. This will overwrite current files."),
+        "Back to Settings",
+        move || {
+            stack_c.set_visible_child_name("settings");
+        },
+    );
 
     let warning = gtk::Label::builder()
         .label("WARNING: YOU COULD LOSE EVERYTHING CHANGED SINCE THE LAST BACKUP.")
@@ -62,14 +48,12 @@ pub fn create_restore_view(
         .wrap(true)
         .build();
 
-    title_box.append(&title);
-    title_box.append(&subtitle);
-    title_box.append(&warning);
+    // The create_page_header title_box is private, but we can append to the header_box
+    // Actually, create_page_header returns a Box(Horizontal) containing back_btn and a VerticalBox(title, subtitle).
+    // To add the warning, it's better to add it after the header in the main container.
 
-    header_box.append(&back_btn);
-    header_box.append(&title_box);
     container.append(&header_box);
-
+    container.append(&warning);
     let scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .vexpand(true)
@@ -158,15 +142,8 @@ fn create_backup_row(
         .margin_end(12)
         .build();
 
-    let diff_btn = gtk::Button::builder()
-        .label("View Diff")
-        .css_classes(["pill"])
-        .build();
-
-    let restore_btn = gtk::Button::builder()
-        .label("Restore")
-        .css_classes(["destructive-action", "pill"])
-        .build();
+    let diff_btn = create_pill_button("View Diff", None);
+    let restore_btn = create_destructive_button("Restore", None);
 
     actions_box.append(&diff_btn);
     actions_box.append(&restore_btn);
@@ -244,17 +221,16 @@ fn create_diff_view(
         .child(&container)
         .build();
 
-    let header = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    let back_btn = gtk::Button::builder()
-        .icon_name("go-previous-symbolic")
-        .css_classes(["flat", "circular"])
-        .build();
-
+    let timestamp = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
     let restore_container_c = restore_container.clone();
     let stack_c = stack.clone();
     let model_c = model.clone();
     let toast_c = toast_overlay.clone();
-    back_btn.connect_clicked(move |_| {
+
+    let header = create_page_header(&format!("Diff: {}", timestamp), None, "Back", move || {
         while let Some(child) = restore_container_c.first_child() {
             restore_container_c.remove(&child);
         }
@@ -262,18 +238,6 @@ fn create_diff_view(
         restore_container_c.append(&restore_view);
     });
 
-    let timestamp = path
-        .file_name()
-        .map(|n| n.to_string_lossy())
-        .unwrap_or_default();
-    let title = gtk::Label::builder()
-        .label(&format!("Diff: {}", timestamp))
-        .css_classes(["title-2"])
-        .halign(gtk::Align::Start)
-        .build();
-
-    header.append(&back_btn);
-    header.append(&title);
     container.append(&header);
 
     let scroll = gtk::ScrolledWindow::builder().vexpand(true).build();

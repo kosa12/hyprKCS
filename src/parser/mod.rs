@@ -266,61 +266,6 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     Ok(keybinds)
 }
 
-pub fn get_all_config_files() -> Result<Vec<PathBuf>> {
-    let main_path = get_config_path()?;
-    let variables = get_variables()?;
-    let sorted_keys: Vec<_> = variables.keys().cloned().collect();
-
-    let mut files = Vec::new();
-    let mut visited = HashSet::new();
-
-    fn collect_files(
-        path: PathBuf,
-        files: &mut Vec<PathBuf>,
-        visited: &mut HashSet<PathBuf>,
-        vars: &HashMap<String, String>,
-        sorted_keys: &[String],
-    ) -> Result<()> {
-        if !path.exists() || visited.contains(&path) {
-            return Ok(());
-        }
-        visited.insert(path.clone());
-        files.push(path.clone());
-
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
-        let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
-
-        for line in content.lines() {
-            let line_trimmed = line.trim();
-            if line_trimmed.starts_with('#') {
-                continue;
-            }
-            if let Some(caps) = source_re.captures(line_trimmed) {
-                let path_str = caps
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .split('#')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
-                let sourced_path = expand_path(path_str, &path, vars, sorted_keys);
-                collect_files(sourced_path, files, visited, vars, sorted_keys)?;
-            }
-        }
-        Ok(())
-    }
-
-    collect_files(
-        main_path,
-        &mut files,
-        &mut visited,
-        &variables,
-        &sorted_keys,
-    )?;
-    Ok(files)
-}
-
 pub fn update_line(
     path: PathBuf,
     line_number: usize,

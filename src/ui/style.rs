@@ -25,11 +25,10 @@ fn generate_css(config: &StyleConfig) -> String {
 
     let win_margin = config.monitor_margin;
     let row_margin = config.row_padding;
-    let shadow = &config.shadow_size;
 
     let alternating_css = if config.alternating_row_colors {
         "columnview row:nth-child(even) {
-            background-color: alpha(@window_fg_color, 0.03);
+            background-color: alpha(currentColor, 0.03);
         }"
     } else {
         ""
@@ -103,7 +102,6 @@ fn generate_css(config: &StyleConfig) -> String {
             background-image: none;
             color: @accent_fg_color;
             border-color: @accent_color;
-            box-shadow: 0 0 4px @accent_color;
         }}
 
         .dim-label {{
@@ -123,7 +121,7 @@ fn generate_css(config: &StyleConfig) -> String {
         }}
 
         .description-label {{
-            color: alpha(@window_fg_color, 0.70);
+            color: alpha(@window_fg_color, 0.7);
             font-size: {font_size};
         }}
 
@@ -165,16 +163,16 @@ fn generate_css(config: &StyleConfig) -> String {
 
         columnview row:selected .key-label, 
         columnview row:selected .mod-label {{
-            background-color: alpha(black, 0.1);
-            border-color: alpha(black, 0.15);
+            background-color: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.15);
         }}
 
         columnview row:selected .args-label {{
-            color: alpha(black, 0.55);
+            color: rgba(0, 0, 0, 0.55);
         }}
 
         columnview row:selected .description-label {{
-            color: alpha(black, 0.70);
+            color: rgba(0, 0, 0, 0.7);
         }}
 
         columnview row:selected .error-icon,
@@ -202,7 +200,6 @@ fn generate_css(config: &StyleConfig) -> String {
             background-color: alpha(@theme_bg_color, {opacity});
             border: {border_size} solid alpha(@window_fg_color, 0.15);
             border-radius: {border_radius};
-            box-shadow: {shadow}; 
             margin: {win_margin}px;
         }}
 
@@ -232,13 +229,24 @@ fn generate_css(config: &StyleConfig) -> String {
             border: none;
         }}
         
-        button.record-btn:active, 
-        button.record-btn:checked,
         button.record-btn:focus {{
              background-color: alpha(@window_fg_color, 0.16);
              box-shadow: none;
              border: none;
              outline: none;
+        }}
+
+        /* Compact buttons */
+        button.small {{
+            padding: 4px 10px;
+            min-height: 28px;
+            font-size: 1rem;
+        }}
+        
+        button.small.circular {{
+            padding: 4px;
+            min-width: 28px;
+            min-height: 28px;
         }}
     ",
         font_size = font_size,
@@ -248,8 +256,7 @@ fn generate_css(config: &StyleConfig) -> String {
         key_radius = key_radius,
         opacity = opacity,
         win_margin = win_margin,
-        row_margin = row_margin,
-        shadow = shadow
+        row_margin = row_margin
     )
 }
 

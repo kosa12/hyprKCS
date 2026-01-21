@@ -1,7 +1,7 @@
 use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::SearchQuery;
+use crate::ui::utils::{create_flat_button, reload_keybinds, SearchQuery};
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -19,7 +19,7 @@ pub fn build_ui(app: &adw::Application) {
 
     let config = StyleConfig::load();
     let model = gio::ListStore::new::<KeybindObject>();
-    crate::ui::utils::reload_keybinds(&model);
+    reload_keybinds(&model);
 
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
@@ -266,29 +266,10 @@ pub fn build_ui(app: &adw::Application) {
         .hexpand(true)
         .build();
 
-    let add_button = gtk::Button::builder()
-        .icon_name("list-add-symbolic")
-        .tooltip_text("Add New Keybind")
-        .css_classes(["flat"])
-        .build();
-
-    let backup_button = gtk::Button::builder()
-        .icon_name("document-save-symbolic")
-        .tooltip_text("Backup Current Config")
-        .css_classes(["flat"])
-        .build();
-
-    let settings_button = gtk::Button::builder()
-        .icon_name("emblem-system-symbolic")
-        .tooltip_text("Settings")
-        .css_classes(["flat"])
-        .build();
-
-    let keyboard_button = gtk::Button::builder()
-        .icon_name("input-keyboard-symbolic")
-        .tooltip_text("Visual Keyboard")
-        .css_classes(["flat"])
-        .build();
+    let add_button = create_flat_button("list-add-symbolic", "Add New Keybind");
+    let backup_button = create_flat_button("document-save-symbolic", "Backup Current Config");
+    let settings_button = create_flat_button("emblem-system-symbolic", "Settings");
+    let keyboard_button = create_flat_button("input-keyboard-symbolic", "Visual Keyboard");
 
     let conflict_button = gtk::Button::builder()
         .icon_name("dialog-warning-symbolic")
