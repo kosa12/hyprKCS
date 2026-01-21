@@ -115,6 +115,7 @@ bind = $mainMod, Q, exec, kitty
         "fullscreen",
         "0",
         None,
+        None,
     )
     .expect("Failed to add keybind");
 
@@ -218,6 +219,7 @@ submap = reset
         "movefocus",
         "l",
         Some("existing".to_string()),
+        None,
     )
     .expect("Failed to add to existing submap");
 
@@ -232,6 +234,7 @@ submap = reset
         "quit",
         "",
         Some("newmap".to_string()),
+        None,
     )
     .expect("Failed to add to new submap");
 
@@ -239,6 +242,49 @@ submap = reset
     assert!(new_content_2.contains("submap = newmap"));
     assert!(new_content_2.contains("bind = , q, quit"));
     assert!(new_content_2.contains("submap = reset"));
+}
+
+#[test]
+fn test_add_keybind_with_description() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let content = "bind = SUPER, Q, exec, kitty\n";
+    let temp = TempFile::new(content);
+
+    add_keybind(
+        temp.path.clone(),
+        "SUPER",
+        "T",
+        "exec",
+        "alacritty",
+        None,
+        Some("Launch terminal".to_string()),
+    )
+    .expect("Failed to add keybind with description");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("bind = SUPER, T, exec, alacritty # Launch terminal"));
+}
+
+#[test]
+fn test_update_keybind_description() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let content = "bind = SUPER, Q, exec, kitty # Old Description\n";
+    let temp = TempFile::new(content);
+
+    update_line(
+        temp.path.clone(),
+        0,
+        "SUPER",
+        "Q",
+        "exec",
+        "kitty",
+        Some("New Description".to_string()),
+    )
+    .expect("Failed to update description");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("bind = SUPER, Q, exec, kitty # New Description"));
+    assert!(!new_content.contains("Old Description"));
 }
 
 #[test]

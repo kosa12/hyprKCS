@@ -338,21 +338,21 @@ pub fn update_line(
     }
 
     let original_line = &lines[line_number];
-    let re = Regex::new(r"^(\s*bind)([a-zA-Z]*\s*=\s*)([^#]*)").unwrap();
+    let re = Regex::new(r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^#]*)").unwrap();
 
     if let Some(caps) = re.captures(original_line) {
-        let prefix = caps.get(1).map_or("", |m| m.as_str());
-        let flags_eq = caps.get(2).map_or("", |m| m.as_str());
+        let indent = caps.get(1).map_or("", |m| m.as_str());
+        let flags = caps.get(2).map_or("", |m| m.as_str());
 
         let mut new_line = if new_args.trim().is_empty() {
             format!(
-                "{}{} {}, {}, {}",
-                prefix, flags_eq, new_mods, new_key, new_dispatcher
+                "{}bind{} = {}, {}, {}",
+                indent, flags, new_mods, new_key, new_dispatcher
             )
         } else {
             format!(
-                "{}{} {}, {}, {}, {}",
-                prefix, flags_eq, new_mods, new_key, new_dispatcher, new_args
+                "{}bind{} = {}, {}, {}, {}",
+                indent, flags, new_mods, new_key, new_dispatcher, new_args
             )
         };
 
