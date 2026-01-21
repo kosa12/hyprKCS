@@ -1,10 +1,17 @@
 use anyhow::{Context, Result};
 use dirs::config_dir;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub mod input;
+
+static VAR_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(\$[a-zA-Z0-9_-]+)\s*=\s*(.*)").unwrap());
+static SOURCE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*source\s*=\s*(.*)").unwrap());
+static BIND_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap());
+static SUBMAP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*submap\s*=\s*(.*)$").unwrap());
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
@@ -36,6 +43,9 @@ fn resolve_variables(
     vars: &HashMap<String, String>,
     sorted_keys: &[String],
 ) -> String {
+    if !input.contains('$') {
+        return input.to_string();
+    }
     let mut result = input.to_string();
     for key in sorted_keys {
         if result.contains(key) {
@@ -68,24 +78,42 @@ fn expand_path(
     }
 }
 
+/// Caches file contents and variables to avoid redundant I/O and processing
+struct ParserContext {
+    variables: HashMap<String, String>,
+    sorted_keys: Vec<String>,
+    visited: HashSet<PathBuf>,
+}
+
+impl ParserContext {
+    fn new() -> Self {
+        Self {
+            variables: HashMap::new(),
+            sorted_keys: Vec::new(),
+            visited: HashSet::new(),
+        }
+    }
+
+    fn update_sorted_keys(&mut self) {
+        // Only update if variable count changed to save work
+        if self.sorted_keys.len() != self.variables.len() {
+            self.sorted_keys = self.variables.keys().cloned().collect();
+            self.sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
+        }
+    }
+}
+
 pub fn get_variables() -> Result<HashMap<String, String>> {
     let main_path = get_config_path()?;
-    let mut variables = HashMap::new();
-    let mut visited = HashSet::new();
+    let mut ctx = ParserContext::new();
 
-    fn collect_recursive(
-        path: PathBuf,
-        vars: &mut HashMap<String, String>,
-        visited: &mut HashSet<PathBuf>,
-    ) -> Result<()> {
-        if !path.exists() || visited.contains(&path) {
+    fn collect_recursive(path: PathBuf, ctx: &mut ParserContext) -> Result<()> {
+        if !path.exists() || ctx.visited.contains(&path) {
             return Ok(());
         }
-        visited.insert(path.clone());
+        ctx.visited.insert(path.clone());
 
         let content = std::fs::read_to_string(&path).unwrap_or_default();
-        let var_re = Regex::new(r"^\s*(\$[a-zA-Z0-9_-]+)\s*=\s*(.*)").unwrap();
-        let source_re = Regex::new(r"^\s*source\s*=\s*(.*)").unwrap();
 
         for line in content.lines() {
             let line = line.trim();
@@ -93,18 +121,15 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                 continue;
             }
 
-            // Prepare sorted keys from current variables for resolution
-            // This happens per-line but only for variable/source lines, which is acceptable
-            let mut sorted_keys: Vec<_> = vars.keys().cloned().collect();
-            sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
-
-            if let Some(caps) = var_re.captures(line) {
+            if let Some(caps) = VAR_RE.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 let raw_value_full = caps.get(2).unwrap().as_str();
                 let raw_value = raw_value_full.split('#').next().unwrap_or("").trim();
-                let value = resolve_variables(raw_value, vars, &sorted_keys);
-                vars.insert(name, value);
-            } else if let Some(caps) = source_re.captures(line) {
+
+                ctx.update_sorted_keys();
+                let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
+                ctx.variables.insert(name, value);
+            } else if let Some(caps) = SOURCE_RE.captures(line) {
                 let path_str = caps
                     .get(1)
                     .unwrap()
@@ -113,26 +138,26 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                     .next()
                     .unwrap_or("")
                     .trim();
-                let sourced_path = expand_path(path_str, &path, vars, &sorted_keys);
-                let _ = collect_recursive(sourced_path, vars, visited);
+
+                ctx.update_sorted_keys();
+                let sourced_path = expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
+                let _ = collect_recursive(sourced_path, ctx);
             }
         }
         Ok(())
     }
 
-    collect_recursive(main_path, &mut variables, &mut visited)?;
-    Ok(variables)
+    collect_recursive(main_path, &mut ctx)?;
+    Ok(ctx.variables)
 }
 
 pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
-    let mut keybinds = Vec::new();
     let variables = get_variables()?;
-
-    // Sort keys ONCE for the entire parsing process
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
     sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
 
+    let mut keybinds = Vec::new();
     let mut visited = HashSet::new();
     let mut current_submap: Option<String> = None;
 
@@ -152,31 +177,22 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         let content = std::fs::read_to_string(&path).unwrap_or_default();
         let lines: Vec<&str> = content.lines().collect();
 
-        // Regex to match "bind" or "bindl", "binde" etc, and capture the flags + the rest of the line
-        let bind_re = Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap();
-        let source_re = Regex::new(r"^\s*source\s*=\s*(.*)$").unwrap();
-        let submap_re = Regex::new(r"^\s*submap\s*=\s*(.*)$").unwrap();
-
         for (index, line) in lines.iter().enumerate() {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
                 continue;
             }
 
-            if let Some(caps) = submap_re.captures(line_trimmed) {
+            if let Some(caps) = SUBMAP_RE.captures(line_trimmed) {
                 let name = caps.get(1).map_or("", |m| m.as_str()).trim();
                 if name == "reset" {
                     *current_submap = None;
                 } else {
                     *current_submap = Some(name.to_string());
                 }
-            } else if let Some(caps) = bind_re.captures(line_trimmed) {
+            } else if let Some(caps) = BIND_RE.captures(line_trimmed) {
                 let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
                 let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
-
-                // Extract description:
-                // 1. Inline comment: "bind = ... # My Desc"
-                // 2. Preceding comment: "# My Desc \n bind = ..."
 
                 let mut description = None;
 
@@ -199,14 +215,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     }
                 }
 
-                // 1. Resolve variables in the content string using PRE-SORTED keys
                 let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
-
-                // 2. Strip comments for parsing parts
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
-
-                // 3. Split by comma to get arguments
-                // Limit 4 because: Mod, Key, Dispatcher, Args
                 let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
 
                 if parts.len() >= 3 {
@@ -220,8 +230,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     };
 
                     keybinds.push(Keybind {
-                        mods: mods.clone(), // We display the resolved mods
-                        clean_mods: mods,   // And store resolved mods
+                        mods: mods.clone(),
+                        clean_mods: mods,
                         flags: flags.to_string(),
                         key,
                         dispatcher,
@@ -232,7 +242,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         file_path: path.clone(),
                     });
                 }
-            } else if let Some(caps) = source_re.captures(line_trimmed) {
+            } else if let Some(caps) = SOURCE_RE.captures(line_trimmed) {
                 let path_str = caps
                     .get(1)
                     .unwrap()

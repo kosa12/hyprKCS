@@ -1,4 +1,6 @@
 use crate::parser::Keybind;
+use crate::ui::utils::SearchQuery;
+use fuzzy_matcher::FuzzyMatcher;
 use glib::subclass::prelude::*;
 use gtk::glib;
 use gtk4 as gtk;
@@ -36,6 +38,98 @@ impl KeybindObject {
         }
 
         obj
+    }
+
+    pub fn matches_query(
+        &self,
+        query: &SearchQuery,
+        category: u32,
+        matcher: &impl FuzzyMatcher,
+    ) -> bool {
+        let data = self.imp().data.borrow();
+
+        // Category Filter
+        let dispatcher_lower = data.dispatcher.to_lowercase();
+        let args_lower = data.args.to_lowercase();
+        let key_lower = data.key.to_lowercase();
+
+        let category_match = match category {
+            0 => true, // All
+            1 => {
+                dispatcher_lower.contains("workspace")
+                    || dispatcher_lower.contains("movetoworkspace")
+            }
+            2 => {
+                dispatcher_lower.contains("window")
+                    || dispatcher_lower.contains("active")
+                    || dispatcher_lower.contains("focus")
+                    || dispatcher_lower.contains("fullscreen")
+                    || dispatcher_lower.contains("group")
+                    || dispatcher_lower.contains("split")
+                    || dispatcher_lower.contains("pin")
+            }
+            3 => {
+                args_lower.contains("volume")
+                    || args_lower.contains("brightness")
+                    || args_lower.contains("playerctl")
+                    || dispatcher_lower.contains("audio")
+            }
+            4 => dispatcher_lower == "exec", // Custom/Script
+            5 => key_lower.contains("mouse"),
+            6 => data.is_favorite,
+            _ => true,
+        };
+
+        if !category_match {
+            return false;
+        }
+
+        // Advanced Search Filters
+        if let Some(ref q_mods) = query.mods {
+            if !data.mods.to_lowercase().contains(&q_mods.to_lowercase()) {
+                return false;
+            }
+        }
+        if let Some(ref q_key) = query.key {
+            if !data.key.to_lowercase().contains(&q_key.to_lowercase()) {
+                return false;
+            }
+        }
+        if let Some(ref q_action) = query.action {
+            if !dispatcher_lower.contains(&q_action.to_lowercase()) {
+                return false;
+            }
+        }
+        if let Some(ref q_args) = query.args {
+            if !args_lower.contains(&q_args.to_lowercase()) {
+                return false;
+            }
+        }
+        if let Some(ref q_desc) = query.description {
+            if !data
+                .description
+                .to_lowercase()
+                .contains(&q_desc.to_lowercase())
+            {
+                return false;
+            }
+        }
+
+        if query.general_query.is_empty() {
+            return true;
+        }
+
+        let text_to_match = &query.general_query;
+
+        matcher.fuzzy_match(&data.mods, text_to_match).is_some()
+            || matcher.fuzzy_match(&data.key, text_to_match).is_some()
+            || matcher
+                .fuzzy_match(&data.dispatcher, text_to_match)
+                .is_some()
+            || matcher.fuzzy_match(&data.args, text_to_match).is_some()
+            || matcher
+                .fuzzy_match(&data.description, text_to_match)
+                .is_some()
     }
 }
 
