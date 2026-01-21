@@ -150,6 +150,17 @@ pub fn create_edit_view(
     }
     form_box.append(&entry_args);
 
+    let label_desc = gtk::Label::new(Some("Description (Optional):"));
+    label_desc.set_halign(gtk::Align::Start);
+    form_box.append(&label_desc);
+
+    let entry_desc = gtk::Entry::builder()
+        .text(&obj.property::<String>("description"))
+        .placeholder_text("Comment appended to the config line")
+        .activates_default(true)
+        .build();
+    form_box.append(&entry_desc);
+
     let button_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(12)
@@ -268,6 +279,7 @@ pub fn create_edit_view(
         let entry_key = entry_key.clone();
         let entry_dispatcher = entry_dispatcher.clone();
         let entry_args = entry_args.clone();
+        let entry_desc = entry_desc.clone();
 
         Rc::new(move || {
             let input_mods = entry_mods.text().to_string();
@@ -285,6 +297,7 @@ pub fn create_edit_view(
             } else {
                 input_args
             };
+            let desc = entry_desc.text().to_string();
 
             match parser::update_line(
                 file_path.clone(),
@@ -293,6 +306,7 @@ pub fn create_edit_view(
                 &new_key,
                 &new_dispatcher,
                 &new_args,
+                if desc.is_empty() { None } else { Some(desc) },
             ) {
                 Ok(_) => {
                     reload_keybinds(&model_clone);
