@@ -369,6 +369,9 @@ pub fn build_ui(app: &adw::Application) {
     let wizard_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&wizard_page_container, Some("wizard"));
 
+    let restore_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root_stack.add_named(&restore_page_container, Some("restore"));
+
     let settings_page_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root_stack.add_named(&settings_page_container, Some("settings"));
 
@@ -723,6 +726,7 @@ pub fn build_ui(app: &adw::Application) {
     let column_view_clone = column_view.clone();
     let model_settings = model.clone();
     let toast_overlay_settings = toast_overlay.clone();
+    let restore_container_settings = restore_page_container.clone();
 
     settings_button.connect_clicked(move |_| {
         while let Some(child) = container_settings.first_child() {
@@ -740,7 +744,13 @@ pub fn build_ui(app: &adw::Application) {
         let col_submap_sort_c = col_submap_clone.clone();
         let col_view_c = column_view_clone.clone();
         let model_s = model_settings.clone();
+        let model_s_restore = model_settings.clone();
         let toast_s = toast_overlay_settings.clone();
+        let stack_s = stack_settings.clone();
+        let restore_container_s = restore_container_settings.clone();
+
+        let toast_s_1 = toast_s.clone();
+        let toast_s_2 = toast_s.clone();
 
         let view = crate::ui::settings::create_settings_view(
             &window_settings,
@@ -764,7 +774,20 @@ pub fn build_ui(app: &adw::Application) {
             }),
             std::rc::Rc::new(move |msg| {
                 let toast = adw::Toast::new(&msg);
-                toast_s.add_toast(toast);
+                toast_s_1.add_toast(toast);
+            }),
+            std::rc::Rc::new(move || {
+                while let Some(child) = restore_container_s.first_child() {
+                    restore_container_s.remove(&child);
+                }
+                let restore_view = crate::ui::views::create_restore_view(
+                    &stack_s,
+                    &model_s_restore,
+                    &toast_s_2,
+                    &restore_container_s,
+                );
+                restore_container_s.append(&restore_view);
+                stack_s.set_visible_child_name("restore");
             }),
         );
         container_settings.append(&view);

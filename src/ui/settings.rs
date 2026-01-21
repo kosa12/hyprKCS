@@ -18,6 +18,7 @@ pub fn create_settings_view(
     on_submap_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
     on_show_toast: Rc<dyn Fn(String)>,
+    on_restore_clicked: Rc<dyn Fn()>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
 
@@ -159,6 +160,24 @@ pub fn create_settings_view(
     });
     group_backup.add(&max_backups_row);
     group_backup.add(&count_row);
+
+    let restore_row = adw::ActionRow::builder()
+        .title("Restore Backup")
+        .subtitle("Restore configuration from a previous backup")
+        .activatable(true)
+        .build();
+
+    let restore_icon = gtk::Image::from_icon_name("document-revert-symbolic");
+    restore_row.add_prefix(&restore_icon);
+
+    let restore_suffix = gtk::Image::from_icon_name("go-next-symbolic");
+    restore_row.add_suffix(&restore_suffix);
+
+    let on_restore = on_restore_clicked.clone();
+    restore_row.connect_activated(move |_| {
+        on_restore();
+    });
+    group_backup.add(&restore_row);
 
     page_general.add(&group_backup);
 

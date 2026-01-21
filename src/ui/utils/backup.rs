@@ -1,6 +1,5 @@
 use crate::config::constants;
 use crate::config::StyleConfig;
-use crate::parser;
 use anyhow::{Context, Result};
 use chrono::Local;
 use std::fs;
@@ -14,27 +13,80 @@ pub fn perform_backup(force: bool) -> Result<String> {
     }
 
     let config_dir = dirs::config_dir().context("Could not find config directory")?;
-    let backup_root = config_dir
-        .join(constants::HYPR_DIR)
-        .join(constants::BACKUP_DIR);
+    let hypr_dir = config_dir.join(constants::HYPR_DIR);
+    let backup_root = hypr_dir.join(constants::BACKUP_DIR);
 
     let now = Local::now();
     let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
-    let backup_dir = backup_root.join(&timestamp);
+    let current_backup_dir = backup_root.join(&timestamp);
 
-    fs::create_dir_all(&backup_dir)?;
+    fs::create_dir_all(&current_backup_dir)?;
 
-    let files = parser::get_all_config_files()?;
     let mut count = 0;
+    let mut errors = Vec::new();
 
-    for file_path in files {
-        if let Some(name) = file_path.file_name() {
-            let dest = backup_dir.join(name);
-            if let Err(e) = fs::copy(&file_path, &dest) {
-                eprintln!("Failed to backup {:?}: {}", file_path, e);
-            } else {
-                count += 1;
+    fn backup_recursive(
+        current_dir: &Path,
+        hypr_root: &Path,
+        backup_root: &Path,
+        count: &mut i32,
+        errors: &mut Vec<String>,
+    ) -> Result<()> {
+        if !current_dir.exists() {
+            return Ok(());
+        }
+
+        for entry in fs::read_dir(current_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            // Skip backup directory and hidden files/directories (like .git)
+            if file_name == constants::BACKUP_DIR || file_name_str.starts_with('.') {
+                continue;
             }
+
+            if path.is_dir() {
+                // Recursively backup subdirectories
+                backup_recursive(&path, hypr_root, backup_root, count, errors)?;
+            } else {
+                // Backup file
+                if let Ok(rel_path) = path.strip_prefix(hypr_root) {
+                    let dest = backup_root.join(rel_path);
+
+                    if let Some(parent) = dest.parent() {
+                        if let Err(e) = fs::create_dir_all(parent) {
+                            errors
+                                .push(format!("Failed to create parent dir for {:?}: {}", dest, e));
+                            continue;
+                        }
+                    }
+
+                    if let Err(e) = fs::copy(&path, &dest) {
+                        errors.push(format!("Failed to backup {:?}: {}", path, e));
+                    } else {
+                        *count += 1;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    if let Err(e) = backup_recursive(
+        &hypr_dir,
+        &hypr_dir,
+        &current_backup_dir,
+        &mut count,
+        &mut errors,
+    ) {
+        eprintln!("Backup process encountered error: {}", e);
+    }
+
+    if !errors.is_empty() {
+        for err in &errors {
+            eprintln!("{}", err);
         }
     }
 
@@ -45,6 +97,180 @@ pub fn perform_backup(force: bool) -> Result<String> {
     }
 
     Ok(format!("Backed up {} files to {}", count, timestamp))
+}
+
+pub fn restore_backup(backup_path: &Path) -> Result<String> {
+    if !backup_path.exists() || !backup_path.is_dir() {
+        return Err(anyhow::anyhow!("Invalid backup path"));
+    }
+
+    let config_dir = dirs::config_dir().context("Could not find config directory")?;
+    let hypr_dir = config_dir.join(constants::HYPR_DIR);
+
+    let mut restored_count = 0;
+    let mut errors = Vec::new();
+
+    // Helper to recursively walk and restore
+    fn restore_recursive(
+        current_dir: &Path,
+        backup_root: &Path,
+        target_root: &Path,
+        count: &mut i32,
+        errors: &mut Vec<String>,
+    ) -> Result<()> {
+        for entry in fs::read_dir(current_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            // Skip hidden files/directories
+            if file_name_str.starts_with('.') {
+                continue;
+            }
+
+            if path.is_dir() {
+                restore_recursive(&path, backup_root, target_root, count, errors)?;
+            } else {
+                if let Ok(rel_path) = path.strip_prefix(backup_root) {
+                    let dest = target_root.join(rel_path);
+
+                    if let Some(parent) = dest.parent() {
+                        if let Err(e) = fs::create_dir_all(parent) {
+                            errors.push(format!("Failed to create dir {:?}: {}", parent, e));
+                            continue;
+                        }
+                    }
+
+                    if let Err(e) = fs::copy(&path, &dest) {
+                        errors.push(format!("Failed to copy {:?} to {:?}: {}", path, dest, e));
+                    } else {
+                        *count += 1;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    if let Err(e) = restore_recursive(
+        backup_path,
+        backup_path,
+        &hypr_dir,
+        &mut restored_count,
+        &mut errors,
+    ) {
+        return Err(anyhow::anyhow!("Restore process encountered error: {}", e));
+    }
+
+    if !errors.is_empty() {
+        for err in &errors {
+            eprintln!("{}", err);
+        }
+        return Ok(format!(
+            "Restored {} files with {} errors",
+            restored_count,
+            errors.len()
+        ));
+    }
+
+    Ok(format!("Restored {} files successfully", restored_count))
+}
+
+use similar::{ChangeTag, TextDiff};
+
+pub fn generate_diff(backup_path: &Path) -> Result<String> {
+    let config_dir = dirs::config_dir().context("Could not find config directory")?;
+    let hypr_dir = config_dir.join(constants::HYPR_DIR);
+
+    let mut diff_output = String::new();
+    let mut errors = Vec::new();
+
+    fn diff_recursive(
+        current_backup_dir: &Path,
+        backup_root: &Path,
+        hypr_root: &Path,
+        output: &mut String,
+        errors: &mut Vec<String>,
+    ) -> Result<()> {
+        for entry in fs::read_dir(current_backup_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            if file_name_str.starts_with('.') {
+                continue;
+            }
+
+            if path.is_dir() {
+                diff_recursive(&path, backup_root, hypr_root, output, errors)?;
+            } else {
+                if let Ok(rel_path) = path.strip_prefix(backup_root) {
+                    let current_file = hypr_root.join(rel_path);
+                    let backup_content = fs::read_to_string(&path).unwrap_or_default();
+                    let current_content = if current_file.exists() {
+                        fs::read_to_string(&current_file).unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+
+                    if backup_content != current_content {
+                        output.push_str(&format!("--- {:?}\n", rel_path));
+                        output.push_str(&format!("+++ {:?}\n", rel_path));
+
+                        let diff = TextDiff::from_lines(&current_content, &backup_content);
+                        for change in diff.iter_all_changes() {
+                            let sign = match change.tag() {
+                                ChangeTag::Delete => "-",
+                                ChangeTag::Insert => "+",
+                                ChangeTag::Equal => " ",
+                            };
+                            output.push_str(&format!("{}{}", sign, change));
+                        }
+                        output.push_str("\n");
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    diff_recursive(
+        backup_path,
+        backup_path,
+        &hypr_dir,
+        &mut diff_output,
+        &mut errors,
+    )?;
+
+    if diff_output.is_empty() {
+        return Ok("No differences found.".to_string());
+    }
+
+    Ok(diff_output)
+}
+
+pub fn list_backups() -> Result<Vec<PathBuf>> {
+    let config_dir = dirs::config_dir().context("Could not find config directory")?;
+    let backup_root = config_dir
+        .join(constants::HYPR_DIR)
+        .join(constants::BACKUP_DIR);
+
+    if !backup_root.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries: Vec<PathBuf> = fs::read_dir(backup_root)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+
+    // Sort newest first (descending)
+    entries.sort_by(|a, b| b.cmp(a));
+
+    Ok(entries)
 }
 
 fn prune_backups(backup_root: &Path, max_count: usize) -> Result<()> {
