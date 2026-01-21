@@ -105,6 +105,16 @@ pub fn create_add_view(
         .build();
     form_box.append(&entry_submap);
 
+    let label_desc = gtk::Label::new(Some("Description (Optional):"));
+    label_desc.set_halign(gtk::Align::Start);
+    form_box.append(&label_desc);
+
+    let entry_desc = gtk::Entry::builder()
+        .placeholder_text("Comment appended to the config line")
+        .activates_default(true)
+        .build();
+    form_box.append(&entry_desc);
+
     let button_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(12)
@@ -213,6 +223,7 @@ pub fn create_add_view(
     let entry_dispatcher_c = entry_dispatcher.clone();
     let entry_args_c = entry_args.clone();
     let entry_submap_c = entry_submap.clone();
+    let entry_desc_c = entry_desc.clone();
     let stack_c = stack.clone();
 
     // Core Add Logic
@@ -221,6 +232,7 @@ pub fn create_add_view(
         let key = entry_key_c.text().to_string();
         let dispatcher = entry_dispatcher_c.text().to_string();
         let args = entry_args_c.text().to_string();
+        let desc = entry_desc_c.text().to_string();
         let submap_raw = entry_submap_c.text().to_string();
         let submap = if submap_raw.trim().is_empty() {
             None
@@ -236,6 +248,7 @@ pub fn create_add_view(
             &dispatcher,
             &args,
             submap.clone(),
+            if desc.is_empty() { None } else { Some(desc) },
         ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);

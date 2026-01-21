@@ -328,6 +328,7 @@ pub fn update_line(
     new_key: &str,
     new_dispatcher: &str,
     new_args: &str,
+    description: Option<String>,
 ) -> Result<()> {
     let content = std::fs::read_to_string(&path)?;
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
@@ -337,13 +338,13 @@ pub fn update_line(
     }
 
     let original_line = &lines[line_number];
-    let re = Regex::new(r"^(\s*bind)([a-zA-Z]*\s*=\s*)(.*)$").unwrap();
+    let re = Regex::new(r"^(\s*bind)([a-zA-Z]*\s*=\s*)([^#]*)").unwrap();
 
     if let Some(caps) = re.captures(original_line) {
         let prefix = caps.get(1).map_or("", |m| m.as_str());
         let flags_eq = caps.get(2).map_or("", |m| m.as_str());
 
-        let new_line = if new_args.trim().is_empty() {
+        let mut new_line = if new_args.trim().is_empty() {
             format!(
                 "{}{} {}, {}, {}",
                 prefix, flags_eq, new_mods, new_key, new_dispatcher
@@ -354,6 +355,17 @@ pub fn update_line(
                 prefix, flags_eq, new_mods, new_key, new_dispatcher, new_args
             )
         };
+
+        if let Some(desc) = description {
+            if !desc.trim().is_empty() {
+                new_line = format!("{} # {}", new_line, desc.trim());
+            }
+        } else {
+            // Preserve existing comment if no new description provided
+            if let Some(idx) = original_line.find('#') {
+                new_line = format!("{} {}", new_line, &original_line[idx..]);
+            }
+        }
 
         lines[line_number] = new_line;
         std::fs::write(&path, lines.join("\n"))?;
@@ -370,6 +382,7 @@ pub fn add_keybind(
     dispatcher: &str,
     args: &str,
     submap: Option<String>,
+    description: Option<String>,
 ) -> Result<usize> {
     let content = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<String> = if content.is_empty() {
@@ -378,11 +391,17 @@ pub fn add_keybind(
         content.lines().map(|s| s.to_string()).collect()
     };
 
-    let new_line = if args.trim().is_empty() {
+    let mut new_line = if args.trim().is_empty() {
         format!("bind = {}, {}, {}", mods, key, dispatcher)
     } else {
         format!("bind = {}, {}, {}, {}", mods, key, dispatcher, args)
     };
+
+    if let Some(desc) = description {
+        if !desc.trim().is_empty() {
+            new_line = format!("{} # {}", new_line, desc.trim());
+        }
+    }
 
     if let Some(submap_name) = submap.filter(|s| !s.is_empty()) {
         let submap_decl = format!("submap = {}", submap_name);
