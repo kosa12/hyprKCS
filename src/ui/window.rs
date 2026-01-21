@@ -5,7 +5,6 @@ use crate::ui::utils::{create_flat_button, reload_keybinds, SearchQuery};
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::create_conflict_wizard;
 use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
 use gtk::{gio, glib, prelude::*};
 use gtk4 as gtk;
 use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
@@ -594,86 +593,15 @@ pub fn build_ui(app: &adw::Application) {
         }
     });
 
+    let matcher = std::rc::Rc::new(SkimMatcherV2::default());
+
     let filter_func = move |text: String, category: u32| {
-        let matcher = SkimMatcherV2::default();
         let query = SearchQuery::parse(&text);
+        let m = matcher.clone();
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
-            let mods = kb.property::<String>("mods");
-            let key = kb.property::<String>("key");
-            let dispatcher = kb.property::<String>("dispatcher").to_lowercase();
-            let args = kb.property::<String>("args").to_lowercase();
-            let description = kb.property::<String>("description").to_lowercase();
-            let key_lower = key.to_lowercase();
-
-            // Category Filter
-            let category_match = match category {
-                0 => true, // All
-                1 => dispatcher.contains("workspace") || dispatcher.contains("movetoworkspace"),
-                2 => {
-                    dispatcher.contains("window")
-                        || dispatcher.contains("active")
-                        || dispatcher.contains("focus")
-                        || dispatcher.contains("fullscreen")
-                        || dispatcher.contains("group")
-                        || dispatcher.contains("split")
-                        || dispatcher.contains("pin")
-                }
-                3 => {
-                    args.contains("volume")
-                        || args.contains("brightness")
-                        || args.contains("playerctl")
-                        || dispatcher.contains("audio")
-                }
-                4 => dispatcher == "exec", // Custom/Script
-                5 => key_lower.contains("mouse"),
-                6 => kb.property::<bool>("is-favorite"),
-                _ => true,
-            };
-
-            if !category_match {
-                return false;
-            }
-
-            // Advanced Search Filters
-            if let Some(ref q_mods) = query.mods {
-                if !mods.to_lowercase().contains(&q_mods.to_lowercase()) {
-                    return false;
-                }
-            }
-            if let Some(ref q_key) = query.key {
-                if !key.to_lowercase().contains(&q_key.to_lowercase()) {
-                    return false;
-                }
-            }
-            if let Some(ref q_action) = query.action {
-                if !dispatcher.contains(&q_action.to_lowercase()) {
-                    return false;
-                }
-            }
-            if let Some(ref q_args) = query.args {
-                if !args.contains(&q_args.to_lowercase()) {
-                    return false;
-                }
-            }
-            if let Some(ref q_desc) = query.description {
-                if !description.contains(&q_desc.to_lowercase()) {
-                    return false;
-                }
-            }
-
-            if query.general_query.is_empty() {
-                return true;
-            }
-
-            let text_to_match = &query.general_query;
-
-            matcher.fuzzy_match(&mods, text_to_match).is_some()
-                || matcher.fuzzy_match(&key, text_to_match).is_some()
-                || matcher.fuzzy_match(&dispatcher, text_to_match).is_some()
-                || matcher.fuzzy_match(&args, text_to_match).is_some()
-                || matcher.fuzzy_match(&description, text_to_match).is_some()
+            kb.matches_query(&query, category, &*m)
         });
     };
 
