@@ -109,17 +109,14 @@ fn create_backup_row(
     actions_box.append(&diff_btn);
     actions_box.append(&restore_btn);
 
-    let row = crate::ui::utils::create_card_row(
-        &timestamp,
-        Some(&path.to_string_lossy()),
-        &actions_box,
-    );
+    let row =
+        crate::ui::utils::create_card_row(&timestamp, Some(&path.to_string_lossy()), &actions_box);
 
     let path_c = path.clone();
     let toast_c = toast_overlay.clone();
     let stack_c = stack.clone();
     let model_c = model.clone();
-    
+
     restore_btn.connect_clicked(move |_| {
         let p = path_c.clone();
         let t = toast_c.clone();

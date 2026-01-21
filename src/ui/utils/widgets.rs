@@ -366,4 +366,3 @@ pub fn create_card_row(
 
     row
 }
-
