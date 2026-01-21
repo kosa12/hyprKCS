@@ -1,7 +1,8 @@
 use crate::parser;
 use crate::ui::utils::{
-    command_exists, execute_keybind, perform_backup, reload_keybinds, setup_dispatcher_completion,
-    setup_key_recorder,
+    command_exists, create_destructive_button, create_form_group, create_page_header,
+    create_pill_button, create_suggested_button, execute_keybind, perform_backup, reload_keybinds,
+    setup_dispatcher_completion, setup_key_recorder,
 };
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
@@ -20,23 +21,24 @@ pub fn create_add_view(
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(12)
-        .margin_top(24)
-        .margin_bottom(24)
-        .margin_start(24)
-        .margin_end(24)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
         .build();
 
     local_stack.add_named(&container, Some("form"));
 
-    let title_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    let title = gtk::Label::builder()
-        .label("Add New Keybind")
-        .css_classes(["title-2"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build();
-    title_box.append(&title);
-    container.append(&title_box);
+    let stack_c = stack.clone();
+    let header = create_page_header(
+        "Add New Keybind",
+        Some("Fill in the details below to add a new keybind"),
+        "Back",
+        move || {
+            stack_c.set_visible_child_name("home");
+        },
+    );
+    container.append(&header);
 
     let scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
@@ -64,56 +66,33 @@ pub fn create_add_view(
     setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
     form_box.append(&recorder_box);
 
-    let label_mods = gtk::Label::new(Some("Modifiers:"));
-    label_mods.set_halign(gtk::Align::Start);
-    form_box.append(&label_mods);
-    form_box.append(&entry_mods);
-
-    let label_key = gtk::Label::new(Some("Key:"));
-    label_key.set_halign(gtk::Align::Start);
-    form_box.append(&label_key);
-    form_box.append(&entry_key);
-
-    let label_dispatcher = gtk::Label::new(Some("Dispatcher:"));
-    label_dispatcher.set_halign(gtk::Align::Start);
-    form_box.append(&label_dispatcher);
+    form_box.append(&create_form_group("Modifiers:", &entry_mods));
+    form_box.append(&create_form_group("Key:", &entry_key));
 
     let entry_dispatcher = gtk::Entry::builder()
         .placeholder_text("e.g. exec")
         .activates_default(true)
         .build();
     setup_dispatcher_completion(&entry_dispatcher);
-    form_box.append(&entry_dispatcher);
-
-    let label_args = gtk::Label::new(Some("Arguments:"));
-    label_args.set_halign(gtk::Align::Start);
-    form_box.append(&label_args);
+    form_box.append(&create_form_group("Dispatcher:", &entry_dispatcher));
 
     let entry_args = gtk::Entry::builder()
         .placeholder_text("e.g. kitty")
         .activates_default(true)
         .build();
-    form_box.append(&entry_args);
-
-    let label_submap = gtk::Label::new(Some("Submap (Optional):"));
-    label_submap.set_halign(gtk::Align::Start);
-    form_box.append(&label_submap);
+    form_box.append(&create_form_group("Arguments:", &entry_args));
 
     let entry_submap = gtk::Entry::builder()
         .placeholder_text("e.g. resize (leave empty for global)")
         .activates_default(true)
         .build();
-    form_box.append(&entry_submap);
-
-    let label_desc = gtk::Label::new(Some("Description (Optional):"));
-    label_desc.set_halign(gtk::Align::Start);
-    form_box.append(&label_desc);
+    form_box.append(&create_form_group("Submap (Optional):", &entry_submap));
 
     let entry_desc = gtk::Entry::builder()
         .placeholder_text("Comment appended to the config line")
         .activates_default(true)
         .build();
-    form_box.append(&entry_desc);
+    form_box.append(&create_form_group("Description (Optional):", &entry_desc));
 
     let button_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -122,17 +101,10 @@ pub fn create_add_view(
         .margin_top(12)
         .build();
 
-    let cancel_btn = gtk::Button::builder().label("Cancel").build();
-
-    let exec_btn = gtk::Button::builder()
-        .label("Execute")
-        .tooltip_text("Test this keybind immediately using hyprctl dispatch")
-        .build();
-
-    let add_btn = gtk::Button::builder()
-        .label("Add Keybind")
-        .css_classes(["suggested-action"])
-        .build();
+    let cancel_btn = create_pill_button("Cancel", None);
+    let exec_btn = create_pill_button("Execute", None);
+    exec_btn.set_tooltip_text(Some("Test this keybind immediately using hyprctl dispatch"));
+    let add_btn = create_suggested_button("Add Keybind", None);
 
     button_box.append(&cancel_btn);
     button_box.append(&exec_btn);
@@ -174,12 +146,8 @@ pub fn create_add_view(
         .halign(gtk::Align::Center)
         .build();
 
-    let confirm_back_btn = gtk::Button::builder().label("Back").build();
-
-    let confirm_proceed_btn = gtk::Button::builder()
-        .label("Add Anyway")
-        .css_classes(["destructive-action"])
-        .build();
+    let confirm_back_btn = create_pill_button("Back", None);
+    let confirm_proceed_btn = create_destructive_button("Add Anyway", None);
 
     confirm_buttons.append(&confirm_back_btn);
     confirm_buttons.append(&confirm_proceed_btn);

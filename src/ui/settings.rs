@@ -1,5 +1,6 @@
 use crate::config::StyleConfig;
 use crate::parser::input::{load_input_config, save_input_config};
+use crate::ui::utils::create_page_header;
 use gtk::gio;
 use gtk::glib;
 use gtk4 as gtk;
@@ -27,33 +28,20 @@ pub fn create_settings_view(
         .build();
 
     // --- Header ---
-    let header = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(12)
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
-
-    let back_btn = gtk::Button::builder()
-        .icon_name("go-previous-symbolic")
-        .css_classes(["flat", "circular"])
-        .tooltip_text("Back")
-        .build();
-
     let stack_c = stack.clone();
-    back_btn.connect_clicked(move |_| {
-        stack_c.set_visible_child_name("home");
-    });
+    let header = create_page_header(
+        "Settings",
+        Some("Configure your preferences"),
+        "Back",
+        move || {
+            stack_c.set_visible_child_name("home");
+        },
+    );
+    header.set_margin_top(12);
+    header.set_margin_bottom(12);
+    header.set_margin_start(12);
+    header.set_margin_end(12);
 
-    let title = gtk::Label::builder()
-        .label("Settings")
-        .css_classes(["title-2"])
-        .build();
-
-    header.append(&back_btn);
-    header.append(&title);
     main_box.append(&header);
     main_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
 

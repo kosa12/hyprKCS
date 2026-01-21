@@ -1,6 +1,9 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
-use crate::ui::utils::{normalize, perform_backup};
+use crate::ui::utils::{
+    create_destructive_button, create_page_header, create_pill_button, create_suggested_button,
+    normalize, perform_backup,
+};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -60,11 +63,7 @@ pub fn create_conflict_wizard(
             .vexpand(true)
             .build();
 
-        let btn = gtk::Button::builder()
-            .label("Return Home")
-            .halign(gtk::Align::Center)
-            .css_classes(["suggested-action", "pill"])
-            .build();
+        let btn = create_suggested_button("Return Home", None);
 
         let stack_clone = stack.clone();
         btn.connect_clicked(move |_| {
@@ -89,35 +88,32 @@ pub fn create_conflict_wizard(
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(12)
-        .margin_top(24)
-        .margin_bottom(24)
-        .margin_start(24)
-        .margin_end(24)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
         .vexpand(true)
         .build();
 
     // Header
-    let header_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    let title = gtk::Label::builder()
-        .label(&format!(
+    let stack_c = stack.clone();
+    let header_box = create_page_header(
+        &format!(
             "Conflict {} of {}: {} {}",
             actual_index + 1,
             groups.len(),
             mods,
             key_char
-        ))
-        .css_classes(["title-1"])
-        .build();
-    let subtitle = gtk::Label::builder()
-        .label(&format!(
+        ),
+        Some(&format!(
             "{} conflicting definitions found. Select an action for each.",
             group.len()
-        ))
-        .css_classes(["dim-label"])
-        .build();
-
-    header_box.append(&title);
-    header_box.append(&subtitle);
+        )),
+        "Back",
+        move || {
+            stack_c.set_visible_child_name("home");
+        },
+    );
     container.append(&header_box);
 
     let scroll = gtk::ScrolledWindow::builder()
@@ -134,60 +130,25 @@ pub fn create_conflict_wizard(
 
     // List Items
     for obj in group {
-        let row = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .css_classes(["card"])
-            .margin_start(4)
-            .margin_end(4)
-            .build();
-
-        // Inner content
-        let content = gtk::Box::builder()
-            .orientation(gtk::Orientation::Horizontal)
-            .spacing(12)
-            .margin_top(12)
-            .margin_bottom(12)
-            .margin_start(12)
-            .margin_end(12)
-            .build();
-
-        let info_box = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(4)
-            .hexpand(true)
-            .build();
-
         let dispatcher = obj.property::<String>("dispatcher");
         let args = obj.property::<String>("args");
         let file_path = obj.property::<String>("file-path");
         let line_num = obj.property::<u64>("line-number");
 
-        let action_label = gtk::Label::builder()
-            .label(&if args.is_empty() {
-                dispatcher.clone()
-            } else {
-                format!("{} {}", dispatcher, args)
-            })
-            .halign(gtk::Align::Start)
-            .css_classes(["heading"])
-            .build();
+        let title = if args.is_empty() {
+            dispatcher.clone()
+        } else {
+            format!("{} {}", dispatcher, args)
+        };
 
-        let file_label = gtk::Label::builder()
-            .label(&format!(
-                "{}:{}",
-                std::path::Path::new(&file_path)
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
-                line_num + 1
-            ))
-            .halign(gtk::Align::Start)
-            .css_classes(["caption", "dim-label"])
-            .build();
-
-        info_box.append(&action_label);
-        info_box.append(&file_label);
-        content.append(&info_box);
+        let subtitle = format!(
+            "{}:{}",
+            std::path::Path::new(&file_path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
+            line_num + 1
+        );
 
         // Actions for this item
         let actions_box = gtk::Box::builder()
@@ -195,22 +156,16 @@ pub fn create_conflict_wizard(
             .spacing(6)
             .build();
 
-        let delete_btn = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .css_classes(["destructive-action"])
-            .tooltip_text("Delete this keybind")
-            .build();
+        let delete_btn = create_destructive_button("", Some("user-trash-symbolic"));
+        delete_btn.set_tooltip_text(Some("Delete this keybind"));
 
-        let edit_btn = gtk::Button::builder()
-            .icon_name("document-edit-symbolic")
-            .tooltip_text("Edit this keybind")
-            .build();
+        let edit_btn = create_pill_button("", Some("document-edit-symbolic"));
+        edit_btn.set_tooltip_text(Some("Edit this keybind"));
 
         actions_box.append(&edit_btn);
         actions_box.append(&delete_btn);
-        content.append(&actions_box);
 
-        row.append(&content);
+        let row = crate::ui::utils::create_card_row(&title, Some(&subtitle), &actions_box);
         list_box.append(&row);
 
         // Wiring up buttons
@@ -273,9 +228,8 @@ pub fn create_conflict_wizard(
     // Bottom Controls
     let bottom_bar = gtk::CenterBox::builder().margin_top(12).build();
 
-    let skip_btn = gtk::Button::builder().label("Next Group").build();
-
-    let done_btn = gtk::Button::builder().label("Finish").build();
+    let skip_btn = create_pill_button("Next Group", None);
+    let done_btn = create_pill_button("Finish", None);
 
     if groups.len() > 1 {
         bottom_bar.set_start_widget(Some(&skip_btn));
