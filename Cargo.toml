@@ -3,6 +3,12 @@ name = "hyprKCS"
 version = "1.18.5"
 edition = "2021"
 license = "MIT"
+description = "A fast, lightweight, and graphical keybind manager for Hyprland"
+repository = "https://github.com/kosa12/hyprKCS"
+homepage = "https://github.com/kosa12/hyprKCS"
+readme = "README.md"
+keywords = ["hyprland", "keybinds", "manager", "gui", "gtk4"]
+categories = ["gui", "os::linux"]
 
 [dependencies]
 gtk4 = { version = "0.10.3", features = ["v4_12"] }

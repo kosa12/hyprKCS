@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Binary Size](https://img.shields.io/badge/binary_size-~3MB-blue)](https://github.com/kosa12/hyprKCS)
+[![GitHub stars](https://img.shields.io/github/stars/kosa12/hyprKCS?style=social)](https://github.com/kosa12/hyprKCS/stargazers)
 
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
 
