@@ -1,5 +1,6 @@
 use crate::config::favorites::{is_favorite, load_favorites};
 use crate::keybind_object::KeybindObject;
+use crate::ui::utils::execution::command_exists;
 use gtk::gio;
 use gtk4 as gtk;
 use std::rc::Rc;
@@ -62,6 +63,25 @@ fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> 
     results
 }
 
+fn detect_broken(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
+    keybinds
+        .iter()
+        .map(|kb| {
+            let disp = kb.dispatcher.to_lowercase();
+            if disp == "exec" || disp == "execr" {
+                let cmd = kb.args.trim();
+                if !cmd.is_empty() && !command_exists(cmd) {
+                    return Some(format!(
+                        "Executable not found: {}",
+                        cmd.split_whitespace().next().unwrap_or("")
+                    ));
+                }
+            }
+            None
+        })
+        .collect()
+}
+
 pub fn reload_keybinds(model: &gio::ListStore) {
     model.remove_all();
 
@@ -71,9 +91,14 @@ pub fn reload_keybinds(model: &gio::ListStore) {
     });
 
     let conflicts = detect_conflicts(&keybinds);
+    let broken = detect_broken(&keybinds);
     let favs = load_favorites();
 
-    for (kb, conflict) in keybinds.into_iter().zip(conflicts.into_iter()) {
+    for ((kb, conflict), is_broken) in keybinds
+        .into_iter()
+        .zip(conflicts.into_iter())
+        .zip(broken.into_iter())
+    {
         let is_fav = is_favorite(
             &favs,
             &kb.clean_mods,
@@ -82,6 +107,6 @@ pub fn reload_keybinds(model: &gio::ListStore) {
             &kb.dispatcher,
             &kb.args,
         );
-        model.append(&KeybindObject::new(kb, conflict, is_fav));
+        model.append(&KeybindObject::new(kb, conflict, is_broken, is_fav));
     }
 }

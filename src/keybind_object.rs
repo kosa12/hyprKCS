@@ -11,7 +11,12 @@ glib::wrapper! {
 }
 
 impl KeybindObject {
-    pub fn new(keybind: Keybind, conflict_reason: Option<String>, is_favorite: bool) -> Self {
+    pub fn new(
+        keybind: Keybind,
+        conflict_reason: Option<String>,
+        broken_reason: Option<String>,
+        is_favorite: bool,
+    ) -> Self {
         let obj: Self = glib::Object::new();
 
         {
@@ -54,6 +59,14 @@ impl KeybindObject {
             } else {
                 data.is_conflicted = false;
                 data.conflict_reason = "".into();
+            }
+
+            if let Some(reason) = broken_reason {
+                data.is_broken = true;
+                data.broken_reason = reason.into();
+            } else {
+                data.is_broken = false;
+                data.broken_reason = "".into();
             }
         }
 
@@ -186,6 +199,8 @@ pub mod imp {
         pub is_conflicted: bool,
         pub conflict_reason: Rc<str>,
         pub is_favorite: bool,
+        pub is_broken: bool,
+        pub broken_reason: Rc<str>,
 
         // Cached lowercase fields for search optimization
         pub mods_lower: Rc<str>,
@@ -223,6 +238,8 @@ pub mod imp {
                     glib::ParamSpecBoolean::builder("is-conflicted").build(),
                     glib::ParamSpecString::builder("conflict-reason").build(),
                     glib::ParamSpecBoolean::builder("is-favorite").build(),
+                    glib::ParamSpecBoolean::builder("is-broken").build(),
+                    glib::ParamSpecString::builder("broken-reason").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -286,6 +303,11 @@ pub mod imp {
                     data.conflict_reason = v.into();
                 }
                 "is-favorite" => data.is_favorite = value.get().unwrap(),
+                "is-broken" => data.is_broken = value.get().unwrap(),
+                "broken-reason" => {
+                    let v: String = value.get().unwrap();
+                    data.broken_reason = v.into();
+                }
                 _ => unimplemented!(),
             }
         }
@@ -305,6 +327,8 @@ pub mod imp {
                 "is-conflicted" => data.is_conflicted.to_value(),
                 "conflict-reason" => data.conflict_reason.as_ref().to_value(),
                 "is-favorite" => data.is_favorite.to_value(),
+                "is-broken" => data.is_broken.to_value(),
+                "broken-reason" => data.broken_reason.as_ref().to_value(),
                 _ => unimplemented!(),
             }
         }

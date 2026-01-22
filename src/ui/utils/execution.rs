@@ -55,17 +55,36 @@ pub fn execute_hyprctl(args: &[&str]) {
 }
 
 pub fn command_exists(command: &str) -> bool {
-    let cmd_name = if let Some(first_part) = command.split_whitespace().next() {
+    let mut cmd = command.trim();
+
+    // Strip Hyprland exec flags like [float] or [workspace 1]
+    if cmd.starts_with('[') {
+        if let Some(end_idx) = cmd.find(']') {
+            cmd = cmd[end_idx + 1..].trim();
+        }
+    }
+
+    let cmd_name = if let Some(first_part) = cmd.split_whitespace().next() {
         first_part
     } else {
         return false;
     };
 
-    if std::path::Path::new(cmd_name).is_absolute() {
-        return std::path::Path::new(cmd_name).exists();
-    }
+    // Handle home directory expansion
+    let path_to_check = if cmd_name.starts_with('~') {
+        if let Some(home) = dirs::home_dir() {
+            home.join(&cmd_name[2..])
+        } else {
+            std::path::PathBuf::from(cmd_name)
+        }
+    } else {
+        std::path::PathBuf::from(cmd_name)
+    };
 
-    if let Ok(path) = std::env::var("PATH") {
+    let exists = if path_to_check.is_absolute() {
+        path_to_check.exists()
+    } else if let Ok(path) = std::env::var("PATH") {
+        let mut found = false;
         for p in std::env::split_paths(&path) {
             let full_path = p.join(cmd_name);
             if full_path.is_file() {
@@ -74,14 +93,22 @@ pub fn command_exists(command: &str) -> bool {
                     use std::os::unix::fs::PermissionsExt;
                     if let Ok(metadata) = std::fs::metadata(&full_path) {
                         if metadata.permissions().mode() & 0o111 != 0 {
-                            return true;
+                            found = true;
+                            break;
                         }
                     }
                 }
                 #[cfg(not(unix))]
-                return true;
+                {
+                    found = true;
+                    break;
+                }
             }
         }
-    }
-    false
+        found
+    } else {
+        false
+    };
+
+    exists
 }

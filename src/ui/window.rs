@@ -150,6 +150,8 @@ pub fn build_ui(app: &adw::Application) {
 
             if prop_name_css_clone == "mods" {
                 let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+
+                // Conflict Icon (Yellow Warning)
                 let warning_icon = gtk::Image::builder()
                     .icon_name("dialog-warning-symbolic")
                     .visible(false)
@@ -157,6 +159,15 @@ pub fn build_ui(app: &adw::Application) {
                     .tooltip_text("Conflicting keybind")
                     .build();
 
+                // Broken Icon (Red Error)
+                let broken_icon = gtk::Image::builder()
+                    .icon_name("dialog-error-symbolic")
+                    .visible(false)
+                    .css_classes(["destructive-action"])
+                    .tooltip_text("Broken keybind")
+                    .build();
+
+                box_layout.append(&broken_icon);
                 box_layout.append(&warning_icon);
                 box_layout.append(&label);
                 list_item.set_child(Some(&box_layout));
@@ -169,17 +180,24 @@ pub fn build_ui(app: &adw::Application) {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
 
-            let (label, icon_opt) = if prop_name == "mods" {
+            let (label, icon_opt, broken_icon_opt) = if prop_name == "mods" {
                 let box_layout = list_item.child().and_downcast::<gtk::Box>().unwrap();
-                let icon = box_layout
+                let broken_icon = box_layout
                     .first_child()
                     .and_downcast::<gtk::Image>()
                     .unwrap();
-                let label = icon.next_sibling().and_downcast::<gtk::Label>().unwrap();
-                (label, Some(icon))
+                let warning_icon = broken_icon
+                    .next_sibling()
+                    .and_downcast::<gtk::Image>()
+                    .unwrap();
+                let label = warning_icon
+                    .next_sibling()
+                    .and_downcast::<gtk::Label>()
+                    .unwrap();
+                (label, Some(warning_icon), Some(broken_icon))
             } else {
                 let label = list_item.child().and_downcast::<gtk::Label>().unwrap();
-                (label, None)
+                (label, None, None)
             };
 
             keybind.with_data(|data| {
@@ -203,6 +221,11 @@ pub fn build_ui(app: &adw::Application) {
                 if let Some(icon) = icon_opt {
                     icon.set_visible(data.is_conflicted);
                     icon.set_tooltip_text(Some(data.conflict_reason.as_ref()));
+                }
+
+                if let Some(icon) = broken_icon_opt {
+                    icon.set_visible(data.is_broken);
+                    icon.set_tooltip_text(Some(data.broken_reason.as_ref()));
                 }
             });
         });
@@ -551,7 +574,7 @@ pub fn build_ui(app: &adw::Application) {
             let mut conflict_count = 0;
             for i in 0..model.n_items() {
                 if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
-                    if obj.property::<bool>("is-conflicted") {
+                    if obj.with_data(|d| d.is_conflicted) {
                         conflict_count += 1;
                     }
                 }
