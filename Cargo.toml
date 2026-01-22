@@ -8,7 +8,7 @@ repository = "https://github.com/kosa12/hyprKCS"
 homepage = "https://github.com/kosa12/hyprKCS"
 readme = "README.md"
 keywords = ["hyprland", "keybinds", "manager", "gui", "gtk4"]
-categories = ["gui", "os::linux"]
+categories = ["gui", "os::linux-apis"]
 exclude = [
     "assets/*",
     "mine/*",
