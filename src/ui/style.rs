@@ -203,6 +203,27 @@ fn generate_css(config: &StyleConfig) -> String {
             margin: {win_margin}px;
         }}
 
+        /* Settings / Adwaita Overrides for Opacity */
+        preferencespage,
+        preferencespage > scrolledwindow > viewport > clamp > box {{
+            background-color: transparent;
+        }}
+
+        preferencesgroup list {{
+            background-color: alpha(@window_fg_color, 0.04);
+            border: {border_size} solid alpha(@window_fg_color, 0.1);
+            border-radius: {border_radius};
+            overflow: hidden;
+        }}
+
+        preferencesgroup row {{
+             background-color: transparent;
+        }}
+
+        preferencesgroup row:hover {{
+             background-color: alpha(@window_fg_color, 0.05);
+        }}
+
         button.flat {{
             background: transparent;
             box-shadow: none;
