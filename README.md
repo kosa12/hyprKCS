@@ -3,8 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![GitHub stars](https://img.shields.io/github/stars/kosa12/hyprKCS?style=social)](https://github.com/kosa12/hyprKCS/stargazers)
-
+[![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS)](https://crates.io/crates/hyprKCS)
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
 
 <p align="center">
@@ -46,6 +45,11 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Keybind Exporting**: Export your keybinds to a simple markdown file for easy sharing or documentation.
 
 ## Installation
+
+### From Crates.io
+```bash
+cargo install hyprKCS
+```
 
 ### From AUR (Arch Linux)
 ```bash
