@@ -4,6 +4,7 @@
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS)](https://crates.io/crates/hyprKCS)
+
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
 
 <p align="center">
