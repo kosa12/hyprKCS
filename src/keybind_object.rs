@@ -23,50 +23,63 @@ impl KeybindObject {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
 
-            // Helper to get lowercased Rc<str> efficiently
-            fn to_lower_rc(s: &str) -> Rc<str> {
+            // Helper to get lowercased Rc<str> efficiently and share pointers
+            fn to_lower_rc(s: &Rc<str>) -> Rc<str> {
                 let lower = s.to_lowercase();
-                if lower == s {
-                    Rc::from(s)
+                if lower.as_str() == s.as_ref() {
+                    s.clone()
                 } else {
                     Rc::from(lower)
                 }
             }
 
             data.mods = keybind.mods;
-            data.clean_mods = keybind.clean_mods;
+            // Share Rc if mods and clean_mods are the same
+            if data.mods.as_ref() == keybind.clean_mods.as_ref() {
+                data.clean_mods = data.mods.clone();
+            } else {
+                data.clean_mods = keybind.clean_mods;
+            }
+
             data.key = keybind.key;
             data.dispatcher = keybind.dispatcher;
-            data.args = keybind.args;
 
-            let desc: Rc<str> = keybind.description.unwrap_or_else(|| "".into());
-            data.description = desc.clone();
-            data.submap = keybind.submap.unwrap_or_else(|| "".into());
+            // Use Option to save memory for often-empty fields
+            data.args = if keybind.args.is_empty() {
+                None
+            } else {
+                Some(keybind.args)
+            };
+            data.description = keybind.description.filter(|d| !d.is_empty());
+            data.submap = keybind.submap.filter(|s| !s.is_empty());
+
             data.line_number = keybind.line_number as u64;
             data.file_path = keybind.file_path.to_str().unwrap_or("").into();
             data.is_favorite = is_favorite;
 
             // Pre-calculate lowercased versions for faster searching, reusing Rc if already lowercase
             data.mods_lower = to_lower_rc(&data.mods);
+            data.clean_mods_lower = to_lower_rc(&data.clean_mods);
             data.key_lower = to_lower_rc(&data.key);
             data.dispatcher_lower = to_lower_rc(&data.dispatcher);
-            data.args_lower = to_lower_rc(&data.args);
-            data.description_lower = to_lower_rc(&data.description);
+
+            data.args_lower = data.args.as_ref().map(to_lower_rc);
+            data.description_lower = data.description.as_ref().map(to_lower_rc);
 
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
-                data.conflict_reason = reason.into();
+                data.conflict_reason = Some(reason.into());
             } else {
                 data.is_conflicted = false;
-                data.conflict_reason = "".into();
+                data.conflict_reason = None;
             }
 
             if let Some(reason) = broken_reason {
                 data.is_broken = true;
-                data.broken_reason = reason.into();
+                data.broken_reason = Some(reason.into());
             } else {
                 data.is_broken = false;
-                data.broken_reason = "".into();
+                data.broken_reason = None;
             }
         }
 
@@ -92,7 +105,6 @@ impl KeybindObject {
 
         // Category Filter - using cached lowercased strings
         let dispatcher_lower = &data.dispatcher_lower;
-        let args_lower = &data.args_lower;
         let key_lower = &data.key_lower;
 
         let category_match = match category {
@@ -111,10 +123,9 @@ impl KeybindObject {
                     || dispatcher_lower.contains("pin")
             }
             3 => {
-                args_lower.contains("volume")
-                    || args_lower.contains("brightness")
-                    || args_lower.contains("playerctl")
-                    || dispatcher_lower.contains("audio")
+                data.args_lower.as_ref().map_or(false, |a| {
+                    a.contains("volume") || a.contains("brightness") || a.contains("playerctl")
+                }) || dispatcher_lower.contains("audio")
             }
             4 => dispatcher_lower.as_ref() == "exec", // Custom/Script
             5 => key_lower.contains("mouse"),
@@ -128,7 +139,8 @@ impl KeybindObject {
 
         // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
-            if !data.mods_lower.contains(q_mods) {
+            // Match against both raw and clean mods for user convenience
+            if !data.mods_lower.contains(q_mods) && !data.clean_mods_lower.contains(q_mods) {
                 return false;
             }
         }
@@ -143,12 +155,20 @@ impl KeybindObject {
             }
         }
         if let Some(ref q_args) = query.args {
-            if !data.args_lower.contains(q_args) {
+            if !data
+                .args_lower
+                .as_ref()
+                .map_or(false, |a| a.contains(q_args))
+            {
                 return false;
             }
         }
         if let Some(ref q_desc) = query.description {
-            if !data.description_lower.contains(q_desc) {
+            if !data
+                .description_lower
+                .as_ref()
+                .map_or(false, |d| d.contains(q_desc))
+            {
                 return false;
             }
         }
@@ -163,17 +183,22 @@ impl KeybindObject {
             .fuzzy_match(&data.mods_lower, text_to_match)
             .is_some()
             || matcher
+                .fuzzy_match(&data.clean_mods_lower, text_to_match)
+                .is_some()
+            || matcher
                 .fuzzy_match(&data.key_lower, text_to_match)
                 .is_some()
             || matcher
                 .fuzzy_match(&data.dispatcher_lower, text_to_match)
                 .is_some()
-            || matcher
-                .fuzzy_match(&data.args_lower, text_to_match)
-                .is_some()
-            || matcher
-                .fuzzy_match(&data.description_lower, text_to_match)
-                .is_some()
+            || data
+                .args_lower
+                .as_ref()
+                .map_or(false, |a| matcher.fuzzy_match(a, text_to_match).is_some())
+            || data
+                .description_lower
+                .as_ref()
+                .map_or(false, |d| matcher.fuzzy_match(d, text_to_match).is_some())
     }
 }
 
@@ -191,23 +216,24 @@ pub mod imp {
         pub clean_mods: Rc<str>,
         pub key: Rc<str>,
         pub dispatcher: Rc<str>,
-        pub args: Rc<str>,
-        pub description: Rc<str>,
-        pub submap: Rc<str>,
+        pub args: Option<Rc<str>>,
+        pub description: Option<Rc<str>>,
+        pub submap: Option<Rc<str>>,
         pub line_number: u64,
         pub file_path: Rc<str>,
         pub is_conflicted: bool,
-        pub conflict_reason: Rc<str>,
+        pub conflict_reason: Option<Rc<str>>,
         pub is_favorite: bool,
         pub is_broken: bool,
-        pub broken_reason: Rc<str>,
+        pub broken_reason: Option<Rc<str>>,
 
         // Cached lowercase fields for search optimization
         pub mods_lower: Rc<str>,
+        pub clean_mods_lower: Rc<str>,
         pub key_lower: Rc<str>,
         pub dispatcher_lower: Rc<str>,
-        pub args_lower: Rc<str>,
-        pub description_lower: Rc<str>,
+        pub args_lower: Option<Rc<str>>,
+        pub description_lower: Option<Rc<str>>,
     }
 
     #[derive(Default)]
@@ -266,6 +292,7 @@ pub mod imp {
                 }
                 "clean-mods" => {
                     let v: String = value.get().unwrap();
+                    data.clean_mods_lower = to_lower_rc(&v);
                     data.clean_mods = v.into();
                 }
                 "key" => {
@@ -280,17 +307,25 @@ pub mod imp {
                 }
                 "args" => {
                     let v: String = value.get().unwrap();
-                    data.args_lower = to_lower_rc(&v);
-                    data.args = v.into();
+                    data.args_lower = if v.is_empty() {
+                        None
+                    } else {
+                        Some(to_lower_rc(&v))
+                    };
+                    data.args = if v.is_empty() { None } else { Some(v.into()) };
                 }
                 "description" => {
                     let v: String = value.get().unwrap();
-                    data.description_lower = to_lower_rc(&v);
-                    data.description = v.into();
+                    data.description_lower = if v.is_empty() {
+                        None
+                    } else {
+                        Some(to_lower_rc(&v))
+                    };
+                    data.description = if v.is_empty() { None } else { Some(v.into()) };
                 }
                 "submap" => {
                     let v: String = value.get().unwrap();
-                    data.submap = v.into();
+                    data.submap = if v.is_empty() { None } else { Some(v.into()) };
                 }
                 "line-number" => data.line_number = value.get().unwrap(),
                 "file-path" => {
@@ -300,13 +335,13 @@ pub mod imp {
                 "is-conflicted" => data.is_conflicted = value.get().unwrap(),
                 "conflict-reason" => {
                     let v: String = value.get().unwrap();
-                    data.conflict_reason = v.into();
+                    data.conflict_reason = if v.is_empty() { None } else { Some(v.into()) };
                 }
                 "is-favorite" => data.is_favorite = value.get().unwrap(),
                 "is-broken" => data.is_broken = value.get().unwrap(),
                 "broken-reason" => {
                     let v: String = value.get().unwrap();
-                    data.broken_reason = v.into();
+                    data.broken_reason = if v.is_empty() { None } else { Some(v.into()) };
                 }
                 _ => unimplemented!(),
             }
@@ -319,16 +354,28 @@ pub mod imp {
                 "clean-mods" => data.clean_mods.as_ref().to_value(),
                 "key" => data.key.as_ref().to_value(),
                 "dispatcher" => data.dispatcher.as_ref().to_value(),
-                "args" => data.args.as_ref().to_value(),
-                "description" => data.description.as_ref().to_value(),
-                "submap" => data.submap.as_ref().to_value(),
+                "args" => data.args.as_ref().map_or("", |s| s.as_ref()).to_value(),
+                "description" => data
+                    .description
+                    .as_ref()
+                    .map_or("", |s| s.as_ref())
+                    .to_value(),
+                "submap" => data.submap.as_ref().map_or("", |s| s.as_ref()).to_value(),
                 "line-number" => data.line_number.to_value(),
                 "file-path" => data.file_path.as_ref().to_value(),
                 "is-conflicted" => data.is_conflicted.to_value(),
-                "conflict-reason" => data.conflict_reason.as_ref().to_value(),
+                "conflict-reason" => data
+                    .conflict_reason
+                    .as_ref()
+                    .map_or("", |s| s.as_ref())
+                    .to_value(),
                 "is-favorite" => data.is_favorite.to_value(),
                 "is-broken" => data.is_broken.to_value(),
-                "broken-reason" => data.broken_reason.as_ref().to_value(),
+                "broken-reason" => data
+                    .broken_reason
+                    .as_ref()
+                    .map_or("", |s| s.as_ref())
+                    .to_value(),
                 _ => unimplemented!(),
             }
         }

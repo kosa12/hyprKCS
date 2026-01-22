@@ -19,17 +19,19 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "1.18.6";
+            version = "1.18.7";
 
             src = let
               fs = pkgs.lib.fileset;
             in fs.toSource {
               root = ./.;
-              fileset = fs.unions [
-                ./src
-                ./Cargo.toml
-                ./Cargo.lock
-              ];
+              fileset = fs.difference
+                (fs.unions [
+                  ./src
+                  ./Cargo.toml
+                  ./Cargo.lock
+                ])
+                ./tests;
             };
 
             cargoLock = {

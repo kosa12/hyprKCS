@@ -63,9 +63,9 @@ pub fn build_ui(app: &adw::Application) {
                     let item = obj.with_data(|d| FavoriteKeybind {
                         mods: d.clean_mods.to_string(),
                         key: d.key.to_string(),
-                        submap: d.submap.to_string(),
+                        submap: d.submap.as_ref().map(|s| s.to_string()).unwrap_or_default(),
                         dispatcher: d.dispatcher.to_string(),
-                        args: d.args.to_string(),
+                        args: d.args.as_ref().map(|s| s.to_string()).unwrap_or_default(),
                     });
 
                     let mut favs = load_favorites();
@@ -205,9 +205,9 @@ pub fn build_ui(app: &adw::Application) {
                     "mods" => data.mods.as_ref(),
                     "key" => data.key.as_ref(),
                     "dispatcher" => data.dispatcher.as_ref(),
-                    "args" => data.args.as_ref(),
-                    "submap" => data.submap.as_ref(),
-                    "description" => data.description.as_ref(),
+                    "args" => data.args.as_deref().unwrap_or(""),
+                    "submap" => data.submap.as_deref().unwrap_or(""),
+                    "description" => data.description.as_deref().unwrap_or(""),
                     "clean-mods" => data.clean_mods.as_ref(),
                     _ => "",
                 };
@@ -215,17 +215,21 @@ pub fn build_ui(app: &adw::Application) {
                 label.set_tooltip_text(Some(text));
 
                 if prop_name == "submap" {
-                    label.set_visible(!data.submap.is_empty());
+                    label.set_visible(data.submap.is_some());
                 }
 
                 if let Some(icon) = icon_opt {
                     icon.set_visible(data.is_conflicted);
-                    icon.set_tooltip_text(Some(data.conflict_reason.as_ref()));
+                    if let Some(reason) = data.conflict_reason.as_deref() {
+                        icon.set_tooltip_text(Some(reason));
+                    }
                 }
 
                 if let Some(icon) = broken_icon_opt {
                     icon.set_visible(data.is_broken);
-                    icon.set_tooltip_text(Some(data.broken_reason.as_ref()));
+                    if let Some(reason) = data.broken_reason.as_deref() {
+                        icon.set_tooltip_text(Some(reason));
+                    }
                 }
             });
         });

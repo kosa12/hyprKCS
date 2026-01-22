@@ -3,7 +3,26 @@ use crate::keybind_object::KeybindObject;
 use crate::ui::utils::execution::command_exists;
 use gtk::gio;
 use gtk4 as gtk;
+use std::collections::HashSet;
 use std::rc::Rc;
+
+/// Simple interner to share Rc<str> pointers across all keybind objects
+struct StringPool(HashSet<Rc<str>>);
+
+impl StringPool {
+    fn new() -> Self {
+        Self(HashSet::with_capacity(128))
+    }
+
+    fn intern(&mut self, s: Rc<str>) -> Rc<str> {
+        if let Some(existing) = self.0.get(&s) {
+            existing.clone()
+        } else {
+            self.0.insert(s.clone());
+            s
+        }
+    }
+}
 
 pub fn normalize(mods: &str, key: &str) -> (String, String) {
     let mut mods_list: Vec<&str> = mods
@@ -85,7 +104,7 @@ fn detect_broken(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
 pub fn reload_keybinds(model: &gio::ListStore) {
     model.remove_all();
 
-    let keybinds = crate::parser::parse_config().unwrap_or_else(|err| {
+    let mut keybinds = crate::parser::parse_config().unwrap_or_else(|err| {
         eprintln!("Error parsing config: {}", err);
         vec![]
     });
@@ -94,8 +113,10 @@ pub fn reload_keybinds(model: &gio::ListStore) {
     let broken = detect_broken(&keybinds);
     let favs = load_favorites();
 
-    for ((kb, conflict), is_broken) in keybinds
-        .into_iter()
+    let mut pool = StringPool::new();
+
+    for ((mut kb, conflict), is_broken) in keybinds
+        .drain(..)
         .zip(conflicts.into_iter())
         .zip(broken.into_iter())
     {
@@ -107,6 +128,15 @@ pub fn reload_keybinds(model: &gio::ListStore) {
             &kb.dispatcher,
             &kb.args,
         );
+
+        kb.mods = pool.intern(kb.mods);
+        kb.clean_mods = pool.intern(kb.clean_mods);
+        kb.key = pool.intern(kb.key);
+        kb.dispatcher = pool.intern(kb.dispatcher);
+        kb.args = pool.intern(kb.args);
+        kb.submap = kb.submap.map(|s| pool.intern(s));
+        kb.description = kb.description.map(|s| pool.intern(s));
+
         model.append(&KeybindObject::new(kb, conflict, is_broken, is_fav));
     }
 }
