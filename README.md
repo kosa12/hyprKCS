@@ -46,14 +46,14 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 
 ## Installation
 
-### From Crates.io
-```bash
-cargo install hyprKCS
-```
-
 ### From AUR (Arch Linux)
 ```bash
 yay -S hyprkcs-git
+```
+
+### From Crates.io
+```bash
+cargo install hyprKCS
 ```
 
 ### From Nix
