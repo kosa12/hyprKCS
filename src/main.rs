@@ -1,10 +1,10 @@
-use clap::Parser;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use gtk::{glib, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 
+mod cli;
 mod config;
 mod keybind_object;
 mod parser;
@@ -12,24 +12,8 @@ mod ui;
 
 const APP_ID: &str = "com.github.hyprkcs";
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Path to the Hyprland config file
-    #[arg(short, long)]
-    config: Option<std::path::PathBuf>,
-
-    /// Print parsed keybinds to stdout and exit
-    #[arg(short, long)]
-    print: bool,
-
-    /// Filter keybinds by a search term (implies --print)
-    #[arg(short, long)]
-    search: Option<String>,
-}
-
 fn main() -> glib::ExitCode {
-    let args = Args::parse();
+    let args = cli::Args::parse();
 
     if let Some(config_path) = args.config {
         std::env::set_var("HYPRKCS_CONFIG", config_path);
