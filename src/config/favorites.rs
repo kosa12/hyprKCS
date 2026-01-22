@@ -12,7 +12,7 @@ pub struct FavoriteKeybind {
 }
 
 pub fn get_favorites_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| {
+    dirs::config_dir().map(|d: PathBuf| {
         d.join(super::constants::HYPRKCS_DIR)
             .join(super::constants::FAVORITES_JSON)
     })

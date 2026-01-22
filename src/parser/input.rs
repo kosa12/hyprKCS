@@ -1,5 +1,4 @@
 use anyhow::Result;
-use regex::Regex;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputConfig {
@@ -47,16 +46,12 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
     let mut current_block = "";
     let mut block_depth = 0;
 
-    let re_kv = Regex::new(r"^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)").unwrap();
-    let re_gesture =
-        Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
-
     for line in lines {
         let trimmed = line.trim();
 
         // Detect block start
         if trimmed.starts_with("input {")
-            || (trimmed.starts_with("input") && trimmed.ends_with("{"))
+            || (trimmed.starts_with("input") && trimmed.ends_with("{ "))
         {
             current_block = "input";
             block_depth = 1;
@@ -64,11 +59,21 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
         }
 
         // Global scope check for gesture
+        // gesture = 3, horizontal, workspace
         if block_depth == 0 {
-            if let Some(caps) = re_gesture.captures(trimmed) {
-                gestures_config.workspace_swipe = true;
-                if let Ok(n) = caps.get(1).unwrap().as_str().parse() {
-                    gestures_config.workspace_swipe_fingers = n;
+            if let Some(rest) = trimmed.strip_prefix("gesture") {
+                let rest_trimmed = rest.trim_start();
+                if let Some(val_part) = rest_trimmed.strip_prefix('=') {
+                    // 3, horizontal, workspace
+                    let val = val_part.split('#').next().unwrap_or("").trim();
+                    if val.contains("workspace") {
+                        gestures_config.workspace_swipe = true;
+                        if let Some(fingers_str) = val.split(',').next() {
+                            if let Ok(n) = fingers_str.trim().parse() {
+                                gestures_config.workspace_swipe_fingers = n;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -80,20 +85,14 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
                     current_block = "";
                 }
                 continue;
-            } else if trimmed.ends_with("{") {
+            } else if trimmed.ends_with("{ ") {
                 block_depth += 1;
             }
 
-            if let Some(caps) = re_kv.captures(trimmed) {
-                let key = caps.get(1).unwrap().as_str().trim();
-                let val = caps
-                    .get(2)
-                    .unwrap()
-                    .as_str()
-                    .split('#')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
+            // Simple key = value parsing
+            if let Some((key_part, val_part)) = trimmed.split_once('=') {
+                let key = key_part.trim();
+                let val = val_part.split('#').next().unwrap_or("").trim();
 
                 if current_block == "input" {
                     match key {
@@ -166,7 +165,6 @@ pub fn save_input_config(
     {
         let mut depth = 0;
         let mut current_top_block: Option<String> = None;
-        let re_kv = Regex::new(r"^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)").unwrap();
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
@@ -208,8 +206,8 @@ pub fn save_input_config(
                     if name == "gestures" {
                         to_remove.insert(i);
                     } else if name == "input" {
-                        if let Some(caps) = re_kv.captures(trimmed) {
-                            let key = caps.get(1).unwrap().as_str().trim();
+                        if let Some((key_part, _)) = trimmed.split_once('=') {
+                            let key = key_part.trim();
                             if legacy_gesture_keys.contains(&key) {
                                 to_remove.insert(i);
                             }
@@ -238,8 +236,8 @@ pub fn save_input_config(
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if trimmed.starts_with(&format!("{} {{", block_name))
-                || (trimmed.starts_with(block_name) && trimmed.ends_with("{"))
+            if trimmed.starts_with(&format!("{} {{ ", block_name))
+                || (trimmed.starts_with(block_name) && trimmed.ends_with("{ "))
             {
                 if !inside_block {
                     inside_block = true;
@@ -254,15 +252,31 @@ pub fn save_input_config(
 
         if let (Some(start), Some(end)) = (start_idx, end_idx) {
             let mut updated_keys = std::collections::HashSet::new();
-            let re_kv = Regex::new(r"^(\s*)([a-zA-Z0-9_]+)(\s*=\s*)(.*)").unwrap();
             let mut changes = Vec::new();
 
             for i in start + 1..end {
                 let line = &lines[i];
-                if let Some(caps) = re_kv.captures(line) {
-                    let indent = caps.get(1).map_or("", |m| m.as_str()).to_string();
-                    let key = caps.get(2).unwrap().as_str().trim().to_string();
-                    let sep = caps.get(3).unwrap().as_str().to_string();
+                // regex: r"^(\s*)([a-zA-Z0-9_]+)(\s*=\s*)(.*)"
+                // Manual parsing to preserve indentation
+
+                let indent_len = line.chars().take_while(|c| c.is_whitespace()).count();
+                let indent = &line[..indent_len];
+                let trimmed = &line[indent_len..];
+
+                if let Some((key_part, _val_part_full)) = trimmed.split_once('=') {
+                    // We need to capture the separator " = " or "=" to preserve style,
+                    // but split_once eats it.
+                    // Let's find the equals sign index in the original line to be safe?
+                    // actually we can just reconstruct with " = " if we want standardization,
+                    // or try to detect.
+
+                    let key = key_part.trim().to_string();
+                    // find separator in 'trimmed'
+                    let eq_idx = trimmed.find('=').unwrap();
+                    let _sep = &trimmed[key_part.len()..eq_idx + 1]; // captures spaces before = and the =
+                                                                     // wait, we want spaces AFTER = too.
+
+                    // simplified: just key = val
 
                     let comment = if let Some(idx) = line.find('#') {
                         line[idx..].to_string()
@@ -272,15 +286,24 @@ pub fn save_input_config(
 
                     for (u_key, u_val) in &input_updates {
                         if key == *u_key {
-                            let new_line = format!(
-                                "{}{}{}{}{}",
-                                indent,
+                            // Reconstruct line
+                            let _new_line = format!(
+                                "{}    {} = {}{}", // Standardize indent to 4 spaces inside block? Or use detected?
+                                "", // ignoring original indent for now, using standard 4 spaces
                                 key,
-                                sep,
                                 u_val,
                                 if comment.is_empty() { "" } else { " " }
                             );
-                            changes.push((i, format!("{}{}", new_line, comment)));
+                            // Actually, let's try to preserve original indent if it existed
+                            let new_line_preserved = format!(
+                                "{}{} = {}{}",
+                                indent,
+                                key,
+                                u_val,
+                                if comment.is_empty() { "" } else { " " }
+                            );
+
+                            changes.push((i, format!("{}{}", new_line_preserved, comment)));
                             updated_keys.insert(key.clone());
                         }
                     }
@@ -303,7 +326,7 @@ pub fn save_input_config(
             }
         } else {
             lines.push(String::new());
-            lines.push(format!("{} {{", block_name));
+            lines.push(format!("{} {{ ", block_name));
             for (key, val) in &input_updates {
                 if (key == &"kb_variant" || key == &"kb_options") && val.is_empty() {
                     continue;
@@ -316,14 +339,20 @@ pub fn save_input_config(
 
     // 4. Update Global 'gesture' Line
     {
-        let re_gesture =
-            Regex::new(r"^\s*gesture\s*=\s*(\d+)\s*,\s*horizontal\s*,\s*workspace").unwrap();
+        // gesture = ..., ..., workspace
         let mut gesture_line_idx = None;
 
         for (i, line) in lines.iter().enumerate() {
-            if re_gesture.is_match(line) {
-                gesture_line_idx = Some(i);
-                break;
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("gesture") {
+                let rest_trimmed = rest.trim_start();
+                if let Some(val_part) = rest_trimmed.strip_prefix('=') {
+                    let val = val_part.split('#').next().unwrap_or("").trim();
+                    if val.contains("workspace") {
+                        gesture_line_idx = Some(i);
+                        break;
+                    }
+                }
             }
         }
 

@@ -23,6 +23,10 @@ pub fn build_ui(app: &adw::Application) {
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
 
+    // Shared callback for refreshing the filter
+    let refresh_filter_callback: std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn()>>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+
     let column_view = gtk::ColumnView::new(None::<gtk::SelectionModel>);
     let sort_model = gtk::SortListModel::new(Some(filter_model.clone()), column_view.sorter());
     let selection_model = gtk::SingleSelection::new(Some(sort_model.clone()));
@@ -41,6 +45,7 @@ pub fn build_ui(app: &adw::Application) {
 
     let factory_fav = gtk::SignalListItemFactory::new();
 
+    let refresh_c = refresh_filter_callback.clone();
     factory_fav.connect_setup(move |_, list_item| {
         let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
         let btn = gtk::Button::builder()
@@ -51,18 +56,19 @@ pub fn build_ui(app: &adw::Application) {
 
         // Handle Click
         let list_item_weak = list_item.downgrade();
+        let refresh_c = refresh_c.clone();
         btn.connect_clicked(move |b| {
             if let Some(list_item) = list_item_weak.upgrade() {
                 if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
-                    let mut favs = load_favorites();
-                    let item = FavoriteKeybind {
-                        mods: obj.property::<String>("clean-mods"),
-                        key: obj.property::<String>("key"),
-                        submap: obj.property::<String>("submap"),
-                        dispatcher: obj.property::<String>("dispatcher"),
-                        args: obj.property::<String>("args"),
-                    };
+                    let item = obj.with_data(|d| FavoriteKeybind {
+                        mods: d.clean_mods.clone(),
+                        key: d.key.clone(),
+                        submap: d.submap.clone(),
+                        dispatcher: d.dispatcher.clone(),
+                        args: d.args.clone(),
+                    });
 
+                    let mut favs = load_favorites();
                     let new_state = toggle_favorite(&mut favs, item);
                     let _ = save_favorites(&favs);
 
@@ -78,6 +84,11 @@ pub fn build_ui(app: &adw::Application) {
                     } else {
                         b.remove_css_class("warning");
                     }
+
+                    // Trigger filter refresh to update list immediately if filtering by favorites
+                    if let Some(callback) = refresh_c.borrow().as_ref() {
+                        callback();
+                    }
                 }
             }
         });
@@ -90,7 +101,8 @@ pub fn build_ui(app: &adw::Application) {
         let btn = list_item.child().and_downcast::<gtk::Button>().unwrap();
         let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
 
-        let is_fav = keybind.property::<bool>("is-favorite");
+        let is_fav = keybind.with_data(|d| d.is_favorite);
+
         btn.set_icon_name(if is_fav {
             "starred-symbolic"
         } else {
@@ -170,21 +182,29 @@ pub fn build_ui(app: &adw::Application) {
                 (label, None)
             };
 
-            let text = keybind.property::<String>(&prop_name);
-            label.set_label(&text);
-            label.set_tooltip_text(Some(&text));
+            keybind.with_data(|data| {
+                let text = match prop_name.as_str() {
+                    "mods" => &data.mods,
+                    "key" => &data.key,
+                    "dispatcher" => &data.dispatcher,
+                    "args" => &data.args,
+                    "submap" => &data.submap,
+                    "description" => &data.description,
+                    "clean-mods" => &data.clean_mods,
+                    _ => "",
+                };
+                label.set_label(text);
+                label.set_tooltip_text(Some(text));
 
-            if prop_name == "submap" {
-                let submap_val = keybind.property::<String>("submap");
-                label.set_visible(!submap_val.is_empty());
-            }
+                if prop_name == "submap" {
+                    label.set_visible(!data.submap.is_empty());
+                }
 
-            if let Some(icon) = icon_opt {
-                let is_conflicted = keybind.property::<bool>("is-conflicted");
-                let reason = keybind.property::<String>("conflict-reason");
-                icon.set_visible(is_conflicted);
-                icon.set_tooltip_text(Some(&reason));
-            }
+                if let Some(icon) = icon_opt {
+                    icon.set_visible(data.is_conflicted);
+                    icon.set_tooltip_text(Some(&data.conflict_reason));
+                }
+            });
         });
 
         let column = gtk::ColumnViewColumn::builder()
@@ -607,6 +627,16 @@ pub fn build_ui(app: &adw::Application) {
 
     let filter_func_1 = std::rc::Rc::new(filter_func);
     let filter_func_2 = filter_func_1.clone();
+    let filter_func_3 = filter_func_1.clone();
+
+    // Populate the shared refresh callback
+    let search_entry_refresh = search_entry.clone();
+    let dropdown_refresh = category_dropdown.clone();
+    *refresh_filter_callback.borrow_mut() = Some(Box::new(move || {
+        let text = search_entry_refresh.text().to_string();
+        let cat = dropdown_refresh.selected();
+        filter_func_3(text, cat);
+    }));
 
     let dropdown_ref = category_dropdown.clone();
     search_entry.connect_search_changed(move |entry| {
@@ -636,6 +666,7 @@ pub fn build_ui(app: &adw::Application) {
     let model_settings = model.clone();
     let toast_overlay_settings = toast_overlay.clone();
     let restore_container_settings = restore_page_container.clone();
+    let dropdown_settings = category_dropdown.clone();
 
     settings_button.connect_clicked(move |_| {
         while let Some(child) = container_settings.first_child() {
@@ -657,6 +688,7 @@ pub fn build_ui(app: &adw::Application) {
         let toast_s = toast_overlay_settings.clone();
         let stack_s = stack_settings.clone();
         let restore_container_s = restore_container_settings.clone();
+        let dropdown_s = dropdown_settings.clone();
 
         let toast_s_1 = toast_s.clone();
         let toast_s_2 = toast_s.clone();
@@ -666,7 +698,23 @@ pub fn build_ui(app: &adw::Application) {
             &stack_settings,
             &model_s,
             std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
-            std::rc::Rc::new(move |s| col_fav_c.set_visible(s)),
+            std::rc::Rc::new(move |s| {
+                col_fav_c.set_visible(s);
+                // Update dropdown options
+                let mut cat_list = vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
+                if s {
+                    cat_list.push("Favorites");
+                }
+                // Preserve selection if possible, otherwise default to All
+                let selected = dropdown_s.selected();
+                let model = gtk::StringList::new(&cat_list);
+                dropdown_s.set_model(Some(&model));
+                if selected < model.n_items() {
+                    dropdown_s.set_selected(selected);
+                } else {
+                    dropdown_s.set_selected(0);
+                }
+            }),
             std::rc::Rc::new(move |s| col_args_c.set_visible(s)),
             std::rc::Rc::new(move |s| col_submap_c.set_visible(s)),
             std::rc::Rc::new(move |sort_key| {

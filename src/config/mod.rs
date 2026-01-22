@@ -3,6 +3,7 @@ pub mod favorites;
 
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct StyleConfig {
@@ -65,7 +66,7 @@ impl StyleConfig {
         let mut config = StyleConfig::default();
 
         if let Some(config_dir) = dirs::config_dir() {
-            let config_path = config_dir
+            let config_path: PathBuf = config_dir
                 .join(constants::HYPRKCS_DIR)
                 .join(constants::HYPRKCS_CONF);
 
@@ -245,7 +246,7 @@ rowPadding = 2px
     }
     pub fn save(&self) -> Result<(), std::io::Error> {
         if let Some(config_dir) = dirs::config_dir() {
-            let config_path = config_dir
+            let config_path: PathBuf = config_dir
                 .join(constants::HYPRKCS_DIR)
                 .join(constants::HYPRKCS_CONF);
             if let Some(parent) = config_path.parent() {

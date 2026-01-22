@@ -1,17 +1,9 @@
 use anyhow::{Context, Result};
 use dirs::config_dir;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub mod input;
-
-static VAR_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\s*(\$[a-zA-Z0-9_-]+)\s*=\s*(.*)").unwrap());
-static SOURCE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*source\s*=\s*(.*)").unwrap());
-static BIND_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*bind([a-zA-Z]*)\s*=\s*(.*)$").unwrap());
-static SUBMAP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*submap\s*=\s*(.*)$").unwrap());
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
@@ -66,7 +58,8 @@ fn expand_path(
 
     if path_str.starts_with('~') {
         if let Some(home) = dirs::home_dir() {
-            return home.join(&path_str[2..]);
+            let s: &str = &path_str[2..];
+            return home.join(s);
         }
     }
 
@@ -98,7 +91,8 @@ impl ParserContext {
         // Only update if variable count changed to save work
         if self.sorted_keys.len() != self.variables.len() {
             self.sorted_keys = self.variables.keys().cloned().collect();
-            self.sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
+            self.sorted_keys
+                .sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
         }
     }
 }
@@ -121,27 +115,30 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                 continue;
             }
 
-            if let Some(caps) = VAR_RE.captures(line) {
-                let name = caps.get(1).unwrap().as_str().to_string();
-                let raw_value_full = caps.get(2).unwrap().as_str();
-                let raw_value = raw_value_full.split('#').next().unwrap_or("").trim();
+            // Variable parsing: $name = value
+            if line.starts_with('$') {
+                if let Some((name_part, value_part)) = line.split_once('=') {
+                    let name = name_part.trim().to_string();
+                    let raw_value = value_part.split('#').next().unwrap_or("").trim();
 
-                ctx.update_sorted_keys();
-                let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
-                ctx.variables.insert(name, value);
-            } else if let Some(caps) = SOURCE_RE.captures(line) {
-                let path_str = caps
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .split('#')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
+                    if !name.is_empty() {
+                        ctx.update_sorted_keys();
+                        let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
+                        ctx.variables.insert(name, value);
+                    }
+                }
+            }
+            // Source parsing: source = path
+            else if let Some(rest) = line.strip_prefix("source") {
+                let trimmed_rest = rest.trim_start();
+                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
+                    let path_str = path_part.split('#').next().unwrap_or("").trim();
 
-                ctx.update_sorted_keys();
-                let sourced_path = expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
-                let _ = collect_recursive(sourced_path, ctx);
+                    ctx.update_sorted_keys();
+                    let sourced_path =
+                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
+                    let _ = collect_recursive(sourced_path, ctx);
+                }
             }
         }
         Ok(())
@@ -155,7 +152,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
     let variables = get_variables()?;
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
-    sorted_keys.sort_by_key(|b| std::cmp::Reverse(b.len()));
+    sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
 
     let mut keybinds = Vec::new();
     let mut visited = HashSet::new();
@@ -183,17 +180,42 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 continue;
             }
 
-            if let Some(caps) = SUBMAP_RE.captures(line_trimmed) {
-                let name = caps.get(1).map_or("", |m| m.as_str()).trim();
-                if name == "reset" {
-                    *current_submap = None;
-                } else {
-                    *current_submap = Some(name.to_string());
+            // Check for submap
+            if let Some(rest) = line_trimmed.strip_prefix("submap") {
+                let rest_trimmed = rest.trim_start();
+                if let Some(val) = rest_trimmed.strip_prefix('=') {
+                    let name = val.split('#').next().unwrap_or("").trim();
+                    if name == "reset" {
+                        *current_submap = None;
+                    } else {
+                        *current_submap = Some(name.to_string());
+                    }
                 }
-            } else if let Some(caps) = BIND_RE.captures(line_trimmed) {
-                let flags = caps.get(1).map_or("", |m| m.as_str()).trim();
-                let raw_content = caps.get(2).map_or("", |m| m.as_str()).trim();
+            }
+            // Check for bind
+            else if let Some(rest) = line_trimmed.strip_prefix("bind") {
+                let rest = rest.trim_start(); // could check flags here like 'e', 'l', etc.
 
+                // extract potential flags: take while alphanumeric
+                let flags;
+                let mut remaining = rest;
+
+                // Simple manual "take_while" for flags
+                // 'bind' is already stripped. "bindl =" -> "l ="
+                if let Some(eq_idx) = remaining.find('=') {
+                    let potential_flags = remaining[..eq_idx].trim();
+                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
+                        flags = potential_flags.to_string();
+                        remaining = &remaining[eq_idx + 1..]; // skip '='
+                    } else {
+                        // malformed or no equals?
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+
+                let raw_content = remaining.trim();
                 let mut description = None;
 
                 // Check inline
@@ -217,6 +239,9 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
                 let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
+
+                // Manual split on commas respecting simple escaping if needed?
+                // Hyprland config is usually simple comma separated.
                 let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
 
                 if parts.len() >= 3 {
@@ -232,7 +257,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     keybinds.push(Keybind {
                         mods: mods.clone(),
                         clean_mods: mods,
-                        flags: flags.to_string(),
+                        flags,
                         key,
                         dispatcher,
                         args,
@@ -242,24 +267,23 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         file_path: path.clone(),
                     });
                 }
-            } else if let Some(caps) = SOURCE_RE.captures(line_trimmed) {
-                let path_str = caps
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .split('#')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
-                let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
-                let _ = parse_recursive(
-                    sourced_path,
-                    keybinds,
-                    variables,
-                    sorted_keys,
-                    visited,
-                    current_submap,
-                );
+            }
+            // Check for source
+            else if let Some(rest) = line_trimmed.strip_prefix("source") {
+                let trimmed_rest = rest.trim_start();
+                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
+                    let path_str = path_part.split('#').next().unwrap_or("").trim();
+
+                    let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+                    let _ = parse_recursive(
+                        sourced_path,
+                        keybinds,
+                        variables,
+                        sorted_keys,
+                        visited,
+                        current_submap,
+                    );
+                }
             }
         }
         Ok(())
@@ -293,40 +317,60 @@ pub fn update_line(
     }
 
     let original_line = &lines[line_number];
-    let re = Regex::new(r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^#]*)").unwrap();
+    // Manual parsing for update_line logic
+    // We want to preserve indentation and the 'bind' part
+    // regex was: r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^#]*)"
 
-    if let Some(caps) = re.captures(original_line) {
-        let indent = caps.get(1).map_or("", |m| m.as_str());
-        let flags = caps.get(2).map_or("", |m| m.as_str());
+    // 1. Indent
+    let indent_len = original_line
+        .chars()
+        .take_while(|c| c.is_whitespace())
+        .count();
+    let indent = &original_line[..indent_len];
+    let trimmed_start = &original_line[indent_len..];
 
-        let mut new_line = if new_args.trim().is_empty() {
-            format!(
-                "{}bind{} = {}, {}, {}",
-                indent, flags, new_mods, new_key, new_dispatcher
-            )
-        } else {
-            format!(
-                "{}bind{} = {}, {}, {}, {}",
-                indent, flags, new_mods, new_key, new_dispatcher, new_args
-            )
-        };
+    if trimmed_start.starts_with("bind") {
+        let after_bind = &trimmed_start[4..];
+        if let Some(eq_idx) = after_bind.find('=') {
+            let flags = after_bind[..eq_idx].trim();
+            // preserve existing spacing around equals if possible, or just standard " = "
+            // The original code reconstructed the line completely anyway.
 
-        if let Some(desc) = description {
-            if !desc.trim().is_empty() {
-                new_line = format!("{} # {}", new_line, desc.trim());
+            let mut new_line = if new_args.trim().is_empty() {
+                format!(
+                    "{}bind{} = {}, {}, {}",
+                    indent, flags, new_mods, new_key, new_dispatcher
+                )
+            } else {
+                format!(
+                    "{}bind{} = {}, {}, {}, {}",
+                    indent, flags, new_mods, new_key, new_dispatcher, new_args
+                )
+            };
+
+            if let Some(desc) = description {
+                if !desc.trim().is_empty() {
+                    new_line = format!("{} # {}", new_line, desc.trim());
+                }
+            } else {
+                // Preserve existing comment if no new description provided
+                if let Some(idx) = original_line.find('#') {
+                    new_line = format!("{} {}", new_line, &original_line[idx..]);
+                }
             }
+
+            lines[line_number] = new_line;
+            std::fs::write(&path, lines.join("\n"))?;
+            Ok(())
         } else {
-            // Preserve existing comment if no new description provided
-            if let Some(idx) = original_line.find('#') {
-                new_line = format!("{} {}", new_line, &original_line[idx..]);
-            }
+            Err(anyhow::anyhow!(
+                "Could not parse original line structure (missing =)"
+            ))
         }
-
-        lines[line_number] = new_line;
-        std::fs::write(&path, lines.join("\n"))?;
-        Ok(())
     } else {
-        Err(anyhow::anyhow!("Could not parse original line structure"))
+        Err(anyhow::anyhow!(
+            "Could not parse original line structure (not a bind)"
+        ))
     }
 }
 

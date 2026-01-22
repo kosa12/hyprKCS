@@ -17,6 +17,17 @@ impl KeybindObject {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
 
+            // Pre-calculate lowercased versions for faster searching
+            data.mods_lower = keybind.mods.to_lowercase();
+            data.key_lower = keybind.key.to_lowercase();
+            data.dispatcher_lower = keybind.dispatcher.to_lowercase();
+            data.args_lower = keybind.args.to_lowercase();
+            data.description_lower = keybind
+                .description
+                .clone()
+                .unwrap_or_default()
+                .to_lowercase();
+
             data.mods = keybind.mods;
             data.clean_mods = keybind.clean_mods;
             data.key = keybind.key;
@@ -40,6 +51,15 @@ impl KeybindObject {
         obj
     }
 
+    /// Access internal data efficiently without going through GObject property system
+    pub fn with_data<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&imp::KeybindData) -> R,
+    {
+        let data = self.imp().data.borrow();
+        f(&data)
+    }
+
     pub fn matches_query(
         &self,
         query: &SearchQuery,
@@ -48,10 +68,10 @@ impl KeybindObject {
     ) -> bool {
         let data = self.imp().data.borrow();
 
-        // Category Filter
-        let dispatcher_lower = data.dispatcher.to_lowercase();
-        let args_lower = data.args.to_lowercase();
-        let key_lower = data.key.to_lowercase();
+        // Category Filter - using cached lowercased strings
+        let dispatcher_lower = &data.dispatcher_lower;
+        let args_lower = &data.args_lower;
+        let key_lower = &data.key_lower;
 
         let category_match = match category {
             0 => true, // All
@@ -84,33 +104,29 @@ impl KeybindObject {
             return false;
         }
 
-        // Advanced Search Filters
+        // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
-            if !data.mods.to_lowercase().contains(&q_mods.to_lowercase()) {
+            if !data.mods_lower.contains(q_mods) {
                 return false;
             }
         }
         if let Some(ref q_key) = query.key {
-            if !data.key.to_lowercase().contains(&q_key.to_lowercase()) {
+            if !data.key_lower.contains(q_key) {
                 return false;
             }
         }
         if let Some(ref q_action) = query.action {
-            if !dispatcher_lower.contains(&q_action.to_lowercase()) {
+            if !data.dispatcher_lower.contains(q_action) {
                 return false;
             }
         }
         if let Some(ref q_args) = query.args {
-            if !args_lower.contains(&q_args.to_lowercase()) {
+            if !data.args_lower.contains(q_args) {
                 return false;
             }
         }
         if let Some(ref q_desc) = query.description {
-            if !data
-                .description
-                .to_lowercase()
-                .contains(&q_desc.to_lowercase())
-            {
+            if !data.description_lower.contains(q_desc) {
                 return false;
             }
         }
@@ -121,19 +137,25 @@ impl KeybindObject {
 
         let text_to_match = &query.general_query;
 
-        matcher.fuzzy_match(&data.mods, text_to_match).is_some()
-            || matcher.fuzzy_match(&data.key, text_to_match).is_some()
+        matcher
+            .fuzzy_match(&data.mods_lower, text_to_match)
+            .is_some()
             || matcher
-                .fuzzy_match(&data.dispatcher, text_to_match)
+                .fuzzy_match(&data.key_lower, text_to_match)
                 .is_some()
-            || matcher.fuzzy_match(&data.args, text_to_match).is_some()
             || matcher
-                .fuzzy_match(&data.description, text_to_match)
+                .fuzzy_match(&data.dispatcher_lower, text_to_match)
+                .is_some()
+            || matcher
+                .fuzzy_match(&data.args_lower, text_to_match)
+                .is_some()
+            || matcher
+                .fuzzy_match(&data.description_lower, text_to_match)
                 .is_some()
     }
 }
 
-mod imp {
+pub mod imp {
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
@@ -154,6 +176,13 @@ mod imp {
         pub is_conflicted: bool,
         pub conflict_reason: String,
         pub is_favorite: bool,
+
+        // Cached lowercase fields for search optimization
+        pub mods_lower: String,
+        pub key_lower: String,
+        pub dispatcher_lower: String,
+        pub args_lower: String,
+        pub description_lower: String,
     }
 
     #[derive(Default)]
@@ -169,8 +198,8 @@ mod imp {
 
     impl ObjectImpl for KeybindObject {
         fn properties() -> &'static [glib::ParamSpec] {
-            use once_cell::sync::Lazy;
-            static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| {
+            use std::sync::LazyLock;
+            static PROPERTIES: LazyLock<Vec<glib::ParamSpec>> = LazyLock::new(|| {
                 vec![
                     glib::ParamSpecString::builder("mods").build(),
                     glib::ParamSpecString::builder("clean-mods").build(),
@@ -192,12 +221,32 @@ mod imp {
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
             let mut data = self.data.borrow_mut();
             match pspec.name() {
-                "mods" => data.mods = value.get().unwrap(),
+                "mods" => {
+                    let v: String = value.get().unwrap();
+                    data.mods_lower = v.to_lowercase();
+                    data.mods = v;
+                }
                 "clean-mods" => data.clean_mods = value.get().unwrap(),
-                "key" => data.key = value.get().unwrap(),
-                "dispatcher" => data.dispatcher = value.get().unwrap(),
-                "args" => data.args = value.get().unwrap(),
-                "description" => data.description = value.get().unwrap(),
+                "key" => {
+                    let v: String = value.get().unwrap();
+                    data.key_lower = v.to_lowercase();
+                    data.key = v;
+                }
+                "dispatcher" => {
+                    let v: String = value.get().unwrap();
+                    data.dispatcher_lower = v.to_lowercase();
+                    data.dispatcher = v;
+                }
+                "args" => {
+                    let v: String = value.get().unwrap();
+                    data.args_lower = v.to_lowercase();
+                    data.args = v;
+                }
+                "description" => {
+                    let v: String = value.get().unwrap();
+                    data.description_lower = v.to_lowercase();
+                    data.description = v;
+                }
                 "submap" => data.submap = value.get().unwrap(),
                 "line-number" => data.line_number = value.get().unwrap(),
                 "file-path" => data.file_path = value.get().unwrap(),
