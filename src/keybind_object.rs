@@ -51,6 +51,15 @@ impl KeybindObject {
         obj
     }
 
+    /// Access internal data efficiently without going through GObject property system
+    pub fn with_data<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&imp::KeybindData) -> R,
+    {
+        let data = self.imp().data.borrow();
+        f(&data)
+    }
+
     pub fn matches_query(
         &self,
         query: &SearchQuery,
@@ -95,29 +104,29 @@ impl KeybindObject {
             return false;
         }
 
-        // Advanced Search Filters
+        // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
-            if !data.mods_lower.contains(&q_mods.to_lowercase()) {
+            if !data.mods_lower.contains(q_mods) {
                 return false;
             }
         }
         if let Some(ref q_key) = query.key {
-            if !data.key_lower.contains(&q_key.to_lowercase()) {
+            if !data.key_lower.contains(q_key) {
                 return false;
             }
         }
         if let Some(ref q_action) = query.action {
-            if !data.dispatcher_lower.contains(&q_action.to_lowercase()) {
+            if !data.dispatcher_lower.contains(q_action) {
                 return false;
             }
         }
         if let Some(ref q_args) = query.args {
-            if !data.args_lower.contains(&q_args.to_lowercase()) {
+            if !data.args_lower.contains(q_args) {
                 return false;
             }
         }
         if let Some(ref q_desc) = query.description {
-            if !data.description_lower.contains(&q_desc.to_lowercase()) {
+            if !data.description_lower.contains(q_desc) {
                 return false;
             }
         }
@@ -128,19 +137,19 @@ impl KeybindObject {
 
         let text_to_match = &query.general_query;
 
-        matcher.fuzzy_match(&data.mods, text_to_match).is_some()
-            || matcher.fuzzy_match(&data.key, text_to_match).is_some()
+        matcher.fuzzy_match(&data.mods_lower, text_to_match).is_some()
+            || matcher.fuzzy_match(&data.key_lower, text_to_match).is_some()
             || matcher
-                .fuzzy_match(&data.dispatcher, text_to_match)
+                .fuzzy_match(&data.dispatcher_lower, text_to_match)
                 .is_some()
-            || matcher.fuzzy_match(&data.args, text_to_match).is_some()
+            || matcher.fuzzy_match(&data.args_lower, text_to_match).is_some()
             || matcher
-                .fuzzy_match(&data.description, text_to_match)
+                .fuzzy_match(&data.description_lower, text_to_match)
                 .is_some()
     }
 }
 
-mod imp {
+pub mod imp {
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;

@@ -213,7 +213,6 @@ fn generate_css(config: &StyleConfig) -> String {
             background-color: alpha(@window_fg_color, 0.04);
             border: {border_size} solid alpha(@window_fg_color, 0.1);
             border-radius: {border_radius};
-            overflow: hidden;
         }}
 
         preferencesgroup row {{
