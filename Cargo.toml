@@ -1,6 +1,6 @@
 [package]
 name = "hyprKCS"
-version = "1.18.3"
+version = "1.18.4"
 edition = "2021"
 license = "MIT"
 
