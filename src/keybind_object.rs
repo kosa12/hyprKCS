@@ -138,12 +138,18 @@ impl KeybindObject {
 
         let text_to_match = &query.general_query;
 
-        matcher.fuzzy_match(&data.mods_lower, text_to_match).is_some()
-            || matcher.fuzzy_match(&data.key_lower, text_to_match).is_some()
+        matcher
+            .fuzzy_match(&data.mods_lower, text_to_match)
+            .is_some()
+            || matcher
+                .fuzzy_match(&data.key_lower, text_to_match)
+                .is_some()
             || matcher
                 .fuzzy_match(&data.dispatcher_lower, text_to_match)
                 .is_some()
-            || matcher.fuzzy_match(&data.args_lower, text_to_match).is_some()
+            || matcher
+                .fuzzy_match(&data.args_lower, text_to_match)
+                .is_some()
             || matcher
                 .fuzzy_match(&data.description_lower, text_to_match)
                 .is_some()

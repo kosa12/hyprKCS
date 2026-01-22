@@ -33,7 +33,9 @@ impl Args {
                     println!("\nOptions:");
                     println!("  -c, --config <PATH>  Path to the Hyprland config file");
                     println!("  -p, --print          Print parsed keybinds to stdout and exit");
-                    println!("  -s, --search <TERM>  Filter keybinds by a search term (implies --print)");
+                    println!(
+                        "  -s, --search <TERM>  Filter keybinds by a search term (implies --print)"
+                    );
                     println!("  -h, --help           Print this help message");
                     std::process::exit(0);
                 }
