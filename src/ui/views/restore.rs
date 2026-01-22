@@ -237,7 +237,7 @@ fn create_diff_view(
         Ok(diff_text) => {
             let mut iter = buffer.start_iter();
             for line in diff_text.lines() {
-                let tag_name = if line.starts_with('+') && !line.starts_with("+++") {
+                let tag_name: Option<&str> = if line.starts_with('+') && !line.starts_with("+++") {
                     Some("add")
                 } else if line.starts_with('-') && !line.starts_with("---") {
                     Some("del")

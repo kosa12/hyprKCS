@@ -5,7 +5,7 @@ pub fn execute_keybind(dispatcher: &str, args: &str) {
     let mut resolved_args = args.to_string();
 
     let mut sorted_vars: Vec<_> = variables.keys().collect();
-    sorted_vars.sort_by_key(|b| std::cmp::Reverse(b.len()));
+    sorted_vars.sort_by_key(|b: &&String| std::cmp::Reverse(b.len()));
 
     for key in sorted_vars {
         if resolved_dispatcher.contains(key) {
