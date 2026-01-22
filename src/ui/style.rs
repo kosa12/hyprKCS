@@ -125,8 +125,8 @@ fn generate_css(config: &StyleConfig) -> String {
             font-size: {font_size};
         }}
 
-        /* Conflict Styling */
-        .error-icon {{
+        /* Conflict & Broken Styling */
+        .error-icon, .destructive-action {{
             color: @error_color;
         }}
 
