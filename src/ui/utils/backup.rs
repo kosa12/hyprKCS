@@ -1,9 +1,9 @@
 use crate::config::constants;
 use crate::config::StyleConfig;
 use anyhow::{Context, Result};
+use chrono::Local;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn perform_backup(force: bool) -> Result<String> {
     let config = StyleConfig::load();
@@ -16,11 +16,8 @@ pub fn perform_backup(force: bool) -> Result<String> {
     let hypr_dir = config_dir.join(constants::HYPR_DIR);
     let backup_root = hypr_dir.join(constants::BACKUP_DIR);
 
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs().to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
-
+    let now = Local::now();
+    let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
     let current_backup_dir = backup_root.join(&timestamp);
 
     fs::create_dir_all(&current_backup_dir)?;
