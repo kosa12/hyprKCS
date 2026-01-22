@@ -20,18 +20,13 @@ pub fn export_keybinds_to_markdown(model: &gio::ListStore, path: &Path) -> Resul
 
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
-            let mods = obj.property::<String>("clean-mods");
-            let key = obj.property::<String>("key");
-            let disp = obj.property::<String>("dispatcher");
-            let args = obj.property::<String>("args");
-            let submap = obj.property::<String>("submap");
-            let desc = obj.property::<String>("description");
-
-            writeln!(
-                file,
-                "| {} | {} | {} | {} | {} | {} |",
-                mods, key, disp, args, submap, desc
-            )?;
+            obj.with_data(|d| -> std::io::Result<()> {
+                writeln!(
+                    file,
+                    "| {} | {} | {} | {} | {} | {} |",
+                    d.clean_mods, d.key, d.dispatcher, d.args, d.submap, d.description
+                )
+            })?;
         }
     }
 

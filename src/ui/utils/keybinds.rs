@@ -2,29 +2,31 @@ use crate::config::favorites::{is_favorite, load_favorites};
 use crate::keybind_object::KeybindObject;
 use gtk::gio;
 use gtk4 as gtk;
+use std::rc::Rc;
 
-pub fn normalize(mods: &str, key: &str) -> (Vec<String>, String) {
-    let mut mod_vec: Vec<String> = mods
-        .replace("+", " ") // Handle Super+Shift style
-        .split_whitespace()
-        .map(|s| s.to_uppercase())
+pub fn normalize(mods: &str, key: &str) -> (String, String) {
+    let mut mods_list: Vec<&str> = mods
+        .split(|c: char| c == '+' || c.is_whitespace())
+        .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect();
-    mod_vec.sort();
-    mod_vec.dedup();
 
-    let clean_key = key.trim().to_lowercase();
+    mods_list.sort_unstable();
+    mods_list.dedup();
 
-    (mod_vec, clean_key)
+    (
+        mods_list.join(" ").to_uppercase(),
+        key.trim().to_lowercase(),
+    )
 }
 
 fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
-    let mut collision_map: std::collections::HashMap<(Vec<String>, String, String), Vec<usize>> =
+    let mut collision_map: std::collections::HashMap<(String, String, Rc<str>), Vec<usize>> =
         std::collections::HashMap::new();
 
     for (i, kb) in keybinds.iter().enumerate() {
         let (sorted_mods, clean_key) = normalize(&kb.clean_mods, &kb.key);
-        let submap = kb.submap.clone().unwrap_or_default();
+        let submap = kb.submap.clone().unwrap_or_else(|| "".into());
 
         let key = (sorted_mods, clean_key, submap);
         collision_map.entry(key).or_default().push(i);
@@ -42,7 +44,7 @@ fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> 
                     .map(|&other_idx| {
                         let kb = &keybinds[other_idx];
                         if kb.args.trim().is_empty() {
-                            kb.dispatcher.clone()
+                            kb.dispatcher.to_string()
                         } else {
                             format!("{} {}", kb.dispatcher, kb.args)
                         }

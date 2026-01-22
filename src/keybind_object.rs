@@ -4,6 +4,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use glib::subclass::prelude::*;
 use gtk::glib;
 use gtk4 as gtk;
+use std::rc::Rc;
 
 glib::wrapper! {
     pub struct KeybindObject(ObjectSubclass<imp::KeybindObject>);
@@ -17,34 +18,42 @@ impl KeybindObject {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
 
-            // Pre-calculate lowercased versions for faster searching
-            data.mods_lower = keybind.mods.to_lowercase();
-            data.key_lower = keybind.key.to_lowercase();
-            data.dispatcher_lower = keybind.dispatcher.to_lowercase();
-            data.args_lower = keybind.args.to_lowercase();
-            data.description_lower = keybind
-                .description
-                .clone()
-                .unwrap_or_default()
-                .to_lowercase();
+            // Helper to get lowercased Rc<str> efficiently
+            fn to_lower_rc(s: &str) -> Rc<str> {
+                let lower = s.to_lowercase();
+                if lower == s {
+                    Rc::from(s)
+                } else {
+                    Rc::from(lower)
+                }
+            }
 
             data.mods = keybind.mods;
             data.clean_mods = keybind.clean_mods;
             data.key = keybind.key;
             data.dispatcher = keybind.dispatcher;
             data.args = keybind.args;
-            data.description = keybind.description.unwrap_or_default();
-            data.submap = keybind.submap.unwrap_or_default();
+
+            let desc: Rc<str> = keybind.description.unwrap_or_else(|| "".into());
+            data.description = desc.clone();
+            data.submap = keybind.submap.unwrap_or_else(|| "".into());
             data.line_number = keybind.line_number as u64;
-            data.file_path = keybind.file_path.to_str().unwrap_or("").to_string();
+            data.file_path = keybind.file_path.to_str().unwrap_or("").into();
             data.is_favorite = is_favorite;
+
+            // Pre-calculate lowercased versions for faster searching, reusing Rc if already lowercase
+            data.mods_lower = to_lower_rc(&data.mods);
+            data.key_lower = to_lower_rc(&data.key);
+            data.dispatcher_lower = to_lower_rc(&data.dispatcher);
+            data.args_lower = to_lower_rc(&data.args);
+            data.description_lower = to_lower_rc(&data.description);
 
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
-                data.conflict_reason = reason;
+                data.conflict_reason = reason.into();
             } else {
                 data.is_conflicted = false;
-                data.conflict_reason.clear();
+                data.conflict_reason = "".into();
             }
         }
 
@@ -94,7 +103,7 @@ impl KeybindObject {
                     || args_lower.contains("playerctl")
                     || dispatcher_lower.contains("audio")
             }
-            4 => dispatcher_lower == "exec", // Custom/Script
+            4 => dispatcher_lower.as_ref() == "exec", // Custom/Script
             5 => key_lower.contains("mouse"),
             6 => data.is_favorite,
             _ => true,
@@ -161,28 +170,29 @@ pub mod imp {
     use gtk::subclass::prelude::*;
     use gtk4 as gtk;
     use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[derive(Default, Clone)]
     pub struct KeybindData {
-        pub mods: String,
-        pub clean_mods: String,
-        pub key: String,
-        pub dispatcher: String,
-        pub args: String,
-        pub description: String,
-        pub submap: String,
+        pub mods: Rc<str>,
+        pub clean_mods: Rc<str>,
+        pub key: Rc<str>,
+        pub dispatcher: Rc<str>,
+        pub args: Rc<str>,
+        pub description: Rc<str>,
+        pub submap: Rc<str>,
         pub line_number: u64,
-        pub file_path: String,
+        pub file_path: Rc<str>,
         pub is_conflicted: bool,
-        pub conflict_reason: String,
+        pub conflict_reason: Rc<str>,
         pub is_favorite: bool,
 
         // Cached lowercase fields for search optimization
-        pub mods_lower: String,
-        pub key_lower: String,
-        pub dispatcher_lower: String,
-        pub args_lower: String,
-        pub description_lower: String,
+        pub mods_lower: Rc<str>,
+        pub key_lower: Rc<str>,
+        pub dispatcher_lower: Rc<str>,
+        pub args_lower: Rc<str>,
+        pub description_lower: Rc<str>,
     }
 
     #[derive(Default)]
@@ -220,38 +230,61 @@ pub mod imp {
 
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
             let mut data = self.data.borrow_mut();
+
+            // Helper to get lowercased Rc<str> efficiently
+            fn to_lower_rc(s: &str) -> Rc<str> {
+                let lower = s.to_lowercase();
+                if lower == s {
+                    Rc::from(s)
+                } else {
+                    Rc::from(lower)
+                }
+            }
+
             match pspec.name() {
                 "mods" => {
                     let v: String = value.get().unwrap();
-                    data.mods_lower = v.to_lowercase();
-                    data.mods = v;
+                    data.mods_lower = to_lower_rc(&v);
+                    data.mods = v.into();
                 }
-                "clean-mods" => data.clean_mods = value.get().unwrap(),
+                "clean-mods" => {
+                    let v: String = value.get().unwrap();
+                    data.clean_mods = v.into();
+                }
                 "key" => {
                     let v: String = value.get().unwrap();
-                    data.key_lower = v.to_lowercase();
-                    data.key = v;
+                    data.key_lower = to_lower_rc(&v);
+                    data.key = v.into();
                 }
                 "dispatcher" => {
                     let v: String = value.get().unwrap();
-                    data.dispatcher_lower = v.to_lowercase();
-                    data.dispatcher = v;
+                    data.dispatcher_lower = to_lower_rc(&v);
+                    data.dispatcher = v.into();
                 }
                 "args" => {
                     let v: String = value.get().unwrap();
-                    data.args_lower = v.to_lowercase();
-                    data.args = v;
+                    data.args_lower = to_lower_rc(&v);
+                    data.args = v.into();
                 }
                 "description" => {
                     let v: String = value.get().unwrap();
-                    data.description_lower = v.to_lowercase();
-                    data.description = v;
+                    data.description_lower = to_lower_rc(&v);
+                    data.description = v.into();
                 }
-                "submap" => data.submap = value.get().unwrap(),
+                "submap" => {
+                    let v: String = value.get().unwrap();
+                    data.submap = v.into();
+                }
                 "line-number" => data.line_number = value.get().unwrap(),
-                "file-path" => data.file_path = value.get().unwrap(),
+                "file-path" => {
+                    let v: String = value.get().unwrap();
+                    data.file_path = v.into();
+                }
                 "is-conflicted" => data.is_conflicted = value.get().unwrap(),
-                "conflict-reason" => data.conflict_reason = value.get().unwrap(),
+                "conflict-reason" => {
+                    let v: String = value.get().unwrap();
+                    data.conflict_reason = v.into();
+                }
                 "is-favorite" => data.is_favorite = value.get().unwrap(),
                 _ => unimplemented!(),
             }
@@ -260,17 +293,17 @@ pub mod imp {
         fn property(&self, _id: usize, pspec: &glib::ParamSpec) -> glib::Value {
             let data = self.data.borrow();
             match pspec.name() {
-                "mods" => data.mods.to_value(),
-                "clean-mods" => data.clean_mods.to_value(),
-                "key" => data.key.to_value(),
-                "dispatcher" => data.dispatcher.to_value(),
-                "args" => data.args.to_value(),
-                "description" => data.description.to_value(),
-                "submap" => data.submap.to_value(),
+                "mods" => data.mods.as_ref().to_value(),
+                "clean-mods" => data.clean_mods.as_ref().to_value(),
+                "key" => data.key.as_ref().to_value(),
+                "dispatcher" => data.dispatcher.as_ref().to_value(),
+                "args" => data.args.as_ref().to_value(),
+                "description" => data.description.as_ref().to_value(),
+                "submap" => data.submap.as_ref().to_value(),
                 "line-number" => data.line_number.to_value(),
-                "file-path" => data.file_path.to_value(),
+                "file-path" => data.file_path.as_ref().to_value(),
                 "is-conflicted" => data.is_conflicted.to_value(),
-                "conflict-reason" => data.conflict_reason.to_value(),
+                "conflict-reason" => data.conflict_reason.as_ref().to_value(),
                 "is-favorite" => data.is_favorite.to_value(),
                 _ => unimplemented!(),
             }

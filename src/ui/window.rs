@@ -61,11 +61,11 @@ pub fn build_ui(app: &adw::Application) {
             if let Some(list_item) = list_item_weak.upgrade() {
                 if let Some(obj) = list_item.item().and_downcast::<KeybindObject>() {
                     let item = obj.with_data(|d| FavoriteKeybind {
-                        mods: d.clean_mods.clone(),
-                        key: d.key.clone(),
-                        submap: d.submap.clone(),
-                        dispatcher: d.dispatcher.clone(),
-                        args: d.args.clone(),
+                        mods: d.clean_mods.to_string(),
+                        key: d.key.to_string(),
+                        submap: d.submap.to_string(),
+                        dispatcher: d.dispatcher.to_string(),
+                        args: d.args.to_string(),
                     });
 
                     let mut favs = load_favorites();
@@ -184,13 +184,13 @@ pub fn build_ui(app: &adw::Application) {
 
             keybind.with_data(|data| {
                 let text = match prop_name.as_str() {
-                    "mods" => &data.mods,
-                    "key" => &data.key,
-                    "dispatcher" => &data.dispatcher,
-                    "args" => &data.args,
-                    "submap" => &data.submap,
-                    "description" => &data.description,
-                    "clean-mods" => &data.clean_mods,
+                    "mods" => data.mods.as_ref(),
+                    "key" => data.key.as_ref(),
+                    "dispatcher" => data.dispatcher.as_ref(),
+                    "args" => data.args.as_ref(),
+                    "submap" => data.submap.as_ref(),
+                    "description" => data.description.as_ref(),
+                    "clean-mods" => data.clean_mods.as_ref(),
                     _ => "",
                 };
                 label.set_label(text);
@@ -202,7 +202,7 @@ pub fn build_ui(app: &adw::Application) {
 
                 if let Some(icon) = icon_opt {
                     icon.set_visible(data.is_conflicted);
-                    icon.set_tooltip_text(Some(&data.conflict_reason));
+                    icon.set_tooltip_text(Some(data.conflict_reason.as_ref()));
                 }
             });
         });

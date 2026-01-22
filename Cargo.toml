@@ -1,8 +1,20 @@
 [package]
 name = "hyprKCS"
-version = "1.18.4"
+version = "1.18.5"
 edition = "2021"
 license = "MIT"
+description = "A fast, lightweight, and graphical keybind manager for Hyprland"
+repository = "https://github.com/kosa12/hyprKCS"
+homepage = "https://github.com/kosa12/hyprKCS"
+readme = "README.md"
+keywords = ["hyprland", "keybinds", "manager", "gui", "gtk4"]
+categories = ["gui", "os::linux"]
+exclude = [
+    "assets/*",
+    "mine/*",
+    ".wiki_tmp/*",
+    ".github/*",
+]
 
 [dependencies]
 gtk4 = { version = "0.10.3", features = ["v4_12"] }
@@ -10,11 +22,8 @@ libadwaita = "0.8.1"
 anyhow = "1.0.100"
 dirs = "6.0.0"
 gtk4-layer-shell = "0.7.1"
-clap = { version = "4.5.54", features = ["cargo", "derive"] }
 fuzzy-matcher = "0.3.7"
-chrono = { version = "0.4.42", default-features = false, features = ["clock"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+chrono = { version = "0.4.43", default-features = false, features = ["clock"] }
 similar = { version = "2.7.0", features = ["inline"] }
 
 [[bin]]
@@ -30,6 +39,7 @@ incremental = true
 opt-level = 2
 
 [profile.release]
+opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = true

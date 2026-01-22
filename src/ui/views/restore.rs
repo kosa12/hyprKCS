@@ -48,10 +48,6 @@ pub fn create_restore_view(
         .wrap(true)
         .build();
 
-    // The create_page_header title_box is private, but we can append to the header_box
-    // Actually, create_page_header returns a Box(Horizontal) containing back_btn and a VerticalBox(title, subtitle).
-    // To add the warning, it's better to add it after the header in the main container.
-
     container.append(&header_box);
     container.append(&warning);
     let scroll = gtk::ScrolledWindow::builder()
@@ -86,6 +82,26 @@ pub fn create_restore_view(
     outer_scroll.upcast()
 }
 
+fn format_timestamp(ts_str: &str) -> String {
+    let ts_str = ts_str.trim();
+
+    // If it's a raw unix timestamp (only digits), convert it
+    if !ts_str.is_empty() && ts_str.chars().all(|c| c.is_ascii_digit()) {
+        if let Ok(secs) = ts_str.parse::<u64>() {
+            let d = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+            let datetime: chrono::DateTime<chrono::Local> = d.into();
+            return datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+        }
+    }
+
+    // Otherwise, assume it's already ISO-like (e.g. from Chrono)
+    // Cleanup: 2024-01-22_12-34-56 -> 2024-01-22 12:34:56
+    ts_str
+        .replace('_', " ")
+        .replace('-', ":")
+        .replacen(':', "-", 2)
+}
+
 fn create_backup_row(
     path: &std::path::PathBuf,
     stack: &gtk::Stack,
@@ -93,10 +109,12 @@ fn create_backup_row(
     toast_overlay: &adw::ToastOverlay,
     restore_container: &gtk::Box,
 ) -> gtk::Widget {
-    let timestamp = path
+    let raw_timestamp = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "Unknown".to_string());
+
+    let timestamp = format_timestamp(&raw_timestamp);
 
     let actions_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -109,8 +127,7 @@ fn create_backup_row(
     actions_box.append(&diff_btn);
     actions_box.append(&restore_btn);
 
-    let row =
-        crate::ui::utils::create_card_row(&timestamp, Some(&path.to_string_lossy()), &actions_box);
+    let row = crate::ui::utils::create_card_row(&timestamp, Some(&raw_timestamp), &actions_box);
 
     let path_c = path.clone();
     let toast_c = toast_overlay.clone();
@@ -184,10 +201,13 @@ fn create_diff_view(
         .child(&container)
         .build();
 
-    let timestamp = path
+    let raw_timestamp = path
         .file_name()
-        .map(|n| n.to_string_lossy())
+        .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
+
+    let timestamp = format_timestamp(&raw_timestamp);
+
     let restore_container_c = restore_container.clone();
     let stack_c = stack.clone();
     let model_c = model.clone();

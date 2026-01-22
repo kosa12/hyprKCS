@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FavoriteKeybind {
     pub mods: String,
     pub key: String,
@@ -22,9 +21,25 @@ pub fn load_favorites() -> Vec<FavoriteKeybind> {
     if let Some(path) = get_favorites_path() {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(path) {
-                if let Ok(favs) = serde_json::from_str(&content) {
-                    return favs;
-                }
+                // Try simple manual line-based parsing
+                // Format: mods|key|submap|dispatcher|args
+                return content
+                    .lines()
+                    .filter_map(|line| {
+                        let parts: Vec<&str> = line.split('|').collect();
+                        if parts.len() >= 5 {
+                            Some(FavoriteKeybind {
+                                mods: parts[0].to_string(),
+                                key: parts[1].to_string(),
+                                submap: parts[2].to_string(),
+                                dispatcher: parts[3].to_string(),
+                                args: parts[4..].join("|"), // handle | in args just in case
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
             }
         }
     }
@@ -38,7 +53,14 @@ pub fn save_favorites(favorites: &[FavoriteKeybind]) -> std::io::Result<()> {
                 fs::create_dir_all(parent)?;
             }
         }
-        let content = serde_json::to_string_pretty(favorites)?;
+        let mut content = String::new();
+        for f in favorites {
+            content.push_str(&format!(
+                "{}|{}|{}|{}|{}
+",
+                f.mods, f.key, f.submap, f.dispatcher, f.args
+            ));
+        }
         fs::write(path, content)?;
     }
     Ok(())
