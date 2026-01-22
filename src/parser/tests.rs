@@ -4,6 +4,13 @@ use std::sync::{LazyLock, Mutex};
 
 static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
+fn lock_env() -> std::sync::MutexGuard<'static, ()> {
+    match ENV_LOCK.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 struct TempFile {
     path: PathBuf,
 }
@@ -71,9 +78,9 @@ fn test_variable_precedence() {
 
 #[test]
 fn test_parse_config_simple() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
 
-    let content = r#"$
+    let content = r#"
 $mainMod = SUPER
 bind = $mainMod, Q, exec, kitty
 bind = CTRL, C, killactive,
@@ -85,23 +92,23 @@ bind = CTRL, C, killactive,
     assert_eq!(binds.len(), 2);
 
     let b1 = &binds[0];
-    assert_eq!(b1.mods, "SUPER");
-    assert_eq!(b1.key, "Q");
-    assert_eq!(b1.dispatcher, "exec");
-    assert_eq!(b1.args, "kitty");
+    assert_eq!(b1.mods.as_ref(), "SUPER");
+    assert_eq!(b1.key.as_ref(), "Q");
+    assert_eq!(b1.dispatcher.as_ref(), "exec");
+    assert_eq!(b1.args.as_ref(), "kitty");
 
     let b2 = &binds[1];
-    assert_eq!(b2.mods, "CTRL");
-    assert_eq!(b2.key, "C");
-    assert_eq!(b2.dispatcher, "killactive");
+    assert_eq!(b2.mods.as_ref(), "CTRL");
+    assert_eq!(b2.key.as_ref(), "C");
+    assert_eq!(b2.dispatcher.as_ref(), "killactive");
     assert!(b2.args.is_empty());
 }
 
 #[test]
 fn test_add_keybind() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
 
-    let content = r#"$
+    let content = r#"
 $mainMod = SUPER
 bind = $mainMod, Q, exec, kitty
 "#;
@@ -128,9 +135,9 @@ bind = $mainMod, Q, exec, kitty
 
 #[test]
 fn test_delete_keybind() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
 
-    let content = r#"$
+    let content = r#"
 bind = SUPER, 1, workspace, 1
 bind = SUPER, 2, workspace, 2
 bind = SUPER, 3, workspace, 3
@@ -147,7 +154,7 @@ bind = SUPER, 3, workspace, 3
 
 #[test]
 fn test_source_inclusion() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
 
     let sourced_content = "bind = ALT, F4, killactive,";
     let sourced_file = TempFile::new(sourced_content);
@@ -159,12 +166,12 @@ fn test_source_inclusion() {
 
     let binds = parse_config().expect("Failed to parse");
     assert_eq!(binds.len(), 1);
-    assert_eq!(binds[0].mods, "ALT");
+    assert_eq!(binds[0].mods.as_ref(), "ALT");
 }
 
 #[test]
 fn test_submaps_parsing() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = r#"
 bind = SUPER, R, submap, resize
 submap = resize
@@ -178,31 +185,25 @@ bind = SUPER, Return, exec, alacritty
 
     let binds = parse_config().expect("Failed to parse submaps");
 
-    // Should have:
-    // 1. SUPER, R -> submap resize (Global)
-    // 2. , l -> resizeactive (resize submap)
-    // 3. , escape -> submap reset (resize submap)
-    // 4. SUPER, Return -> exec alacritty (Global)
-
     assert_eq!(binds.len(), 4);
 
     assert_eq!(binds[0].submap, None);
-    assert_eq!(binds[0].dispatcher, "submap");
-    assert_eq!(binds[0].args, "resize");
+    assert_eq!(binds[0].dispatcher.as_ref(), "submap");
+    assert_eq!(binds[0].args.as_ref(), "resize");
 
-    assert_eq!(binds[1].submap, Some("resize".to_string()));
-    assert_eq!(binds[1].flags, "e"); // check 'binde' flag
-    assert_eq!(binds[1].dispatcher, "resizeactive");
+    assert_eq!(binds[1].submap.as_deref(), Some("resize"));
+    assert_eq!(binds[1].flags.as_ref(), "e");
+    assert_eq!(binds[1].dispatcher.as_ref(), "resizeactive");
 
-    assert_eq!(binds[2].submap, Some("resize".to_string()));
+    assert_eq!(binds[2].submap.as_deref(), Some("resize"));
 
     assert_eq!(binds[3].submap, None);
-    assert_eq!(binds[3].key, "Return");
+    assert_eq!(binds[3].key.as_ref(), "Return");
 }
 
 #[test]
 fn test_add_keybind_to_submap() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = r#"
 submap = existing
 bind = , k, killactive,
@@ -210,7 +211,6 @@ submap = reset
 "#;
     let temp = TempFile::new(content);
 
-    // Add to existing submap
     add_keybind(
         temp.path.clone(),
         "",
@@ -225,7 +225,6 @@ submap = reset
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("bind = , m, movefocus, l"));
 
-    // Add to NEW submap
     add_keybind(
         temp.path.clone(),
         "",
@@ -245,7 +244,7 @@ submap = reset
 
 #[test]
 fn test_add_keybind_with_description() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = "bind = SUPER, Q, exec, kitty\n";
     let temp = TempFile::new(content);
 
@@ -266,7 +265,7 @@ fn test_add_keybind_with_description() {
 
 #[test]
 fn test_update_keybind_description() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = "bind = SUPER, Q, exec, kitty # Old Description\n";
     let temp = TempFile::new(content);
 
@@ -288,7 +287,7 @@ fn test_update_keybind_description() {
 
 #[test]
 fn test_comments_and_whitespace() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = r#"
 # This is a comment
 bind = SUPER, C, exec, code # Launch VS Code
@@ -300,17 +299,17 @@ bind = SUPER, C, exec, code # Launch VS Code
     let binds = parse_config().expect("Failed to parse messy config");
     assert_eq!(binds.len(), 2);
 
-    assert_eq!(binds[0].key, "C");
-    assert_eq!(binds[0].args, "code");
+    assert_eq!(binds[0].key.as_ref(), "C");
+    assert_eq!(binds[0].args.as_ref(), "code");
 
-    assert_eq!(binds[1].mods, "ALT");
-    assert_eq!(binds[1].key, "Tab");
-    assert_eq!(binds[1].dispatcher, "cyclenext");
+    assert_eq!(binds[1].mods.as_ref(), "ALT");
+    assert_eq!(binds[1].key.as_ref(), "Tab");
+    assert_eq!(binds[1].dispatcher.as_ref(), "cyclenext");
 }
 
 #[test]
 fn test_variable_chains() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = r#"
 $term = alacritty
 $myExec = exec, $term
@@ -322,16 +321,16 @@ bind = SUPER, Return, $myExec
     let binds = parse_config().expect("Failed to parse variable chain");
 
     assert_eq!(binds.len(), 1);
-    assert_eq!(binds[0].dispatcher, "exec");
-    assert_eq!(binds[0].args, "alacritty");
+    assert_eq!(binds[0].dispatcher.as_ref(), "exec");
+    assert_eq!(binds[0].args.as_ref(), "alacritty");
 }
 
 #[test]
 fn test_malformed_lines() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = lock_env();
     let content = r#"
 bind = SUPER, Q
-bind =
+bind = 
 random junk text
 bind = SUPER, W, exec
 "#;
@@ -341,6 +340,6 @@ bind = SUPER, W, exec
     let binds = parse_config().expect("Should not crash on malformed lines");
 
     assert_eq!(binds.len(), 1);
-    assert_eq!(binds[0].key, "W");
-    assert_eq!(binds[0].dispatcher, "exec");
+    assert_eq!(binds[0].key.as_ref(), "W");
+    assert_eq!(binds[0].dispatcher.as_ref(), "exec");
 }

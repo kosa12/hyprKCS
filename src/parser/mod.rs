@@ -2,19 +2,20 @@ use anyhow::{Context, Result};
 use dirs::config_dir;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 pub mod input;
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
-    pub mods: String,
-    pub clean_mods: String,
-    pub flags: String,
-    pub key: String,
-    pub dispatcher: String,
-    pub args: String,
-    pub description: Option<String>,
-    pub submap: Option<String>,
+    pub mods: Rc<str>,
+    pub clean_mods: Rc<str>,
+    pub flags: Rc<str>,
+    pub key: Rc<str>,
+    pub dispatcher: Rc<str>,
+    pub args: Rc<str>,
+    pub description: Option<Rc<str>>,
+    pub submap: Option<Rc<str>>,
     pub line_number: usize,
     pub file_path: PathBuf,
 }
@@ -156,7 +157,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
     let mut keybinds = Vec::new();
     let mut visited = HashSet::new();
-    let mut current_submap: Option<String> = None;
+    let mut current_submap: Option<Rc<str>> = None;
 
     fn parse_recursive(
         path: PathBuf,
@@ -164,7 +165,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         variables: &HashMap<String, String>,
         sorted_keys: &[String],
         visited: &mut HashSet<PathBuf>,
-        current_submap: &mut Option<String>,
+        current_submap: &mut Option<Rc<str>>,
     ) -> Result<()> {
         if !path.exists() || visited.contains(&path) {
             return Ok(());
@@ -188,7 +189,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     if name == "reset" {
                         *current_submap = None;
                     } else {
-                        *current_submap = Some(name.to_string());
+                        *current_submap = Some(name.into());
                     }
                 }
             }
@@ -222,7 +223,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 if let Some(idx) = line.find('#') {
                     let comment = line[idx + 1..].trim();
                     if !comment.is_empty() {
-                        description = Some(comment.to_string());
+                        description = Some(Rc::from(comment));
                     }
                 }
 
@@ -232,7 +233,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     if prev_line.starts_with('#') {
                         let comment = prev_line.trim_start_matches('#').trim();
                         if !comment.is_empty() {
-                            description = Some(comment.to_string());
+                            description = Some(Rc::from(comment));
                         }
                     }
                 }
@@ -245,22 +246,18 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
 
                 if parts.len() >= 3 {
-                    let mods = parts[0].to_string();
-                    let key = parts[1].to_string();
-                    let dispatcher = parts[2].to_string();
-                    let args = if parts.len() > 3 {
-                        parts[3].to_string()
-                    } else {
-                        String::new()
-                    };
+                    let mods = parts[0];
+                    let key = parts[1];
+                    let dispatcher = parts[2];
+                    let args = if parts.len() > 3 { parts[3] } else { "" };
 
                     keybinds.push(Keybind {
-                        mods: mods.clone(),
-                        clean_mods: mods,
-                        flags,
-                        key,
-                        dispatcher,
-                        args,
+                        mods: Rc::from(mods),
+                        clean_mods: Rc::from(mods),
+                        flags: Rc::from(flags.as_str()),
+                        key: Rc::from(key),
+                        dispatcher: Rc::from(dispatcher),
+                        args: Rc::from(args),
                         description,
                         submap: current_submap.clone(),
                         line_number: index,

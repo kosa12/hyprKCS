@@ -8,21 +8,26 @@ use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 pub fn get_conflict_groups(model: &gio::ListStore) -> Vec<Vec<KeybindObject>> {
-    let mut map: HashMap<(Vec<String>, String, String), Vec<KeybindObject>> = HashMap::new();
+    let mut map: HashMap<(String, String, Rc<str>), Vec<KeybindObject>> = HashMap::new();
 
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
-            if obj.property::<bool>("is-conflicted") {
-                let mods = obj.property::<String>("clean-mods");
-                let key_raw = obj.property::<String>("key");
-                let submap = obj.property::<String>("submap");
+            let (is_conflicted, conflict_key) = obj.with_data(|d| {
+                if d.is_conflicted {
+                    let (sorted_mods, clean_key) = normalize(&d.clean_mods, &d.key);
+                    (true, Some((sorted_mods, clean_key, d.submap.clone())))
+                } else {
+                    (false, None)
+                }
+            });
 
-                let (sorted_mods, clean_key) = normalize(&mods, &key_raw);
-                let key = (sorted_mods, clean_key, submap);
-
-                map.entry(key).or_default().push(obj);
+            if is_conflicted {
+                if let Some(k) = conflict_key {
+                    map.entry(k).or_default().push(obj);
+                }
             }
         }
     }
@@ -32,11 +37,11 @@ pub fn get_conflict_groups(model: &gio::ListStore) -> Vec<Vec<KeybindObject>> {
     groups.sort_by(|a, b| {
         let line_a = a
             .first()
-            .map(|o| o.property::<u64>("line-number"))
+            .map(|o| o.with_data(|d| d.line_number))
             .unwrap_or(0);
         let line_b = b
             .first()
-            .map(|o| o.property::<u64>("line-number"))
+            .map(|o| o.with_data(|d| d.line_number))
             .unwrap_or(0);
         line_a.cmp(&line_b)
     });
@@ -82,8 +87,7 @@ pub fn create_conflict_wizard(
     };
     let group = &groups[actual_index];
     let first_obj = &group[0];
-    let mods = first_obj.property::<String>("mods");
-    let key_char = first_obj.property::<String>("key");
+    let (mods, key_char) = first_obj.with_data(|d| (d.mods.to_string(), d.key.to_string()));
 
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -130,10 +134,14 @@ pub fn create_conflict_wizard(
 
     // List Items
     for obj in group {
-        let dispatcher = obj.property::<String>("dispatcher");
-        let args = obj.property::<String>("args");
-        let file_path = obj.property::<String>("file-path");
-        let line_num = obj.property::<u64>("line-number");
+        let (dispatcher, args, file_path, line_num) = obj.with_data(|d| {
+            (
+                d.dispatcher.to_string(),
+                d.args.to_string(),
+                d.file_path.to_string(),
+                d.line_number,
+            )
+        });
 
         let title = if args.is_empty() {
             dispatcher.clone()
@@ -173,7 +181,6 @@ pub fn create_conflict_wizard(
         let model_c = model.clone();
         let toast_overlay_c = toast_overlay.clone();
         let wizard_container_c = wizard_container.clone();
-        let _obj_clone = obj.clone();
         let file_path_buf = std::path::PathBuf::from(&file_path);
 
         // Delete keeps us on the SAME index (the next one slides in)
@@ -201,7 +208,6 @@ pub fn create_conflict_wizard(
         let stack_c = stack.clone();
         let model_c = model.clone();
         let toast_overlay_c = toast_overlay.clone();
-        let _wizard_container_c = wizard_container.clone();
         let obj_clone_2 = obj.clone();
 
         edit_btn.connect_clicked(move |_| {

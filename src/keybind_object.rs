@@ -4,6 +4,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use glib::subclass::prelude::*;
 use gtk::glib;
 use gtk4 as gtk;
+use std::rc::Rc;
 
 glib::wrapper! {
     pub struct KeybindObject(ObjectSubclass<imp::KeybindObject>);
@@ -17,28 +18,35 @@ impl KeybindObject {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
 
-            // Pre-calculate lowercased versions for faster searching
-            data.mods_lower = keybind.mods.to_lowercase().into();
-            data.key_lower = keybind.key.to_lowercase().into();
-            data.dispatcher_lower = keybind.dispatcher.to_lowercase().into();
-            data.args_lower = keybind.args.to_lowercase().into();
-            data.description_lower = keybind
-                .description
-                .clone()
-                .unwrap_or_default()
-                .to_lowercase()
-                .into();
+            // Helper to get lowercased Rc<str> efficiently
+            fn to_lower_rc(s: &str) -> Rc<str> {
+                let lower = s.to_lowercase();
+                if lower == s {
+                    Rc::from(s)
+                } else {
+                    Rc::from(lower)
+                }
+            }
 
-            data.mods = keybind.mods.into();
-            data.clean_mods = keybind.clean_mods.into();
-            data.key = keybind.key.into();
-            data.dispatcher = keybind.dispatcher.into();
-            data.args = keybind.args.into();
-            data.description = keybind.description.unwrap_or_default().into();
-            data.submap = keybind.submap.unwrap_or_default().into();
+            data.mods = keybind.mods;
+            data.clean_mods = keybind.clean_mods;
+            data.key = keybind.key;
+            data.dispatcher = keybind.dispatcher;
+            data.args = keybind.args;
+
+            let desc: Rc<str> = keybind.description.unwrap_or_else(|| "".into());
+            data.description = desc.clone();
+            data.submap = keybind.submap.unwrap_or_else(|| "".into());
             data.line_number = keybind.line_number as u64;
             data.file_path = keybind.file_path.to_str().unwrap_or("").into();
             data.is_favorite = is_favorite;
+
+            // Pre-calculate lowercased versions for faster searching, reusing Rc if already lowercase
+            data.mods_lower = to_lower_rc(&data.mods);
+            data.key_lower = to_lower_rc(&data.key);
+            data.dispatcher_lower = to_lower_rc(&data.dispatcher);
+            data.args_lower = to_lower_rc(&data.args);
+            data.description_lower = to_lower_rc(&data.description);
 
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
@@ -222,10 +230,21 @@ pub mod imp {
 
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
             let mut data = self.data.borrow_mut();
+
+            // Helper to get lowercased Rc<str> efficiently
+            fn to_lower_rc(s: &str) -> Rc<str> {
+                let lower = s.to_lowercase();
+                if lower == s {
+                    Rc::from(s)
+                } else {
+                    Rc::from(lower)
+                }
+            }
+
             match pspec.name() {
                 "mods" => {
                     let v: String = value.get().unwrap();
-                    data.mods_lower = v.to_lowercase().into();
+                    data.mods_lower = to_lower_rc(&v);
                     data.mods = v.into();
                 }
                 "clean-mods" => {
@@ -234,22 +253,22 @@ pub mod imp {
                 }
                 "key" => {
                     let v: String = value.get().unwrap();
-                    data.key_lower = v.to_lowercase().into();
+                    data.key_lower = to_lower_rc(&v);
                     data.key = v.into();
                 }
                 "dispatcher" => {
                     let v: String = value.get().unwrap();
-                    data.dispatcher_lower = v.to_lowercase().into();
+                    data.dispatcher_lower = to_lower_rc(&v);
                     data.dispatcher = v.into();
                 }
                 "args" => {
                     let v: String = value.get().unwrap();
-                    data.args_lower = v.to_lowercase().into();
+                    data.args_lower = to_lower_rc(&v);
                     data.args = v.into();
                 }
                 "description" => {
                     let v: String = value.get().unwrap();
-                    data.description_lower = v.to_lowercase().into();
+                    data.description_lower = to_lower_rc(&v);
                     data.description = v.into();
                 }
                 "submap" => {
