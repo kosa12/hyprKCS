@@ -24,7 +24,12 @@ pub fn export_keybinds_to_markdown(model: &gio::ListStore, path: &Path) -> Resul
                 writeln!(
                     file,
                     "| {} | {} | {} | {} | {} | {} |",
-                    d.clean_mods, d.key, d.dispatcher, d.args, d.submap, d.description
+                    d.clean_mods,
+                    d.key,
+                    d.dispatcher,
+                    d.args.as_deref().unwrap_or(""),
+                    d.submap.as_deref().unwrap_or(""),
+                    d.description.as_deref().unwrap_or("")
                 )
             })?;
         }

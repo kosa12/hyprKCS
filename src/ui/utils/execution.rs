@@ -81,10 +81,11 @@ pub fn command_exists(command: &str) -> bool {
         std::path::PathBuf::from(cmd_name)
     };
 
-    let exists = if path_to_check.is_absolute() {
-        path_to_check.exists()
-    } else if let Ok(path) = std::env::var("PATH") {
-        let mut found = false;
+    if path_to_check.is_absolute() {
+        return path_to_check.exists();
+    }
+
+    if let Ok(path) = std::env::var("PATH") {
         for p in std::env::split_paths(&path) {
             let full_path = p.join(cmd_name);
             if full_path.is_file() {
@@ -93,22 +94,14 @@ pub fn command_exists(command: &str) -> bool {
                     use std::os::unix::fs::PermissionsExt;
                     if let Ok(metadata) = std::fs::metadata(&full_path) {
                         if metadata.permissions().mode() & 0o111 != 0 {
-                            found = true;
-                            break;
+                            return true;
                         }
                     }
                 }
                 #[cfg(not(unix))]
-                {
-                    found = true;
-                    break;
-                }
+                return true;
             }
         }
-        found
-    } else {
-        false
-    };
-
-    exists
+    }
+    false
 }

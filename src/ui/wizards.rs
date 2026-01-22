@@ -4,6 +4,7 @@ use crate::ui::utils::{
     create_destructive_button, create_page_header, create_pill_button, create_suggested_button,
     normalize, perform_backup,
 };
+use crate::ui::views::create_edit_view;
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -18,7 +19,14 @@ pub fn get_conflict_groups(model: &gio::ListStore) -> Vec<Vec<KeybindObject>> {
             let (is_conflicted, conflict_key) = obj.with_data(|d| {
                 if d.is_conflicted {
                     let (sorted_mods, clean_key) = normalize(&d.clean_mods, &d.key);
-                    (true, Some((sorted_mods, clean_key, d.submap.clone())))
+                    (
+                        true,
+                        Some((
+                            sorted_mods,
+                            clean_key,
+                            d.submap.clone().unwrap_or_else(|| "".into()),
+                        )),
+                    )
                 } else {
                     (false, None)
                 }
@@ -137,7 +145,7 @@ pub fn create_conflict_wizard(
         let (dispatcher, args, file_path, line_num) = obj.with_data(|d| {
             (
                 d.dispatcher.to_string(),
-                d.args.to_string(),
+                d.args.as_ref().map(|s| s.to_string()).unwrap_or_default(),
                 d.file_path.to_string(),
                 d.line_number,
             )
@@ -218,7 +226,7 @@ pub fn create_conflict_wizard(
                     edit_page_container.remove(&child);
                 }
 
-                let edit_view = crate::ui::views::create_edit_view(
+                let edit_view = create_edit_view(
                     &stack_c,
                     obj_clone_2.clone(),
                     &model_c,

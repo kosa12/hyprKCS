@@ -2,13 +2,8 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use gtk::{glib, prelude::*};
 use gtk4 as gtk;
+use hyprKCS::{cli, parser, ui};
 use libadwaita as adw;
-
-mod cli;
-mod config;
-mod keybind_object;
-mod parser;
-mod ui;
 
 const APP_ID: &str = "com.github.hyprkcs";
 
@@ -29,35 +24,39 @@ fn main() -> glib::ExitCode {
                     binds
                         .into_iter()
                         .filter(|b| {
-                            let mods = &b.mods;
-                            let key = &b.key;
+                            let mods = b.mods.to_lowercase();
+                            let key = b.key.to_lowercase();
                             let dispatcher = b.dispatcher.to_lowercase();
-                            let args = b.args.to_lowercase();
-                            let description =
-                                b.description.clone().unwrap_or_default().to_lowercase();
+
+                            let args_str = b.args.to_lowercase();
+                            let desc_str = b
+                                .description
+                                .as_ref()
+                                .map(|s| s.to_lowercase())
+                                .unwrap_or_default();
 
                             if let Some(ref q_mods) = query.mods {
-                                if !mods.to_lowercase().contains(&q_mods.to_lowercase()) {
+                                if !mods.contains(q_mods) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_key) = query.key {
-                                if !key.to_lowercase().contains(&q_key.to_lowercase()) {
+                                if !key.contains(q_key) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_action) = query.action {
-                                if !dispatcher.contains(&q_action.to_lowercase()) {
+                                if !dispatcher.contains(q_action) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_args) = query.args {
-                                if !args.contains(&q_args.to_lowercase()) {
+                                if !args_str.contains(q_args) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_desc) = query.description {
-                                if !description.contains(&q_desc.to_lowercase()) {
+                                if !desc_str.contains(q_desc) {
                                     return false;
                                 }
                             }
@@ -67,10 +66,10 @@ fn main() -> glib::ExitCode {
                             }
                             let text_to_match = &query.general_query;
 
-                            matcher.fuzzy_match(mods, text_to_match).is_some()
-                                || matcher.fuzzy_match(key, text_to_match).is_some()
+                            matcher.fuzzy_match(&mods, text_to_match).is_some()
+                                || matcher.fuzzy_match(&key, text_to_match).is_some()
                                 || matcher.fuzzy_match(&dispatcher, text_to_match).is_some()
-                                || matcher.fuzzy_match(&args, text_to_match).is_some()
+                                || matcher.fuzzy_match(&args_str, text_to_match).is_some()
                         })
                         .collect::<Vec<_>>()
                 } else {
@@ -78,10 +77,9 @@ fn main() -> glib::ExitCode {
                 };
 
                 // Simple manual table printing
-                // Calculate max widths for alignment
-                let mut w_mods = 9; // "Modifiers".len()
-                let mut w_key = 3; // "Key".len()
-                let mut w_disp = 6; // "Action".len()
+                let mut w_mods = 9;
+                let mut w_key = 3;
+                let mut w_disp = 6;
 
                 for b in &binds {
                     w_mods = w_mods.max(b.mods.len());
@@ -89,17 +87,15 @@ fn main() -> glib::ExitCode {
                     w_disp = w_disp.max(b.dispatcher.len());
                 }
 
-                // Add padding
                 w_mods += 2;
                 w_key += 2;
                 w_disp += 2;
 
-                // Header
                 println!(
                     "{:<w_mods$}{:<w_key$}{:<w_disp$}Arguments",
                     "Modifiers", "Key", "Action"
                 );
-                println!("{:-<100}", ""); // Separator
+                println!("{:-<100}", "");
 
                 for bind in binds {
                     println!(
@@ -124,6 +120,5 @@ fn main() -> glib::ExitCode {
 
     app.connect_activate(ui::window::build_ui);
 
-    // We strip args so GTK doesn't complain about our custom flags
     app.run_with_args(&Vec::<String>::new())
 }
