@@ -9,6 +9,12 @@ homepage = "https://github.com/kosa12/hyprKCS"
 readme = "README.md"
 keywords = ["hyprland", "keybinds", "manager", "gui", "gtk4"]
 categories = ["gui", "os::linux"]
+exclude = [
+    "assets/*",
+    "mine/*",
+    ".wiki_tmp/*",
+    ".github/*",
+]
 
 [dependencies]
 gtk4 = { version = "0.10.3", features = ["v4_12"] }
