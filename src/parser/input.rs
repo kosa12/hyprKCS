@@ -61,21 +61,21 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
         // Global scope check for gesture
         // gesture = 3, horizontal, workspace
         if block_depth == 0 {
-             if let Some(rest) = trimmed.strip_prefix("gesture") {
+            if let Some(rest) = trimmed.strip_prefix("gesture") {
                 let rest_trimmed = rest.trim_start();
                 if let Some(val_part) = rest_trimmed.strip_prefix('=') {
-                     // 3, horizontal, workspace
-                     let val = val_part.split('#').next().unwrap_or("").trim();
-                     if val.contains("workspace") {
+                    // 3, horizontal, workspace
+                    let val = val_part.split('#').next().unwrap_or("").trim();
+                    if val.contains("workspace") {
                         gestures_config.workspace_swipe = true;
                         if let Some(fingers_str) = val.split(',').next() {
                             if let Ok(n) = fingers_str.trim().parse() {
                                 gestures_config.workspace_swipe_fingers = n;
                             }
                         }
-                     }
+                    }
                 }
-             }
+            }
         }
 
         if block_depth > 0 {
@@ -92,11 +92,7 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
             // Simple key = value parsing
             if let Some((key_part, val_part)) = trimmed.split_once('=') {
                 let key = key_part.trim();
-                let val = val_part
-                    .split('#')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
+                let val = val_part.split('#').next().unwrap_or("").trim();
 
                 if current_block == "input" {
                     match key {
@@ -169,7 +165,7 @@ pub fn save_input_config(
     {
         let mut depth = 0;
         let mut current_top_block: Option<String> = None;
-        
+
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
             if trimmed.is_empty() {
@@ -210,12 +206,12 @@ pub fn save_input_config(
                     if name == "gestures" {
                         to_remove.insert(i);
                     } else if name == "input" {
-                         if let Some((key_part, _)) = trimmed.split_once('=') {
-                             let key = key_part.trim();
-                             if legacy_gesture_keys.contains(&key) {
+                        if let Some((key_part, _)) = trimmed.split_once('=') {
+                            let key = key_part.trim();
+                            if legacy_gesture_keys.contains(&key) {
                                 to_remove.insert(i);
                             }
-                         }
+                        }
                     }
                 }
             }
@@ -262,27 +258,27 @@ pub fn save_input_config(
                 let line = &lines[i];
                 // regex: r"^(\s*)([a-zA-Z0-9_]+)(\s*=\s*)(.*)"
                 // Manual parsing to preserve indentation
-                
+
                 let indent_len = line.chars().take_while(|c| c.is_whitespace()).count();
                 let indent = &line[..indent_len];
                 let trimmed = &line[indent_len..];
-                
+
                 if let Some((key_part, _val_part_full)) = trimmed.split_once('=') {
-                     // We need to capture the separator " = " or "=" to preserve style, 
-                     // but split_once eats it.
-                     // Let's find the equals sign index in the original line to be safe?
-                     // actually we can just reconstruct with " = " if we want standardization,
-                     // or try to detect.
-                     
-                     let key = key_part.trim().to_string();
-                     // find separator in 'trimmed'
-                     let eq_idx = trimmed.find('=').unwrap();
-                     let _sep = &trimmed[key_part.len()..eq_idx+1]; // captures spaces before = and the =
-                     // wait, we want spaces AFTER = too.
-                     
-                     // simplified: just key = val
-                     
-                     let comment = if let Some(idx) = line.find('#') {
+                    // We need to capture the separator " = " or "=" to preserve style,
+                    // but split_once eats it.
+                    // Let's find the equals sign index in the original line to be safe?
+                    // actually we can just reconstruct with " = " if we want standardization,
+                    // or try to detect.
+
+                    let key = key_part.trim().to_string();
+                    // find separator in 'trimmed'
+                    let eq_idx = trimmed.find('=').unwrap();
+                    let _sep = &trimmed[key_part.len()..eq_idx + 1]; // captures spaces before = and the =
+                                                                     // wait, we want spaces AFTER = too.
+
+                    // simplified: just key = val
+
+                    let comment = if let Some(idx) = line.find('#') {
                         line[idx..].to_string()
                     } else {
                         String::new()
@@ -306,7 +302,7 @@ pub fn save_input_config(
                                 u_val,
                                 if comment.is_empty() { "" } else { " " }
                             );
-                            
+
                             changes.push((i, format!("{}{}", new_line_preserved, comment)));
                             updated_keys.insert(key.clone());
                         }
@@ -348,16 +344,16 @@ pub fn save_input_config(
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-             if let Some(rest) = trimmed.strip_prefix("gesture") {
+            if let Some(rest) = trimmed.strip_prefix("gesture") {
                 let rest_trimmed = rest.trim_start();
                 if let Some(val_part) = rest_trimmed.strip_prefix('=') {
-                     let val = val_part.split('#').next().unwrap_or("").trim();
-                     if val.contains("workspace") {
+                    let val = val_part.split('#').next().unwrap_or("").trim();
+                    if val.contains("workspace") {
                         gesture_line_idx = Some(i);
                         break;
-                     }
+                    }
                 }
-             }
+            }
         }
 
         if gestures_config.workspace_swipe {

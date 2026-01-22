@@ -91,7 +91,8 @@ impl ParserContext {
         // Only update if variable count changed to save work
         if self.sorted_keys.len() != self.variables.len() {
             self.sorted_keys = self.variables.keys().cloned().collect();
-            self.sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
+            self.sorted_keys
+                .sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
         }
     }
 }
@@ -119,26 +120,23 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                 if let Some((name_part, value_part)) = line.split_once('=') {
                     let name = name_part.trim().to_string();
                     let raw_value = value_part.split('#').next().unwrap_or("").trim();
-                    
+
                     if !name.is_empty() {
                         ctx.update_sorted_keys();
                         let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
                         ctx.variables.insert(name, value);
                     }
                 }
-            } 
+            }
             // Source parsing: source = path
             else if let Some(rest) = line.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                     let path_str = path_part
-                        .split('#')
-                        .next()
-                        .unwrap_or("")
-                        .trim();
+                    let path_str = path_part.split('#').next().unwrap_or("").trim();
 
                     ctx.update_sorted_keys();
-                    let sourced_path = expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
+                    let sourced_path =
+                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
                     let _ = collect_recursive(sourced_path, ctx);
                 }
             }
@@ -185,37 +183,37 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             // Check for submap
             if let Some(rest) = line_trimmed.strip_prefix("submap") {
                 let rest_trimmed = rest.trim_start();
-                 if let Some(val) = rest_trimmed.strip_prefix('=') {
-                     let name = val.split('#').next().unwrap_or("").trim();
-                     if name == "reset" {
+                if let Some(val) = rest_trimmed.strip_prefix('=') {
+                    let name = val.split('#').next().unwrap_or("").trim();
+                    if name == "reset" {
                         *current_submap = None;
-                     } else {
+                    } else {
                         *current_submap = Some(name.to_string());
-                     }
-                 }
+                    }
+                }
             }
             // Check for bind
             else if let Some(rest) = line_trimmed.strip_prefix("bind") {
-                 let rest = rest.trim_start(); // could check flags here like 'e', 'l', etc.
-                 
-                 // extract potential flags: take while alphanumeric
-                 let flags;
-                 let mut remaining = rest;
-                 
-                 // Simple manual "take_while" for flags
-                 // 'bind' is already stripped. "bindl =" -> "l ="
-                 if let Some(eq_idx) = remaining.find('=') {
-                     let potential_flags = remaining[..eq_idx].trim();
-                     if potential_flags.chars().all(|c| c.is_alphabetic()) {
-                         flags = potential_flags.to_string();
-                         remaining = &remaining[eq_idx+1..]; // skip '='
-                     } else {
-                         // malformed or no equals?
-                         continue;
-                     }
-                 } else {
-                     continue; 
-                 }
+                let rest = rest.trim_start(); // could check flags here like 'e', 'l', etc.
+
+                // extract potential flags: take while alphanumeric
+                let flags;
+                let mut remaining = rest;
+
+                // Simple manual "take_while" for flags
+                // 'bind' is already stripped. "bindl =" -> "l ="
+                if let Some(eq_idx) = remaining.find('=') {
+                    let potential_flags = remaining[..eq_idx].trim();
+                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
+                        flags = potential_flags.to_string();
+                        remaining = &remaining[eq_idx + 1..]; // skip '='
+                    } else {
+                        // malformed or no equals?
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
 
                 let raw_content = remaining.trim();
                 let mut description = None;
@@ -241,8 +239,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
                 let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
-                
-                // Manual split on commas respecting simple escaping if needed? 
+
+                // Manual split on commas respecting simple escaping if needed?
                 // Hyprland config is usually simple comma separated.
                 let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
 
@@ -269,26 +267,22 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         file_path: path.clone(),
                     });
                 }
-            } 
+            }
             // Check for source
             else if let Some(rest) = line_trimmed.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                     let path_str = path_part
-                        .split('#')
-                        .next()
-                        .unwrap_or("")
-                        .trim();
-                     
-                     let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
-                     let _ = parse_recursive(
+                    let path_str = path_part.split('#').next().unwrap_or("").trim();
+
+                    let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+                    let _ = parse_recursive(
                         sourced_path,
                         keybinds,
                         variables,
                         sorted_keys,
                         visited,
                         current_submap,
-                     );
+                    );
                 }
             }
         }
@@ -326,19 +320,22 @@ pub fn update_line(
     // Manual parsing for update_line logic
     // We want to preserve indentation and the 'bind' part
     // regex was: r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^#]*)"
-    
+
     // 1. Indent
-    let indent_len = original_line.chars().take_while(|c| c.is_whitespace()).count();
+    let indent_len = original_line
+        .chars()
+        .take_while(|c| c.is_whitespace())
+        .count();
     let indent = &original_line[..indent_len];
     let trimmed_start = &original_line[indent_len..];
-    
+
     if trimmed_start.starts_with("bind") {
         let after_bind = &trimmed_start[4..];
         if let Some(eq_idx) = after_bind.find('=') {
-             let flags = after_bind[..eq_idx].trim();
-             // preserve existing spacing around equals if possible, or just standard " = "
-             // The original code reconstructed the line completely anyway.
-             
+            let flags = after_bind[..eq_idx].trim();
+            // preserve existing spacing around equals if possible, or just standard " = "
+            // The original code reconstructed the line completely anyway.
+
             let mut new_line = if new_args.trim().is_empty() {
                 format!(
                     "{}bind{} = {}, {}, {}",
@@ -350,7 +347,7 @@ pub fn update_line(
                     indent, flags, new_mods, new_key, new_dispatcher, new_args
                 )
             };
-    
+
             if let Some(desc) = description {
                 if !desc.trim().is_empty() {
                     new_line = format!("{} # {}", new_line, desc.trim());
@@ -361,17 +358,19 @@ pub fn update_line(
                     new_line = format!("{} {}", new_line, &original_line[idx..]);
                 }
             }
-    
+
             lines[line_number] = new_line;
             std::fs::write(&path, lines.join("\n"))?;
             Ok(())
-
         } else {
-             Err(anyhow::anyhow!("Could not parse original line structure (missing =)"))
+            Err(anyhow::anyhow!(
+                "Could not parse original line structure (missing =)"
+            ))
         }
-
     } else {
-        Err(anyhow::anyhow!("Could not parse original line structure (not a bind)"))
+        Err(anyhow::anyhow!(
+            "Could not parse original line structure (not a bind)"
+        ))
     }
 }
 

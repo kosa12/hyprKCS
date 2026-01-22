@@ -102,7 +102,7 @@ pub fn build_ui(app: &adw::Application) {
         let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
 
         let is_fav = keybind.with_data(|d| d.is_favorite);
-        
+
         btn.set_icon_name(if is_fav {
             "starred-symbolic"
         } else {
@@ -183,7 +183,7 @@ pub fn build_ui(app: &adw::Application) {
             };
 
             keybind.with_data(|data| {
-                 let text = match prop_name.as_str() {
+                let text = match prop_name.as_str() {
                     "mods" => &data.mods,
                     "key" => &data.key,
                     "dispatcher" => &data.dispatcher,
