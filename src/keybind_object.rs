@@ -59,6 +59,7 @@ impl KeybindObject {
 
             // Pre-calculate lowercased versions for faster searching, reusing Rc if already lowercase
             data.mods_lower = to_lower_rc(&data.mods);
+            data.clean_mods_lower = to_lower_rc(&data.clean_mods);
             data.key_lower = to_lower_rc(&data.key);
             data.dispatcher_lower = to_lower_rc(&data.dispatcher);
 
@@ -138,7 +139,8 @@ impl KeybindObject {
 
         // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
-            if !data.mods_lower.contains(q_mods) {
+            // Match against both raw and clean mods for user convenience
+            if !data.mods_lower.contains(q_mods) && !data.clean_mods_lower.contains(q_mods) {
                 return false;
             }
         }
@@ -180,6 +182,9 @@ impl KeybindObject {
         matcher
             .fuzzy_match(&data.mods_lower, text_to_match)
             .is_some()
+            || matcher
+                .fuzzy_match(&data.clean_mods_lower, text_to_match)
+                .is_some()
             || matcher
                 .fuzzy_match(&data.key_lower, text_to_match)
                 .is_some()
@@ -224,6 +229,7 @@ pub mod imp {
 
         // Cached lowercase fields for search optimization
         pub mods_lower: Rc<str>,
+        pub clean_mods_lower: Rc<str>,
         pub key_lower: Rc<str>,
         pub dispatcher_lower: Rc<str>,
         pub args_lower: Option<Rc<str>>,
@@ -286,6 +292,7 @@ pub mod imp {
                 }
                 "clean-mods" => {
                     let v: String = value.get().unwrap();
+                    data.clean_mods_lower = to_lower_rc(&v);
                     data.clean_mods = v.into();
                 }
                 "key" => {
