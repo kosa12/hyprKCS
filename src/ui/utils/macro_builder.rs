@@ -107,14 +107,14 @@ pub fn parse_macro(dispatcher: &str, args: &str) -> Option<Vec<(String, String)>
         if let Some(rest) = part.strip_prefix("hyprctl dispatch ") {
             let rest = rest.trim();
             let (disp, arg) = rest.split_once(' ').unwrap_or((rest, ""));
-            
+
             // Unescape quotes if we added them: "arg" -> arg
             let clean_arg = if arg.starts_with('"') && arg.ends_with('"') {
                 &arg[1..arg.len() - 1]
             } else {
                 arg
             };
-            
+
             actions.push((disp.to_string(), clean_arg.replace("\\\"", "\"")));
         } else {
             // Found something that isn't hyprctl dispatch -> abort parsing

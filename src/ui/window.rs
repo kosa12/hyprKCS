@@ -681,14 +681,11 @@ pub fn build_ui(app: &adw::Application) {
         let filter_func = filter_func_1.clone();
         let timeout_handle_clone = timeout_handle.clone();
 
-        let source = glib::timeout_add_local(
-            std::time::Duration::from_millis(150),
-            move || {
-                filter_func(text.clone(), cat);
-                *timeout_handle_clone.borrow_mut() = None;
-                glib::ControlFlow::Break
-            },
-        );
+        let source = glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
+            filter_func(text.clone(), cat);
+            *timeout_handle_clone.borrow_mut() = None;
+            glib::ControlFlow::Break
+        });
         *timeout_handle.borrow_mut() = Some(source);
     });
 

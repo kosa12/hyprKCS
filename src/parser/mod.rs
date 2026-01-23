@@ -286,7 +286,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let mut i = 0;
                 while i < chars.len() {
                     let c = chars[i];
-                    
+
                     if parts_count < 3 {
                         if c == '"' {
                             in_quote = !in_quote;
@@ -305,14 +305,18 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     i += 1;
                 }
                 if !current_part.trim().is_empty() || parts_count >= 3 {
-                     parts.push(current_part.trim().to_string());
+                    parts.push(current_part.trim().to_string());
                 }
 
                 if parts.len() >= 3 {
                     let mods: Rc<str> = Rc::from(parts[0].as_str());
                     let key: Rc<str> = Rc::from(parts[1].as_str());
                     let dispatcher: Rc<str> = Rc::from(parts[2].as_str());
-                    let args: Rc<str> = if parts.len() > 3 { Rc::from(parts[3].as_str()) } else { Rc::from("") };
+                    let args: Rc<str> = if parts.len() > 3 {
+                        Rc::from(parts[3].as_str())
+                    } else {
+                        Rc::from("")
+                    };
 
                     keybinds.push(Keybind {
                         mods: mods.clone(),

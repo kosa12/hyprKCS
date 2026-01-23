@@ -6,9 +6,9 @@ use crate::ui::utils::{
     create_pill_button, create_suggested_button, execute_keybind, perform_backup, reload_keybinds,
     setup_dispatcher_completion,
 };
+use gtk::glib;
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
-use gtk::glib;
 use libadwaita as adw;
 use std::rc::Rc;
 
@@ -104,7 +104,7 @@ pub fn create_add_view(
         .spacing(12)
         .visible(false)
         .build();
-    
+
     let macro_list = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(8)
@@ -115,7 +115,7 @@ pub fn create_add_view(
         .label("Add Action")
         .icon_name("list-add-symbolic")
         .build();
-    
+
     // Logic to add rows
     let macro_list_c = macro_list.clone();
     add_action_btn.connect_clicked(move |_| {
@@ -142,7 +142,6 @@ pub fn create_add_view(
         macro_c.set_visible(state);
         glib::Propagation::Proceed
     });
-
 
     let entry_submap = gtk::Entry::builder()
         .placeholder_text("e.g. resize (leave empty for global)")
@@ -232,7 +231,10 @@ pub fn create_add_view(
                 return;
             }
         } else {
-            (entry_dispatcher_exec.text().to_string(), entry_args_exec.text().to_string())
+            (
+                entry_dispatcher_exec.text().to_string(),
+                entry_args_exec.text().to_string(),
+            )
         };
 
         if !dispatcher.trim().is_empty() {
@@ -266,13 +268,13 @@ pub fn create_add_view(
     let perform_add = Rc::new(move || {
         let mods = entry_mods_c.text().to_string();
         let key = entry_key_c.text().to_string();
-        
+
         // Determine Dispatcher/Args based on mode
         let (dispatcher, args) = if macro_switch_c.is_active() {
             match compile_macro(&macro_list_c) {
                 Some(res) => res,
                 None => {
-                     let toast = adw::Toast::builder()
+                    let toast = adw::Toast::builder()
                         .title("Macro is empty or invalid")
                         .timeout(3)
                         .build();
@@ -281,9 +283,12 @@ pub fn create_add_view(
                 }
             }
         } else {
-             (entry_dispatcher_c.text().to_string(), entry_args_c.text().to_string())
+            (
+                entry_dispatcher_c.text().to_string(),
+                entry_args_c.text().to_string(),
+            )
         };
-        
+
         let desc = entry_desc_c.text().to_string();
         let submap_raw = entry_submap_c.text().to_string();
         let submap = if submap_raw.trim().is_empty() {
@@ -342,7 +347,7 @@ pub fn create_add_view(
 
     add_btn.connect_clicked(move |_| {
         let key = entry_key_c.text().to_string();
-        
+
         if key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")

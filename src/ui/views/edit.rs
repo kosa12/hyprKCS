@@ -7,9 +7,9 @@ use crate::ui::utils::{
     create_pill_button, create_suggested_button, execute_keybind, perform_backup, reload_keybinds,
     setup_dispatcher_completion,
 };
+use gtk::glib;
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
-use gtk::glib;
 use libadwaita as adw;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -71,7 +71,7 @@ pub fn create_edit_view(
     let header = create_page_header("Edit Keybind", subtitle.as_deref(), "Back", move || {
         stack_c.set_visible_child_name("home");
     });
-    
+
     container.append(&header);
 
     let scroll = gtk::ScrolledWindow::builder()
@@ -106,14 +106,16 @@ pub fn create_edit_view(
         .build();
 
     let description = obj.property::<String>("description");
-    
+
     let desc_label = if !description.is_empty() {
-        Some(gtk::Label::builder()
-            .label(&format!("Description: {}", description))
-            .css_classes(["dim-label"])
-            .hexpand(true)
-            .halign(gtk::Align::Start)
-            .build())
+        Some(
+            gtk::Label::builder()
+                .label(&format!("Description: {}", description))
+                .css_classes(["dim-label"])
+                .hexpand(true)
+                .halign(gtk::Align::Start)
+                .build(),
+        )
     } else {
         None
     };
@@ -161,7 +163,7 @@ pub fn create_edit_view(
         .spacing(12)
         .visible(is_macro)
         .build();
-    
+
     let macro_list = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(8)
@@ -172,10 +174,10 @@ pub fn create_edit_view(
         .label("Add Action")
         .icon_name("list-add-symbolic")
         .build();
-    
+
     let macro_list_c = macro_list.clone();
     let add_row = move |disp: Option<&str>, arg: Option<&str>| {
-         let (row, _, _, del_btn) = create_macro_row(disp, arg);
+        let (row, _, _, del_btn) = create_macro_row(disp, arg);
         let list_c = macro_list_c.clone();
         let list_c_del = list_c.clone(); // Clone for closure
         let row_c = row.clone();
@@ -187,7 +189,7 @@ pub fn create_edit_view(
 
     let add_row_c = Rc::new(add_row);
     let add_row_cb = add_row_c.clone();
-    
+
     add_action_btn.connect_clicked(move |_| {
         add_row_cb(None, None);
     });
@@ -217,7 +219,6 @@ pub fn create_edit_view(
         macro_c.set_visible(state);
         glib::Propagation::Proceed
     });
-
 
     let entry_desc = gtk::Entry::builder()
         .text(&obj.property::<String>("description"))
@@ -306,7 +307,10 @@ pub fn create_edit_view(
                 return;
             }
         } else {
-            (entry_dispatcher_exec.text().to_string(), entry_args_exec.text().to_string())
+            (
+                entry_dispatcher_exec.text().to_string(),
+                entry_args_exec.text().to_string(),
+            )
         };
 
         if !dispatcher.trim().is_empty() {
@@ -357,10 +361,10 @@ pub fn create_edit_view(
 
             // Resolve Dispatcher/Args
             let (new_dispatcher, new_args) = if macro_switch_c.is_active() {
-                 match compile_macro(&macro_list_c) {
+                match compile_macro(&macro_list_c) {
                     Some(res) => res,
                     None => {
-                         let toast = adw::Toast::builder()
+                        let toast = adw::Toast::builder()
                             .title("Macro is empty or invalid")
                             .timeout(3)
                             .build();
@@ -429,7 +433,7 @@ pub fn create_edit_view(
 
     save_btn.connect_clicked(move |_| {
         let new_key = entry_key_c.text().to_string();
-        
+
         if new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
@@ -451,7 +455,7 @@ pub fn create_edit_view(
         } else {
             let new_dispatcher = entry_dispatcher_save.text().to_string();
             let new_args = entry_args_c.text().to_string(); // Note: prefix is added in do_save, but validation should check raw
-            
+
              if new_dispatcher.trim().is_empty() {
                 let toast = adw::Toast::builder()
                     .title("Error: Dispatcher cannot be empty")

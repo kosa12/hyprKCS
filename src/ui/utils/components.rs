@@ -155,7 +155,7 @@ pub fn create_recorder_row(
     center_widget: Option<&gtk::Widget>,
 ) -> gtk::Box {
     let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    
+
     crate::ui::utils::widgets::setup_key_recorder(&recorder_box, entry_mods, entry_key);
 
     if let Some(w) = center_widget {
@@ -173,7 +173,7 @@ pub fn create_recorder_row(
         .css_classes(["caption", "dim-label"])
         .valign(gtk::Align::Center)
         .build();
-    
+
     recorder_box.append(&switch_label);
     recorder_box.append(macro_switch);
 
