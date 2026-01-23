@@ -140,3 +140,70 @@ fn test_update_keybind_description() {
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("bind = SUPER, Q, exec, kitty # New Description"));
 }
+
+#[test]
+fn test_parse_macro_keybind() {
+    let _guard = lock_env();
+    let macro_cmd = "bash -c \"hyprctl dispatch workspace 1; hyprctl dispatch fullscreen 1\"";
+    let content = format!("bind = SUPER, M, exec, {}", macro_cmd);
+    let temp = TempFile::new(&content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Failed to parse macro config");
+    assert_eq!(binds.len(), 1);
+
+    let b = &binds[0];
+    assert_eq!(b.mods.as_ref(), "SUPER");
+    assert_eq!(b.key.as_ref(), "M");
+    assert_eq!(b.dispatcher.as_ref(), "exec");
+    assert_eq!(b.args.as_ref(), macro_cmd);
+}
+
+#[test]
+fn test_parser_corner_cases() {
+    let _guard = lock_env();
+    let content = r#"
+        # Case 1: Extra whitespace
+        bind   =   SUPER  ,  Q  ,  exec  ,  kitty
+        
+        # Case 2: No args
+        bind = CTRL, C, killactive
+
+        # Case 3: Args with multiple commas
+        bind = SUPER, N, exec, notify-send "Hello, World"
+
+        # Case 4: Flags and no space around equal
+        bindl=,Switch,exec,swaylock
+
+        # Case 5: Variable inside string? (Just checking basic parsing)
+        bind = $mainMod, E, exec, echo "$mainMod"
+    "#;
+
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Failed to parse corner cases");
+    assert_eq!(binds.len(), 5);
+
+    // Case 1
+    assert_eq!(binds[0].mods.as_ref(), "SUPER");
+    assert_eq!(binds[0].key.as_ref(), "Q");
+    assert_eq!(binds[0].dispatcher.as_ref(), "exec");
+    assert_eq!(binds[0].args.as_ref(), "kitty");
+
+    // Case 2
+    assert_eq!(binds[1].dispatcher.as_ref(), "killactive");
+    assert_eq!(binds[1].args.as_ref(), "");
+
+    // Case 3
+    assert_eq!(binds[2].args.as_ref(), "notify-send \"Hello, World\"");
+
+    // Case 4
+    assert_eq!(binds[3].flags.as_ref(), "l");
+    assert_eq!(binds[3].mods.as_ref(), ""); // Empty mods before first comma
+    assert_eq!(binds[3].key.as_ref(), "Switch");
+
+    // Case 5
+    // Note: $mainMod is not defined in this file, so it won't be substituted.
+    assert_eq!(binds[4].mods.as_ref(), "$mainMod");
+}

@@ -16,22 +16,18 @@ impl KeybindObject {
         conflict_reason: Option<String>,
         broken_reason: Option<String>,
         is_favorite: bool,
+        mods_lower: Rc<str>,
+        clean_mods_lower: Rc<str>,
+        key_lower: Rc<str>,
+        dispatcher_lower: Rc<str>,
+        args_lower: Option<Rc<str>>,
+        description_lower: Option<Rc<str>>,
     ) -> Self {
         let obj: Self = glib::Object::new();
 
         {
             let imp = obj.imp();
             let mut data = imp.data.borrow_mut();
-
-            // Helper to get lowercased Rc<str> efficiently and share pointers
-            fn to_lower_rc(s: &Rc<str>) -> Rc<str> {
-                let lower = s.to_lowercase();
-                if lower.as_str() == s.as_ref() {
-                    s.clone()
-                } else {
-                    Rc::from(lower)
-                }
-            }
 
             data.mods = keybind.mods;
             // Share Rc if mods and clean_mods are the same
@@ -57,14 +53,12 @@ impl KeybindObject {
             data.file_path = keybind.file_path.to_str().unwrap_or("").into();
             data.is_favorite = is_favorite;
 
-            // Pre-calculate lowercased versions for faster searching, reusing Rc if already lowercase
-            data.mods_lower = to_lower_rc(&data.mods);
-            data.clean_mods_lower = to_lower_rc(&data.clean_mods);
-            data.key_lower = to_lower_rc(&data.key);
-            data.dispatcher_lower = to_lower_rc(&data.dispatcher);
-
-            data.args_lower = data.args.as_ref().map(to_lower_rc);
-            data.description_lower = data.description.as_ref().map(to_lower_rc);
+            data.mods_lower = mods_lower;
+            data.clean_mods_lower = clean_mods_lower;
+            data.key_lower = key_lower;
+            data.dispatcher_lower = dispatcher_lower;
+            data.args_lower = args_lower;
+            data.description_lower = description_lower;
 
             if let Some(reason) = conflict_reason {
                 data.is_conflicted = true;
@@ -178,6 +172,22 @@ impl KeybindObject {
         }
 
         let text_to_match = &query.general_query;
+
+        if data.mods_lower.contains(text_to_match)
+            || data.clean_mods_lower.contains(text_to_match)
+            || data.key_lower.contains(text_to_match)
+            || data.dispatcher_lower.contains(text_to_match)
+            || data
+                .args_lower
+                .as_ref()
+                .map_or(false, |a| a.contains(text_to_match))
+            || data
+                .description_lower
+                .as_ref()
+                .map_or(false, |d| d.contains(text_to_match))
+        {
+            return true;
+        }
 
         matcher
             .fuzzy_match(&data.mods_lower, text_to_match)

@@ -441,7 +441,7 @@ pub fn build_ui(app: &adw::Application) {
     let controller = gtk::EventControllerKey::new();
     controller.set_propagation_phase(gtk::PropagationPhase::Capture);
     let search_entry_focus = search_entry.clone();
-    let window_clone = window.clone();
+    let window_weak = window.downgrade();
     let root_stack_c = root_stack.clone();
     let column_view_focus = column_view.clone();
 
@@ -507,7 +507,9 @@ pub fn build_ui(app: &adw::Application) {
                 search_entry_focus.set_text("");
                 return glib::Propagation::Stop;
             }
-            window_clone.close();
+            if let Some(w) = window_weak.upgrade() {
+                w.close();
+            }
             return glib::Propagation::Stop;
         }
         glib::Propagation::Proceed
@@ -666,10 +668,25 @@ pub fn build_ui(app: &adw::Application) {
     }));
 
     let dropdown_ref = category_dropdown.clone();
+    let timeout_handle: std::rc::Rc<std::cell::RefCell<Option<glib::SourceId>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+
     search_entry.connect_search_changed(move |entry| {
+        if let Some(source) = timeout_handle.borrow_mut().take() {
+            source.remove();
+        }
+
         let text = entry.text().to_string();
         let cat = dropdown_ref.selected();
-        filter_func_1(text, cat);
+        let filter_func = filter_func_1.clone();
+        let timeout_handle_clone = timeout_handle.clone();
+
+        let source = glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
+            filter_func(text.clone(), cat);
+            *timeout_handle_clone.borrow_mut() = None;
+            glib::ControlFlow::Break
+        });
+        *timeout_handle.borrow_mut() = Some(source);
     });
 
     let search_entry_ref = search_entry.clone();

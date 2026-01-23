@@ -39,6 +39,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Visual Diffs**: Compare any backup with your current configuration using a Git-style color-coded diff view before restoring.
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
+- **Macro Builder (Chain Actions)**: Visually create complex keybinds that execute multiple dispatchers in sequence (e.g., move window AND switch workspace).
 - **Favorites**: Pin frequently used keybinds for quick access.
 - **Input Device Configuration**: Manage your `input { ... }` block (layout, sensitivity, repeat rate) directly from the settings.
 - **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
