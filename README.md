@@ -243,6 +243,13 @@ This tool verifies:
 - **Input Devices**: Lists detected keyboards and guesses physical layout (ANSI/ISO).
 - **Backups**: Verifies backup directory permissions.
 
+### AUR Installation Issues (yay)
+If you encounter errors during installation via `yay` (such as "cannot stat" or build failures after a package update), it may be due to a stale cache. Try clearing the cache and installing again:
+```bash
+rm -rf ~/.cache/yay/hyprkcs-git
+yay -S hyprkcs-git
+```
+
 ### GPG Key Import Issues
 If you encounter errors like `gpg: keyserver receive failed` when installing from the AUR, you may need to import the required PGP key manually.
 
