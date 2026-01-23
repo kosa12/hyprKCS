@@ -10,6 +10,11 @@ const APP_ID: &str = "com.github.hyprkcs";
 fn main() -> glib::ExitCode {
     let args = cli::Args::parse();
 
+    if args.doctor {
+        hyprKCS::doctor::run_doctor();
+        return glib::ExitCode::SUCCESS;
+    }
+
     if let Some(config_path) = args.config {
         std::env::set_var("HYPRKCS_CONFIG", config_path);
     }
@@ -108,6 +113,19 @@ fn main() -> glib::ExitCode {
         }
         return glib::ExitCode::SUCCESS;
     }
+
+    glib::log_set_writer_func(|level, fields| {
+        for field in fields {
+            if field.key() == "MESSAGE" {
+                if let Some(msg) = field.value_str() {
+                    if msg.contains("gtk-application-prefer-dark-theme") {
+                        return glib::LogWriterOutput::Handled;
+                    }
+                }
+            }
+        }
+        glib::log_writer_default(level, fields)
+    });
 
     let app = adw::Application::builder().application_id(APP_ID).build();
 
