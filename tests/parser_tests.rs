@@ -178,7 +178,7 @@ fn test_parser_corner_cases() {
         # Case 5: Variable inside string? (Just checking basic parsing)
         bind = $mainMod, E, exec, echo "$mainMod"
     "#;
-    
+
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
@@ -205,5 +205,5 @@ fn test_parser_corner_cases() {
 
     // Case 5
     // Note: $mainMod is not defined in this file, so it won't be substituted.
-    assert_eq!(binds[4].mods.as_ref(), "$mainMod"); 
+    assert_eq!(binds[4].mods.as_ref(), "$mainMod");
 }
