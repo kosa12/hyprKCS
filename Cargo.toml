@@ -28,7 +28,7 @@ chrono = { version = "0.4.43", default-features = false, features = ["clock"] }
 similar = { version = "2.7.0", features = ["inline"] }
 
 [[bin]]
-name = "hyprKCS"
+name = "hyprkcs"
 path = "src/main.rs"
 
 [profile.dev]

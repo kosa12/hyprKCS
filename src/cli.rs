@@ -5,6 +5,7 @@ pub struct Args {
     pub config: Option<PathBuf>,
     pub print: bool,
     pub search: Option<String>,
+    pub doctor: bool,
 }
 
 impl Args {
@@ -12,6 +13,7 @@ impl Args {
         let mut config = None;
         let mut print = false;
         let mut search = None;
+        let mut doctor = false;
 
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -27,15 +29,17 @@ impl Args {
                         search = Some(term);
                     }
                 }
+                "--doctor" => doctor = true,
                 "-h" | "--help" => {
                     println!("hyprKCS - Hyprland Keybind Cheat Sheet");
-                    println!("\nUsage: hyprKCS [OPTIONS]");
+                    println!("\nUsage: hyprkcs [OPTIONS]");
                     println!("\nOptions:");
                     println!("  -c, --config <PATH>  Path to the Hyprland config file");
                     println!("  -p, --print          Print parsed keybinds to stdout and exit");
                     println!(
                         "  -s, --search <TERM>  Filter keybinds by a search term (implies --print)"
                     );
+                    println!("  --doctor             Check system compatibility and report issues");
                     println!("  -h, --help           Print this help message");
                     std::process::exit(0);
                 }
@@ -51,6 +55,7 @@ impl Args {
             config,
             print,
             search,
+            doctor,
         }
     }
 }

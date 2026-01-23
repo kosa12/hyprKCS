@@ -80,8 +80,17 @@ sudo make install
 git clone --depth=1 https://github.com/kosa12/hyprKCS.git
 cd hyprKCS
 cargo build --release
-# The binary will be at ./target/release/hyprKCS
+# The binary will be at ./target/release/hyprkcs
 ```
+
+## Compatibility
+
+| Component | Minimum Version | Notes |
+| :--- | :--- | :--- |
+| **Hyprland** | v0.35.0+ | v0.40+ recommended for `setprop` and newer dispatchers. |
+| **GTK** | 4.12+ | Required for `libadwaita` and `gtk4` features used. |
+| **Rust** | 1.75.0+ | Required to compile dependencies. |
+| **Linux Distro** | Any* | *Must support Wayland and GTK4. |
 
 ## Configuration
 
@@ -147,7 +156,7 @@ rowPadding = 5px
 
 ### Graphical Interface
 
-Launch `hyprKCS` from your application menu or terminal to open the main window.
+Launch `hyprkcs` from your application menu or terminal to open the main window.
 
 **Keyboard Shortcuts**
 | Key | Action |
@@ -214,8 +223,25 @@ hyprKCS also includes a CLI for quick lookups and scripting.
   hyprkcs --config ~/.config/hypr/custom.conf
   # Short: hyprkcs -c ~/.config/hypr/custom.conf
   ```
+- **System Check:**
+  Check your system environment for compatibility issues:
+  ```bash
+  hyprkcs --doctor
+  ```
 
 ## Troubleshooting
+
+### System Compatibility Check
+If the application fails to start or keybinds aren't saving, run the doctor command to diagnose your environment:
+```bash
+hyprkcs --doctor
+```
+This tool verifies:
+- **Config Access**: Checks if `hyprland.conf` is found and writable.
+- **Dependencies**: Confirms GTK4/Libadwaita runtime versions.
+- **Hyprland IPC**: Ensures `hyprctl` can communicate with the compositor.
+- **Input Devices**: Lists detected keyboards and guesses physical layout (ANSI/ISO).
+- **Backups**: Verifies backup directory permissions.
 
 ### GPG Key Import Issues
 If you encounter errors like `gpg: keyserver receive failed` when installing from the AUR, you may need to import the required PGP key manually.
