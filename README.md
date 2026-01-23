@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+![Crates.io Version](https://img.shields.io/crates/v/hyprKCS)
 [![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS)](https://crates.io/crates/hyprKCS)
 
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
@@ -82,15 +82,6 @@ cd hyprKCS
 cargo build --release
 # The binary will be at ./target/release/hyprkcs
 ```
-
-## Compatibility
-
-| Component | Minimum Version | Notes |
-| :--- | :--- | :--- |
-| **Hyprland** | v0.35.0+ | v0.40+ recommended for `setprop` and newer dispatchers. |
-| **GTK** | 4.12+ | Required for `libadwaita` and `gtk4` features used. |
-| **Rust** | 1.75.0+ | Required to compile dependencies. |
-| **Linux Distro** | Any* | *Must support Wayland and GTK4. |
 
 ## Configuration
 
