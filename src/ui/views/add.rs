@@ -1,11 +1,14 @@
 use crate::parser;
+use crate::ui::utils::components::create_recorder_row;
+use crate::ui::utils::macro_builder::{compile_macro, create_macro_row};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
     create_pill_button, create_suggested_button, execute_keybind, perform_backup, reload_keybinds,
-    setup_dispatcher_completion, setup_key_recorder,
+    setup_dispatcher_completion,
 };
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
+use gtk::glib;
 use libadwaita as adw;
 use std::rc::Rc;
 
@@ -38,6 +41,7 @@ pub fn create_add_view(
             stack_c.set_visible_child_name("home");
         },
     );
+
     container.append(&header);
 
     let scroll = gtk::ScrolledWindow::builder()
@@ -62,25 +66,83 @@ pub fn create_add_view(
         .activates_default(true)
         .build();
 
-    let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    setup_key_recorder(&recorder_box, &entry_mods, &entry_key);
+    let macro_switch = gtk::Switch::builder()
+        .valign(gtk::Align::Center)
+        .tooltip_text("Enable Chain Actions (Multiple dispatchers)")
+        .build();
+
+    let recorder_box = create_recorder_row(&entry_mods, &entry_key, &macro_switch, None);
     form_box.append(&recorder_box);
 
     form_box.append(&create_form_group("Modifiers:", &entry_mods));
     form_box.append(&create_form_group("Key:", &entry_key));
+
+    // --- Simple Mode Inputs ---
+    let simple_container = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(12)
+        .build();
 
     let entry_dispatcher = gtk::Entry::builder()
         .placeholder_text("e.g. exec")
         .activates_default(true)
         .build();
     setup_dispatcher_completion(&entry_dispatcher);
-    form_box.append(&create_form_group("Dispatcher:", &entry_dispatcher));
+    simple_container.append(&create_form_group("Dispatcher:", &entry_dispatcher));
 
     let entry_args = gtk::Entry::builder()
         .placeholder_text("e.g. kitty")
         .activates_default(true)
         .build();
-    form_box.append(&create_form_group("Arguments:", &entry_args));
+    simple_container.append(&create_form_group("Arguments:", &entry_args));
+
+    form_box.append(&simple_container);
+
+    // --- Macro Mode Inputs ---
+    let macro_container_wrapper = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(12)
+        .visible(false)
+        .build();
+    
+    let macro_list = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(8)
+        .build();
+    macro_container_wrapper.append(&macro_list);
+
+    let add_action_btn = gtk::Button::builder()
+        .label("Add Action")
+        .icon_name("list-add-symbolic")
+        .build();
+    
+    // Logic to add rows
+    let macro_list_c = macro_list.clone();
+    add_action_btn.connect_clicked(move |_| {
+        let (row, _, _, del_btn) = create_macro_row(None, None);
+        let list_c = macro_list_c.clone();
+        let list_c_del = list_c.clone(); // Clone for closure
+        let row_c = row.clone();
+        del_btn.connect_clicked(move |_| {
+            list_c_del.remove(&row_c);
+        });
+        list_c.append(&row);
+    });
+    // Add one initial row
+    add_action_btn.emit_clicked();
+
+    macro_container_wrapper.append(&add_action_btn);
+    form_box.append(&macro_container_wrapper);
+
+    // Toggle Visibility
+    let simple_c = simple_container.clone();
+    let macro_c = macro_container_wrapper.clone();
+    macro_switch.connect_state_set(move |_, state| {
+        simple_c.set_visible(!state);
+        macro_c.set_visible(state);
+        glib::Propagation::Proceed
+    });
+
 
     let entry_submap = gtk::Entry::builder()
         .placeholder_text("e.g. resize (leave empty for global)")
@@ -159,9 +221,20 @@ pub fn create_add_view(
 
     let entry_dispatcher_exec = entry_dispatcher.clone();
     let entry_args_exec = entry_args.clone();
+    let macro_switch_exec = macro_switch.clone();
+    let macro_list_exec = macro_list.clone();
+
     exec_btn.connect_clicked(move |_| {
-        let dispatcher = entry_dispatcher_exec.text().to_string();
-        let args = entry_args_exec.text().to_string();
+        let (dispatcher, args) = if macro_switch_exec.is_active() {
+            if let Some((d, a)) = compile_macro(&macro_list_exec) {
+                (d, a)
+            } else {
+                return;
+            }
+        } else {
+            (entry_dispatcher_exec.text().to_string(), entry_args_exec.text().to_string())
+        };
+
         if !dispatcher.trim().is_empty() {
             execute_keybind(&dispatcher, &args);
         }
@@ -177,13 +250,6 @@ pub fn create_add_view(
         local_stack_c.set_visible_child_name("form");
     });
 
-    // We need to store the pending action (add)
-    // Since we don't have easy state management, we'll re-trigger the add logic
-    // but bypass validation. Or simpler: use a RefCell for the pending add closure?
-    // Actually, create_add_view is one-shot.
-    // We can just define the "do_add" logic and call it from confirm_proceed_btn.
-    // But confirm_proceed_btn needs access to the entry values.
-
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let entry_mods_c = entry_mods.clone();
@@ -192,14 +258,32 @@ pub fn create_add_view(
     let entry_args_c = entry_args.clone();
     let entry_submap_c = entry_submap.clone();
     let entry_desc_c = entry_desc.clone();
+    let macro_switch_c = macro_switch.clone();
+    let macro_list_c = macro_list.clone();
     let stack_c = stack.clone();
 
     // Core Add Logic
     let perform_add = Rc::new(move || {
         let mods = entry_mods_c.text().to_string();
         let key = entry_key_c.text().to_string();
-        let dispatcher = entry_dispatcher_c.text().to_string();
-        let args = entry_args_c.text().to_string();
+        
+        // Determine Dispatcher/Args based on mode
+        let (dispatcher, args) = if macro_switch_c.is_active() {
+            match compile_macro(&macro_list_c) {
+                Some(res) => res,
+                None => {
+                     let toast = adw::Toast::builder()
+                        .title("Macro is empty or invalid")
+                        .timeout(3)
+                        .build();
+                    toast_overlay_clone.add_toast(toast);
+                    return;
+                }
+            }
+        } else {
+             (entry_dispatcher_c.text().to_string(), entry_args_c.text().to_string())
+        };
+        
         let desc = entry_desc_c.text().to_string();
         let submap_raw = entry_submap_c.text().to_string();
         let submap = if submap_raw.trim().is_empty() {
@@ -250,34 +334,58 @@ pub fn create_add_view(
     let entry_key_c = entry_key.clone();
     let entry_dispatcher_c = entry_dispatcher.clone();
     let entry_args_c = entry_args.clone();
+    let macro_switch_c = macro_switch.clone();
+    let macro_list_c = macro_list.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let local_stack_c = local_stack.clone();
     let confirm_label_c = confirm_label.clone();
 
     add_btn.connect_clicked(move |_| {
         let key = entry_key_c.text().to_string();
-        let dispatcher = entry_dispatcher_c.text().to_string();
-        let args = entry_args_c.text().to_string();
-
-        if key.trim().is_empty() || dispatcher.trim().is_empty() {
-            let toast = adw::Toast::builder()
-                .title("Error: Key and Dispatcher cannot be empty")
+        
+        if key.trim().is_empty() {
+             let toast = adw::Toast::builder()
+                .title("Error: Key cannot be empty")
                 .timeout(3)
                 .build();
             toast_overlay_clone.add_toast(toast);
             return;
         }
 
-        // Validation
-        if dispatcher == "exec" || dispatcher == "execr" {
-            let cmd = args.trim();
-            if !command_exists(cmd) {
-                confirm_label_c.set_label(&format!(
-                    "The command '{}' was not found in your PATH.\nAre you sure you want to add this keybind?",
-                    cmd
-                ));
-                local_stack_c.set_visible_child_name("confirm");
+        if macro_switch_c.is_active() {
+            // In macro mode, we skip simple validation for now
+            // We could parse the 'bash -c' string but it's complex.
+            // Just ensure it's not empty
+             if compile_macro(&macro_list_c).is_none() {
+                 let toast = adw::Toast::builder()
+                    .title("Error: Macro must have at least one valid action")
+                    .timeout(3)
+                    .build();
+                toast_overlay_clone.add_toast(toast);
                 return;
+             }
+        } else {
+            let dispatcher = entry_dispatcher_c.text().to_string();
+            let args = entry_args_c.text().to_string();
+            if dispatcher.trim().is_empty() {
+                let toast = adw::Toast::builder()
+                    .title("Error: Dispatcher cannot be empty")
+                    .timeout(3)
+                    .build();
+                toast_overlay_clone.add_toast(toast);
+                return;
+            }
+            // Validation
+            if dispatcher == "exec" || dispatcher == "execr" {
+                let cmd = args.trim();
+                if !command_exists(cmd) {
+                    confirm_label_c.set_label(&format!(
+                        "The command '{}' was not found in your PATH.\nAre you sure you want to add this keybind?",
+                        cmd
+                    ));
+                    local_stack_c.set_visible_child_name("confirm");
+                    return;
+                }
             }
         }
 

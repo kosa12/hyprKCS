@@ -98,17 +98,34 @@ impl ParserContext {
     }
 }
 
-pub fn get_variables() -> Result<HashMap<String, String>> {
+struct ConfigData {
+    variables: HashMap<String, String>,
+    file_cache: HashMap<PathBuf, Rc<String>>,
+}
+
+fn load_config_data() -> Result<ConfigData> {
     let main_path = get_config_path()?;
     let mut ctx = ParserContext::new();
+    let mut file_cache = HashMap::new();
 
-    fn collect_recursive(path: PathBuf, ctx: &mut ParserContext) -> Result<()> {
+    fn collect_recursive(
+        path: PathBuf,
+        ctx: &mut ParserContext,
+        file_cache: &mut HashMap<PathBuf, Rc<String>>,
+    ) -> Result<()> {
         if !path.exists() || ctx.visited.contains(&path) {
             return Ok(());
         }
         ctx.visited.insert(path.clone());
 
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        let content = if let Some(cached) = file_cache.get(&path) {
+            cached.clone()
+        } else {
+            let s = std::fs::read_to_string(&path).unwrap_or_default();
+            let rc = Rc::new(s);
+            file_cache.insert(path.clone(), rc.clone());
+            rc
+        };
 
         for line in content.lines() {
             let line = line.trim();
@@ -138,20 +155,31 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
                     ctx.update_sorted_keys();
                     let sourced_path =
                         expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
-                    let _ = collect_recursive(sourced_path, ctx);
+                    let _ = collect_recursive(sourced_path, ctx, file_cache);
                 }
             }
         }
         Ok(())
     }
 
-    collect_recursive(main_path, &mut ctx)?;
-    Ok(ctx.variables)
+    collect_recursive(main_path, &mut ctx, &mut file_cache)?;
+    Ok(ConfigData {
+        variables: ctx.variables,
+        file_cache,
+    })
+}
+
+pub fn get_variables() -> Result<HashMap<String, String>> {
+    let data = load_config_data()?;
+    Ok(data.variables)
 }
 
 pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
-    let variables = get_variables()?;
+    let data = load_config_data()?;
+    let variables = data.variables;
+    let file_cache = data.file_cache;
+
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
     sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
 
@@ -166,13 +194,20 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         sorted_keys: &[String],
         visited: &mut HashSet<PathBuf>,
         current_submap: &mut Option<Rc<str>>,
+        file_cache: &HashMap<PathBuf, Rc<String>>,
     ) -> Result<()> {
         if !path.exists() || visited.contains(&path) {
             return Ok(());
         }
         visited.insert(path.clone());
 
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        // Use cached content or read if missing (should be in cache from load_config_data, but fallback)
+        let content = if let Some(cached) = file_cache.get(&path) {
+            cached.clone()
+        } else {
+            Rc::new(std::fs::read_to_string(&path).unwrap_or_default())
+        };
+
         let lines: Vec<&str> = content.lines().collect();
 
         for (index, line) in lines.iter().enumerate() {
@@ -241,23 +276,51 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
 
-                // Manual split on commas respecting simple escaping if needed?
-                // Hyprland config is usually simple comma separated.
-                let parts: Vec<&str> = content_clean.splitn(4, ',').map(|s| s.trim()).collect();
+                // Custom splitter to respect quotes (e.g. for bash -c "...")
+                let mut parts = Vec::new();
+                let mut current_part = String::new();
+                let mut in_quote = false;
+                let mut parts_count = 0;
+
+                let chars: Vec<char> = content_clean.chars().collect();
+                let mut i = 0;
+                while i < chars.len() {
+                    let c = chars[i];
+                    
+                    if parts_count < 3 {
+                        if c == '"' {
+                            in_quote = !in_quote;
+                            current_part.push(c);
+                        } else if c == ',' && !in_quote {
+                            parts.push(current_part.trim().to_string());
+                            current_part.clear();
+                            parts_count += 1;
+                        } else {
+                            current_part.push(c);
+                        }
+                    } else {
+                        // For the 4th part (args), just take everything else
+                        current_part.push(c);
+                    }
+                    i += 1;
+                }
+                if !current_part.trim().is_empty() || parts_count >= 3 {
+                     parts.push(current_part.trim().to_string());
+                }
 
                 if parts.len() >= 3 {
-                    let mods = parts[0];
-                    let key = parts[1];
-                    let dispatcher = parts[2];
-                    let args = if parts.len() > 3 { parts[3] } else { "" };
+                    let mods: Rc<str> = Rc::from(parts[0].as_str());
+                    let key: Rc<str> = Rc::from(parts[1].as_str());
+                    let dispatcher: Rc<str> = Rc::from(parts[2].as_str());
+                    let args: Rc<str> = if parts.len() > 3 { Rc::from(parts[3].as_str()) } else { Rc::from("") };
 
                     keybinds.push(Keybind {
-                        mods: Rc::from(mods),
-                        clean_mods: Rc::from(mods),
+                        mods: mods.clone(),
+                        clean_mods: mods,
                         flags: Rc::from(flags.as_str()),
-                        key: Rc::from(key),
-                        dispatcher: Rc::from(dispatcher),
-                        args: Rc::from(args),
+                        key,
+                        dispatcher,
+                        args,
                         description,
                         submap: current_submap.clone(),
                         line_number: index,
@@ -279,6 +342,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         sorted_keys,
                         visited,
                         current_submap,
+                        file_cache,
                     );
                 }
             }
@@ -293,6 +357,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         &sorted_keys,
         &mut visited,
         &mut current_submap,
+        &file_cache,
     )?;
     Ok(keybinds)
 }

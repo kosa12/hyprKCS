@@ -137,6 +137,62 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         kb.submap = kb.submap.map(|s| pool.intern(s));
         kb.description = kb.description.map(|s| pool.intern(s));
 
-        model.append(&KeybindObject::new(kb, conflict, is_broken, is_fav));
+        // Compute and intern lowercase versions
+        let mods_lower = if kb.mods.chars().any(|c| c.is_uppercase()) {
+            pool.intern(kb.mods.to_lowercase().into())
+        } else {
+            kb.mods.clone()
+        };
+
+        let clean_mods_lower = if kb.clean_mods.chars().any(|c| c.is_uppercase()) {
+            pool.intern(kb.clean_mods.to_lowercase().into())
+        } else {
+            kb.clean_mods.clone()
+        };
+
+        let key_lower = if kb.key.chars().any(|c| c.is_uppercase()) {
+            pool.intern(kb.key.to_lowercase().into())
+        } else {
+            kb.key.clone()
+        };
+
+        let dispatcher_lower = if kb.dispatcher.chars().any(|c| c.is_uppercase()) {
+            pool.intern(kb.dispatcher.to_lowercase().into())
+        } else {
+            kb.dispatcher.clone()
+        };
+
+        let args_lower = if kb.args.chars().any(|c| c.is_uppercase()) {
+            if kb.args.is_empty() {
+                None
+            } else {
+                Some(pool.intern(kb.args.to_lowercase().into()))
+            }
+        } else if kb.args.is_empty() {
+            None
+        } else {
+            Some(kb.args.clone())
+        };
+
+        let description_lower = kb.description.as_ref().and_then(|desc| {
+            if desc.chars().any(|c| c.is_uppercase()) {
+                Some(pool.intern(desc.to_lowercase().into()))
+            } else {
+                Some(desc.clone())
+            }
+        });
+
+        model.append(&KeybindObject::new(
+            kb,
+            conflict,
+            is_broken,
+            is_fav,
+            mods_lower,
+            clean_mods_lower,
+            key_lower,
+            dispatcher_lower,
+            args_lower,
+            description_lower,
+        ));
     }
 }

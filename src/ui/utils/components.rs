@@ -61,6 +61,7 @@ pub fn create_page_header(
     back_btn.connect_clicked(move |_| on_back());
 
     let title_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    title_box.set_hexpand(true);
     let title_label = gtk::Label::builder()
         .label(title)
         .css_classes(["title-2"])
@@ -145,4 +146,36 @@ pub fn create_card_row(
     row.append(actions);
 
     row
+}
+
+pub fn create_recorder_row(
+    entry_mods: &gtk::Entry,
+    entry_key: &gtk::Entry,
+    macro_switch: &gtk::Switch,
+    center_widget: Option<&gtk::Widget>,
+) -> gtk::Box {
+    let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    
+    crate::ui::utils::widgets::setup_key_recorder(&recorder_box, entry_mods, entry_key);
+
+    if let Some(w) = center_widget {
+        recorder_box.append(w);
+    } else {
+        let spacer = gtk::Box::builder().hexpand(true).build();
+        recorder_box.append(&spacer);
+    }
+
+    // --- Macro Switch ---
+    macro_switch.set_margin_end(8);
+
+    let switch_label = gtk::Label::builder()
+        .label("Macro")
+        .css_classes(["caption", "dim-label"])
+        .valign(gtk::Align::Center)
+        .build();
+    
+    recorder_box.append(&switch_label);
+    recorder_box.append(macro_switch);
+
+    recorder_box
 }
