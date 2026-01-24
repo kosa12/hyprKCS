@@ -190,9 +190,9 @@ Manage your system's input behavior without manual text editing.
 **Macro Builder**
 Create complex multi-step actions without writing scripts.
 1. Click the "Add Keybind" button.
-2. Select "Macro / Chain" as the dispatcher.
+2. Enable **Macro mode** using the macro toggle/switch in the keybind editor.
 3. Use the visual builder to add steps (e.g., Step 1: `exec` -> `grim`, Step 2: `exec` -> `notify-send "Screenshot taken"`).
-4. hyprKCS automatically formats this into a Hyprland-compatible chained bind (e.g., `bind = ..., exec, grim ; exec, notify-send ...`).
+4. hyprKCS automatically formats this into a Hyprland-compatible macro command using `bash` and `hyprctl` (e.g., `bind = ..., exec, bash -c "hyprctl dispatch exec grim; hyprctl dispatch exec 'notify-send \"Screenshot taken\"'"`).
 
 **Bulk Replace**
 Quickly update multiple keybinds at once (e.g., swapping `SUPER` for `ALT` or changing your terminal emulator).
