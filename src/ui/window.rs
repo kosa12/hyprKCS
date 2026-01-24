@@ -3,7 +3,7 @@ use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::{create_flat_button, reload_keybinds, SearchQuery};
 use crate::ui::views::{create_add_view, create_edit_view};
-use crate::ui::wizards::create_conflict_wizard;
+use crate::ui::wizards::{create_bulk_replace_wizard, create_conflict_wizard};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use gtk::{gio, glib, prelude::*};
 use gtk4 as gtk;
@@ -313,6 +313,7 @@ pub fn build_ui(app: &adw::Application) {
         .build();
 
     let add_button = create_flat_button("list-add-symbolic", "Add New Keybind");
+    let bulk_button = create_flat_button("edit-find-replace-symbolic", "Bulk Replace");
     let backup_button = create_flat_button("document-save-symbolic", "Backup Current Config");
     let settings_button = create_flat_button("emblem-system-symbolic", "Settings");
     let keyboard_button = create_flat_button("input-keyboard-symbolic", "Visual Keyboard");
@@ -348,6 +349,7 @@ pub fn build_ui(app: &adw::Application) {
     top_box.append(&search_entry);
     top_box.append(&conflict_button);
     top_box.append(&add_button);
+    top_box.append(&bulk_button);
     top_box.append(&backup_button);
     top_box.append(&keyboard_button);
     top_box.append(&settings_button);
@@ -559,6 +561,20 @@ pub fn build_ui(app: &adw::Application) {
         let add_view = create_add_view(&root_stack_add, &model_clone_add, &toast_overlay_add);
         add_page_container_c.append(&add_view);
         root_stack_add.set_visible_child_name("add");
+    });
+
+    let model_bulk = model.clone();
+    let toast_bulk = toast_overlay.clone();
+    let stack_bulk = root_stack.clone();
+    let wizard_container_bulk = wizard_page_container.clone();
+
+    bulk_button.connect_clicked(move |_| {
+        while let Some(child) = wizard_container_bulk.first_child() {
+            wizard_container_bulk.remove(&child);
+        }
+        let view = create_bulk_replace_wizard(&stack_bulk, &model_bulk, &toast_bulk);
+        wizard_container_bulk.append(&view);
+        stack_bulk.set_visible_child_name("wizard");
     });
 
     let toast_overlay_backup = toast_overlay.clone();

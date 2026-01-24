@@ -534,3 +534,73 @@ pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {
 
     Ok(())
 }
+
+pub struct BatchUpdate {
+    pub line_number: usize,
+    pub new_mods: String,
+    pub new_key: String,
+    pub new_dispatcher: String,
+    pub new_args: String,
+    pub description: Option<String>,
+}
+
+pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result<()> {
+    let content = std::fs::read_to_string(&path)?;
+    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+    for update in updates {
+        if update.line_number >= lines.len() {
+            continue; // Skip out of bounds
+        }
+
+        let original_line = &lines[update.line_number];
+
+        // 1. Indent
+        let indent_len = original_line
+            .chars()
+            .take_while(|c| c.is_whitespace())
+            .count();
+        let indent = &original_line[..indent_len];
+        let trimmed_start = &original_line[indent_len..];
+
+        if trimmed_start.starts_with("bind") {
+            let after_bind = &trimmed_start[4..];
+            if let Some(eq_idx) = after_bind.find('=') {
+                let flags = after_bind[..eq_idx].trim();
+
+                let mut new_line = if update.new_args.trim().is_empty() {
+                    format!(
+                        "{}bind{} = {}, {}, {}",
+                        indent, flags, update.new_mods, update.new_key, update.new_dispatcher
+                    )
+                } else {
+                    format!(
+                        "{}bind{} = {}, {}, {}, {}",
+                        indent,
+                        flags,
+                        update.new_mods,
+                        update.new_key,
+                        update.new_dispatcher,
+                        update.new_args
+                    )
+                };
+
+                if let Some(desc) = update.description {
+                    if !desc.trim().is_empty() {
+                        new_line = format!("{} # {}", new_line, desc.trim());
+                    }
+                } else {
+                    // Preserve existing comment if no new description provided
+                    if let Some(idx) = original_line.find('#') {
+                        new_line = format!("{} {}", new_line, &original_line[idx..]);
+                    }
+                }
+
+                lines[update.line_number] = new_line;
+            }
+        }
+    }
+
+    std::fs::write(&path, lines.join("\n"))?;
+    Ok(())
+}

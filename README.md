@@ -1,9 +1,10 @@
 # hyprKCS
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![AUR version](https://img.shields.io/aur/version/hyprkcs-git)](https://aur.archlinux.org/packages/hyprkcs-git)
-![Crates.io Version](https://img.shields.io/crates/v/hyprKCS)
-[![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS)](https://crates.io/crates/hyprKCS)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![AUR version](https://img.shields.io/aur/version/hyprkcs-git?style=flat-square)](https://aur.archlinux.org/packages/hyprkcs-git)
+[![Crates.io Version](https://img.shields.io/crates/v/hyprKCS?style=flat-square)](https://crates.io/crates/hyprKCS)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat-square)](https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml)
+[![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
 
@@ -38,6 +39,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Interactive Restore**: Easily browse previous backups and restore your entire configuration tree with a single click.
 - **Visual Diffs**: Compare any backup with your current configuration using a Git-style color-coded diff view before restoring.
 - **Conflict Resolution Wizard**: A guided tool to help resolve duplicate keybinds one by one.
+- **Bulk Replace**: Find and replace modifiers, keys, or commands across multiple keybinds at once, with a live case-insensitive preview.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Macro Builder (Chain Actions)**: Visually create complex keybinds that execute multiple dispatchers in sequence (e.g., move window AND switch workspace).
 - **Favorites**: Pin frequently used keybinds for quick access.
@@ -45,6 +47,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
 - **Automatic Backups**: Automatically backup your configuration on every change, with optional retention limits.
 - **Command-Line Interface**: Quickly search and print keybinds from the terminal.
+- **Gesture Configuration (Hyprland v0.51+)**: Dedicated interface to configure workspace swipe gestures using the new `gesture = ...` syntax, replacing the deprecated `gestures { ... }` block.
 - **Keybind Exporting**: Export your keybinds to a simple markdown file for easy sharing or documentation.
 
 ## Installation
@@ -180,9 +183,24 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 
 **Input Configuration**
 Manage your system's input behavior without manual text editing.
-- **Keyboard Settings**: Set your layout code, variant, options, repeat rate, and delay.
-- **Mouse/Touchpad**: Adjust mouse sensitivity and window focus behavior (Follow Mouse).
+- **Keyboard Settings**: Set your layout code, variant, options (XKB), repeat rate, and delay.
+- **Mouse/Touchpad**: Adjust mouse sensitivity (-1.0 to 1.0) and window focus behavior (Follow Mouse).
 - **Direct Save**: Changes are written directly to your `hyprland.conf` input block.
+
+**Macro Builder**
+Create complex multi-step actions without writing scripts.
+1. Click the "Add Keybind" button.
+2. Enable **Macro mode** using the macro toggle/switch in the keybind editor.
+3. Use the visual builder to add steps (e.g., Step 1: `exec` -> `grim`, Step 2: `exec` -> `notify-send "Screenshot taken"`).
+4. hyprKCS automatically formats this into a Hyprland-compatible macro command using `bash` and `hyprctl` (e.g., `bind = ..., exec, bash -c "hyprctl dispatch exec grim; hyprctl dispatch exec 'notify-send \"Screenshot taken\"'"`).
+
+**Bulk Replace**
+Quickly update multiple keybinds at once (e.g., swapping `SUPER` for `ALT` or changing your terminal emulator).
+1. Click the "Bulk Replace" icon in the top toolbar.
+2. Select the target field (Modifiers, Key, Dispatcher, or Arguments).
+3. Enter the text to find and the replacement text. The search is case-insensitive.
+4. Review the matches in the "Preview" list. Hover over any item to see the full keybind definition.
+5. Click "Apply Changes" to update all matches. A backup is automatically created before applying.
 
 **Backup and Restore**
 Safely manage your configuration versions.
