@@ -22,6 +22,7 @@ impl KeybindObject {
         dispatcher_lower: Rc<str>,
         args_lower: Option<Rc<str>>,
         description_lower: Option<Rc<str>>,
+        flags: Rc<str>,
     ) -> Self {
         let obj: Self = glib::Object::new();
 
@@ -37,6 +38,7 @@ impl KeybindObject {
                 data.clean_mods = keybind.clean_mods;
             }
 
+            data.flags = flags;
             data.key = keybind.key;
             data.dispatcher = keybind.dispatcher;
 
@@ -224,6 +226,7 @@ pub mod imp {
     pub struct KeybindData {
         pub mods: Rc<str>,
         pub clean_mods: Rc<str>,
+        pub flags: Rc<str>,
         pub key: Rc<str>,
         pub dispatcher: Rc<str>,
         pub args: Option<Rc<str>>,
@@ -264,6 +267,7 @@ pub mod imp {
                 vec![
                     glib::ParamSpecString::builder("mods").build(),
                     glib::ParamSpecString::builder("clean-mods").build(),
+                    glib::ParamSpecString::builder("flags").build(),
                     glib::ParamSpecString::builder("key").build(),
                     glib::ParamSpecString::builder("dispatcher").build(),
                     glib::ParamSpecString::builder("args").build(),
@@ -304,6 +308,10 @@ pub mod imp {
                     let v: String = value.get().unwrap();
                     data.clean_mods_lower = to_lower_rc(&v);
                     data.clean_mods = v.into();
+                }
+                "flags" => {
+                    let v: String = value.get().unwrap();
+                    data.flags = v.into();
                 }
                 "key" => {
                     let v: String = value.get().unwrap();
@@ -362,6 +370,7 @@ pub mod imp {
             match pspec.name() {
                 "mods" => data.mods.as_ref().to_value(),
                 "clean-mods" => data.clean_mods.as_ref().to_value(),
+                "flags" => data.flags.as_ref().to_value(),
                 "key" => data.key.as_ref().to_value(),
                 "dispatcher" => data.dispatcher.as_ref().to_value(),
                 "args" => data.args.as_ref().map_or("", |s| s.as_ref()).to_value(),

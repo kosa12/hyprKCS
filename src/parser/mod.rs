@@ -374,6 +374,7 @@ pub fn update_line(
     new_dispatcher: &str,
     new_args: &str,
     description: Option<String>,
+    new_flags: Option<&str>,
 ) -> Result<()> {
     let content = std::fs::read_to_string(&path)?;
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
@@ -398,7 +399,10 @@ pub fn update_line(
     if trimmed_start.starts_with("bind") {
         let after_bind = &trimmed_start[4..];
         if let Some(eq_idx) = after_bind.find('=') {
-            let flags = after_bind[..eq_idx].trim();
+            let current_flags = after_bind[..eq_idx].trim();
+
+            let flags = new_flags.unwrap_or(current_flags);
+
             // preserve existing spacing around equals if possible, or just standard " = "
             // The original code reconstructed the line completely anyway.
 
@@ -448,6 +452,7 @@ pub fn add_keybind(
     args: &str,
     submap: Option<String>,
     description: Option<String>,
+    flags: &str,
 ) -> Result<usize> {
     let content = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<String> = if content.is_empty() {
@@ -456,10 +461,16 @@ pub fn add_keybind(
         content.lines().map(|s| s.to_string()).collect()
     };
 
-    let mut new_line = if args.trim().is_empty() {
-        format!("bind = {}, {}, {}", mods, key, dispatcher)
+    let bind_cmd = if flags.is_empty() {
+        "bind".to_string()
     } else {
-        format!("bind = {}, {}, {}, {}", mods, key, dispatcher, args)
+        format!("bind{}", flags)
+    };
+
+    let mut new_line = if args.trim().is_empty() {
+        format!("{} = {}, {}, {}", bind_cmd, mods, key, dispatcher)
+    } else {
+        format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, dispatcher, args)
     };
 
     if let Some(desc) = description {

@@ -183,9 +183,9 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         });
 
         model.append(&KeybindObject::new(
-            kb,
-            conflict,
-            is_broken,
+            kb.clone(),
+            conflict.map(|s| s.to_string()),
+            is_broken.map(|s| s.to_string()),
             is_fav,
             mods_lower,
             clean_mods_lower,
@@ -193,6 +193,9 @@ pub fn reload_keybinds(model: &gio::ListStore) {
             dispatcher_lower,
             args_lower,
             description_lower,
+            kb.flags.clone(),
         ));
     }
+
+    // Sort model by line number by default
 }

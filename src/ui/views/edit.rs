@@ -1,6 +1,9 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
-use crate::ui::utils::components::create_recorder_row;
+use crate::ui::utils::components::{
+    create_flags_dropdown, create_mouse_button_dropdown, create_recorder_row, get_flag_from_index,
+    get_index_from_flag, get_index_from_mouse_code, get_mouse_code_from_index,
+};
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row, parse_macro};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
@@ -99,38 +102,64 @@ pub fn create_edit_view(
         .activates_default(true)
         .build();
 
+    let mouse_dropdown = create_mouse_button_dropdown();
+    let is_mouse_bind = current_key.starts_with("mouse:") || current_key.starts_with("mouse_");
+
+    if is_mouse_bind {
+        mouse_dropdown.set_selected(get_index_from_mouse_code(&current_key));
+    }
+
+    entry_key.set_visible(!is_mouse_bind);
+    mouse_dropdown.set_visible(is_mouse_bind);
+
+    let key_container = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(6)
+        .build();
+    key_container.append(&entry_key);
+    key_container.append(&mouse_dropdown);
+
     let macro_switch = gtk::Switch::builder()
         .valign(gtk::Align::Center)
         .active(is_macro)
         .tooltip_text("Enable Chain Actions (Macro Mode)")
         .build();
 
-    let description = obj.property::<String>("description");
+    let mouse_switch = gtk::Switch::builder()
+        .valign(gtk::Align::Center)
+        .active(is_mouse_bind)
+        .tooltip_text("Bind to a mouse button instead of a key")
+        .build();
 
-    let desc_label = if !description.is_empty() {
-        Some(
-            gtk::Label::builder()
-                .label(&format!("Description: {}", description))
-                .css_classes(["dim-label"])
-                .hexpand(true)
-                .halign(gtk::Align::Start)
-                .build(),
-        )
-    } else {
-        None
-    };
+    // Visibility logic
+    let entry_key_c_vis = entry_key.clone();
+    let mouse_dropdown_c_vis = mouse_dropdown.clone();
 
-    let center_widget: Option<&gtk::Widget> = if let Some(ref l) = desc_label {
-        Some(l.upcast_ref())
-    } else {
-        None
-    };
+    mouse_switch.connect_state_set(move |_, state| {
+        entry_key_c_vis.set_visible(!state);
+        mouse_dropdown_c_vis.set_visible(state);
+        glib::Propagation::Proceed
+    });
 
-    let recorder_box = create_recorder_row(&entry_mods, &entry_key, &macro_switch, center_widget);
+    let recorder_box = create_recorder_row(
+        &entry_mods,
+        &entry_key,
+        &macro_switch,
+        Some(&mouse_switch),
+        None,
+    );
+
+    // Add Mouse Switch to recorder row area
+
     form_box.append(&recorder_box);
 
     form_box.append(&create_form_group("Modifiers:", &entry_mods));
-    form_box.append(&create_form_group("Key:", &entry_key));
+    form_box.append(&create_form_group("Key / Button:", &key_container));
+
+    let current_flags = obj.property::<String>("flags");
+    let flags_dropdown = create_flags_dropdown();
+    flags_dropdown.set_selected(get_index_from_flag(&current_flags));
+    form_box.append(&create_form_group("Behavior (Flags):", &flags_dropdown));
 
     // --- Simple Mode Inputs ---
     let simple_container = gtk::Box::builder()
@@ -347,6 +376,9 @@ pub fn create_edit_view(
         let entry_desc = entry_desc.clone();
         let macro_switch_c = macro_switch.clone();
         let macro_list_c = macro_list.clone();
+        let flags_dropdown_c = flags_dropdown.clone();
+        let mouse_switch_c = mouse_switch.clone();
+        let mouse_dropdown_c = mouse_dropdown.clone();
 
         Rc::new(move || {
             let input_mods = entry_mods.text().to_string();
@@ -356,8 +388,14 @@ pub fn create_edit_view(
                 input_mods
             };
 
-            let new_key = entry_key.text().to_string();
+            let new_key = if mouse_switch_c.is_active() {
+                get_mouse_code_from_index(mouse_dropdown_c.selected()).to_string()
+            } else {
+                entry_key.text().to_string()
+            };
+
             let desc = entry_desc.text().to_string();
+            let new_flag = get_flag_from_index(flags_dropdown_c.selected());
 
             // Resolve Dispatcher/Args
             let (new_dispatcher, new_args) = if macro_switch_c.is_active() {
@@ -391,6 +429,7 @@ pub fn create_edit_view(
                 &new_dispatcher,
                 &new_args,
                 if desc.is_empty() { None } else { Some(desc) },
+                Some(new_flag),
             ) {
                 Ok(_) => {
                     reload_keybinds(&model_clone);
@@ -430,11 +469,12 @@ pub fn create_edit_view(
     let entry_args_c = entry_args.clone();
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
+    let mouse_switch_c = mouse_switch.clone();
 
     save_btn.connect_clicked(move |_| {
         let new_key = entry_key_c.text().to_string();
 
-        if new_key.trim().is_empty() {
+        if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
                 .timeout(3)

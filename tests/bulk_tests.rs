@@ -71,6 +71,7 @@ fn test_bulk_replace_logic() {
                 &bind.dispatcher,
                 &bind.args,
                 None,
+                None,
             )
             .expect("Failed to update line");
         }
@@ -121,6 +122,7 @@ fn test_bulk_replace_case_insensitive() {
                 &bind.dispatcher,
                 &bind.args,
                 None,
+                None,
             )
             .expect("Failed to update line");
         }
@@ -160,6 +162,7 @@ fn test_bulk_replace_dispatcher() {
                 &bind.key,
                 &new_disp,
                 &bind.args,
+                None,
                 None,
             )
             .expect("Failed to update line");
