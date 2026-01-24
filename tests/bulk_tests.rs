@@ -97,11 +97,11 @@ fn test_bulk_replace_case_insensitive() {
 
     let find_text = "super";
     let replace_text = "ALT";
-    let find_text_lower = find_text.to_lowercase();
+    let find_text_lower = find_text.to_ascii_lowercase();
 
     for bind in binds.iter() {
         let current_mods = bind.mods.to_string();
-        let current_mods_lower = current_mods.to_lowercase();
+        let current_mods_lower = current_mods.to_ascii_lowercase();
 
         if current_mods_lower.contains(&find_text_lower) {
             let mut new_mods = String::new();

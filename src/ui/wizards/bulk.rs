@@ -1,5 +1,6 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
+use crate::parser::BatchUpdate;
 use crate::ui::utils::{
     create_page_header, create_suggested_button, perform_backup, reload_keybinds,
 };
@@ -7,6 +8,8 @@ use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -165,7 +168,7 @@ pub fn create_bulk_replace_wizard(
             _ => ReplaceTarget::Arguments,
         };
 
-        let find_text_lower = find_text.to_lowercase();
+        let find_text_lower = find_text.to_ascii_lowercase();
         let mut count = 0;
         for i in 0..model_c.n_items() {
             if let Some(obj) = model_c.item(i).and_downcast::<KeybindObject>() {
@@ -176,10 +179,10 @@ pub fn create_bulk_replace_wizard(
                     ReplaceTarget::Arguments => obj.property::<String>("args"),
                 };
 
-                let current_val_lower = current_val.to_lowercase();
+                let current_val_lower = current_val.to_ascii_lowercase();
 
                 if current_val_lower.contains(&find_text_lower) {
-                    // Case-insensitive replacement
+                    // Case-insensitive replacement (ASCII-safe)
                     let mut new_val = String::new();
                     let mut last_end = 0;
                     for (start, _) in current_val_lower.match_indices(&find_text_lower) {
@@ -295,16 +298,21 @@ pub fn create_bulk_replace_wizard(
         let mut success_count = 0;
         let mut error_count = 0;
 
+        let mut updates_by_file: HashMap<PathBuf, Vec<BatchUpdate>> = HashMap::new();
+
         for (obj, new_val) in changes.iter() {
-            let file_path = std::path::PathBuf::from(obj.property::<String>("file-path"));
+            let file_path = PathBuf::from(obj.property::<String>("file-path"));
             let line_number = obj.property::<u64>("line-number") as usize;
 
             let mut mods = obj.property::<String>("mods");
             let mut key = obj.property::<String>("key");
             let mut disp = obj.property::<String>("dispatcher");
             let mut args = obj.property::<String>("args");
-            let desc = obj.property::<String>("description");
 
+            // let flags = obj.property::<String>("flags"); // Keep existing flags
+            let _desc = obj.property::<String>("description");
+
+            // Update the specific field
             match target {
                 ReplaceTarget::Modifiers => mods = new_val.clone(),
                 ReplaceTarget::Key => key = new_val.clone(),
@@ -312,19 +320,26 @@ pub fn create_bulk_replace_wizard(
                 ReplaceTarget::Arguments => args = new_val.clone(),
             }
 
-            match parser::update_line(
-                file_path,
-                line_number,
-                &mods,
-                &key,
-                &disp,
-                &args,
-                if desc.is_empty() { None } else { Some(desc) },
-            ) {
-                Ok(_) => success_count += 1,
+            updates_by_file
+                .entry(file_path)
+                .or_default()
+                .push(BatchUpdate {
+                    line_number,
+                    new_mods: mods,
+                    new_key: key,
+                    new_dispatcher: disp,
+                    new_args: args,
+                    description: None, // Pass None to preserve comments
+                });
+        }
+
+        for (path, updates) in updates_by_file {
+            let count = updates.len();
+            match parser::update_multiple_lines(path.clone(), updates) {
+                Ok(_) => success_count += count,
                 Err(e) => {
-                    eprintln!("Failed to update line {}: {}", line_number, e);
-                    error_count += 1;
+                    eprintln!("Failed to update file {:?}: {}", path, e);
+                    error_count += count;
                 }
             }
         }
