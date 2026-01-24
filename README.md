@@ -1,10 +1,12 @@
 # hyprKCS
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![AUR version](https://img.shields.io/aur/version/hyprkcs-git?style=flat-square)](https://aur.archlinux.org/packages/hyprkcs-git)
-[![Crates.io Version](https://img.shields.io/crates/v/hyprKCS?style=flat-square)](https://crates.io/crates/hyprKCS)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat-square)](https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml)
-[![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat)](https://opensource.org/licenses/MIT)
+[![AUR version](https://img.shields.io/aur/version/hyprkcs-git?style=flat)](https://aur.archlinux.org/packages/hyprkcs-git)
+[![Crates.io Version](https://img.shields.io/crates/v/hyprKCS?style=flat)](https://crates.io/crates/hyprKCS)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat)](https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml)
+[![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS?style=flat)
+
 
 A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
 
