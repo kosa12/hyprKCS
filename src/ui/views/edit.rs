@@ -103,7 +103,8 @@ pub fn create_edit_view(
         .build();
 
     let mouse_dropdown = create_mouse_button_dropdown();
-    let is_mouse_bind = current_key.starts_with("mouse:");
+    let is_mouse_bind =
+        current_key.starts_with("mouse:") || current_key.starts_with("mouse_");
 
     if is_mouse_bind {
         mouse_dropdown.set_selected(get_index_from_mouse_code(&current_key));
