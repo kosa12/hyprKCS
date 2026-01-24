@@ -400,7 +400,7 @@ pub fn update_line(
         let after_bind = &trimmed_start[4..];
         if let Some(eq_idx) = after_bind.find('=') {
             let current_flags = after_bind[..eq_idx].trim();
-            
+
             let flags = new_flags.unwrap_or(current_flags);
 
             // preserve existing spacing around equals if possible, or just standard " = "

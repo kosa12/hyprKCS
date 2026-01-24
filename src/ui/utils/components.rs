@@ -152,9 +152,11 @@ pub fn create_recorder_row(
     entry_mods: &gtk::Entry,
     entry_key: &gtk::Entry,
     macro_switch: &gtk::Switch,
+    mouse_switch: Option<&gtk::Switch>,
     center_widget: Option<&gtk::Widget>,
 ) -> gtk::Box {
     let recorder_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    recorder_box.set_margin_end(12);
 
     crate::ui::utils::widgets::setup_key_recorder(&recorder_box, entry_mods, entry_key);
 
@@ -163,6 +165,20 @@ pub fn create_recorder_row(
     } else {
         let spacer = gtk::Box::builder().hexpand(true).build();
         recorder_box.append(&spacer);
+    }
+
+    // --- Mouse Switch ---
+    if let Some(ms) = mouse_switch {
+        ms.set_margin_end(12); // Spacing between switches
+
+        let ms_label = gtk::Label::builder()
+            .label("Mouse")
+            .css_classes(["caption", "dim-label"])
+            .valign(gtk::Align::Center)
+            .build();
+
+        recorder_box.append(&ms_label);
+        recorder_box.append(ms);
     }
 
     // --- Macro Switch ---
@@ -190,11 +206,10 @@ pub fn create_flags_dropdown() -> gtk::DropDown {
         "Ignore Mods (bindn)",
         "Transparent (bindt)",
         "Ignore Mods + Locked (bindnl)",
+        "Mouse (bindm)",
     ]);
 
-    gtk::DropDown::builder()
-        .model(&list)
-        .build()
+    gtk::DropDown::builder().model(&list).build()
 }
 
 pub fn get_flag_from_index(index: u32) -> &'static str {
@@ -207,6 +222,7 @@ pub fn get_flag_from_index(index: u32) -> &'static str {
         5 => "n",
         6 => "t",
         7 => "nl",
+        8 => "m",
         _ => "",
     }
 }
@@ -221,6 +237,53 @@ pub fn get_index_from_flag(flag: &str) -> u32 {
         "n" => 5,
         "t" => 6,
         "nl" => 7,
+        "m" => 8,
         _ => 0,
+    }
+}
+
+pub fn create_mouse_button_dropdown() -> gtk::DropDown {
+    let list = gtk::StringList::new(&[
+        "Left Click (mouse:272)",
+        "Right Click (mouse:273)",
+        "Middle Click (mouse:274)",
+        "Side Button 1 (mouse:275)",
+        "Side Button 2 (mouse:276)",
+        "Extra Button 1 (mouse:277)",
+        "Extra Button 2 (mouse:278)",
+        "Scroll Up (mouse_up)",
+        "Scroll Down (mouse_down)",
+    ]);
+
+    gtk::DropDown::builder().model(&list).build()
+}
+
+pub fn get_mouse_code_from_index(index: u32) -> &'static str {
+    match index {
+        0 => "mouse:272",
+        1 => "mouse:273",
+        2 => "mouse:274",
+        3 => "mouse:275",
+        4 => "mouse:276",
+        5 => "mouse:277",
+        6 => "mouse:278",
+        7 => "mouse_up",
+        8 => "mouse_down",
+        _ => "mouse:272",
+    }
+}
+
+pub fn get_index_from_mouse_code(code: &str) -> u32 {
+    match code {
+        "mouse:272" => 0,
+        "mouse:273" => 1,
+        "mouse:274" => 2,
+        "mouse:275" => 3,
+        "mouse:276" => 4,
+        "mouse:277" => 5,
+        "mouse:278" => 6,
+        "mouse_up" => 7,
+        "mouse_down" => 8,
+        _ => 0, // Default to Left Click if unknown
     }
 }

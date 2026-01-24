@@ -231,7 +231,9 @@ fn test_add_keybind_with_flags() {
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     // Should be bindel = ...
-    assert!(new_content.contains("bindel = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"));
+    assert!(new_content.contains(
+        "bindel = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"
+    ));
 
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
     let binds = parse_config().unwrap();
@@ -261,4 +263,48 @@ fn test_update_keybind_with_flags() {
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("bindl = SUPER, Q, exec, kitty"));
+}
+
+#[test]
+fn test_mouse_bind_parsing() {
+    let _guard = lock_env();
+    let content = r#"
+        bindm = SUPER, mouse:272, movewindow
+        bind = , mouse:273, exec, rofi -show drun
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Failed to parse mouse binds");
+    assert_eq!(binds.len(), 2);
+
+    let b1 = &binds[0];
+    assert_eq!(b1.flags.as_ref(), "m");
+    assert_eq!(b1.mods.as_ref(), "SUPER");
+    assert_eq!(b1.key.as_ref(), "mouse:272");
+    assert_eq!(b1.dispatcher.as_ref(), "movewindow");
+
+    let b2 = &binds[1];
+    assert_eq!(b2.flags.as_ref(), "");
+    assert_eq!(b2.key.as_ref(), "mouse:273");
+}
+
+#[test]
+fn test_mouse_scroll_parsing() {
+    let _guard = lock_env();
+    let content = r#"
+        bind = SUPER, mouse_up, workspace, e+1
+        bind = SUPER, mouse_down, workspace, e-1
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Failed to parse scroll binds");
+    assert_eq!(binds.len(), 2);
+
+    assert_eq!(binds[0].key.as_ref(), "mouse_up");
+    assert_eq!(binds[0].dispatcher.as_ref(), "workspace");
+    assert_eq!(binds[0].args.as_ref(), "e+1");
+
+    assert_eq!(binds[1].key.as_ref(), "mouse_down");
 }

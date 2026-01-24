@@ -1,6 +1,7 @@
 use crate::parser;
 use crate::ui::utils::components::{
-    create_flags_dropdown, create_recorder_row, get_flag_from_index,
+    create_flags_dropdown, create_mouse_button_dropdown, create_recorder_row, get_flag_from_index,
+    get_mouse_code_from_index,
 };
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row};
 use crate::ui::utils::{
@@ -68,16 +69,47 @@ pub fn create_add_view(
         .activates_default(true)
         .build();
 
+    let mouse_dropdown = create_mouse_button_dropdown();
+    mouse_dropdown.set_visible(false);
+
+    let key_container = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(6)
+        .build();
+    key_container.append(&entry_key);
+    key_container.append(&mouse_dropdown);
+
     let macro_switch = gtk::Switch::builder()
         .valign(gtk::Align::Center)
         .tooltip_text("Enable Chain Actions (Multiple dispatchers)")
         .build();
 
-    let recorder_box = create_recorder_row(&entry_mods, &entry_key, &macro_switch, None);
+    let mouse_switch = gtk::Switch::builder()
+        .valign(gtk::Align::Center)
+        .tooltip_text("Bind to a mouse button instead of a key")
+        .build();
+
+    let recorder_box = create_recorder_row(
+        &entry_mods,
+        &entry_key,
+        &macro_switch,
+        Some(&mouse_switch),
+        None,
+    );
+
     form_box.append(&recorder_box);
 
     form_box.append(&create_form_group("Modifiers:", &entry_mods));
-    form_box.append(&create_form_group("Key:", &entry_key));
+    form_box.append(&create_form_group("Key / Button:", &key_container));
+
+    let entry_key_c_vis = entry_key.clone();
+    let mouse_dropdown_c_vis = mouse_dropdown.clone();
+
+    mouse_switch.connect_state_set(move |_, state| {
+        entry_key_c_vis.set_visible(!state);
+        mouse_dropdown_c_vis.set_visible(state);
+        glib::Propagation::Proceed
+    });
 
     let flags_dropdown = create_flags_dropdown();
     form_box.append(&create_form_group("Behavior (Flags):", &flags_dropdown));
@@ -268,12 +300,20 @@ pub fn create_add_view(
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
     let flags_dropdown_c = flags_dropdown.clone();
+    let mouse_switch_c = mouse_switch.clone();
+    let mouse_dropdown_c = mouse_dropdown.clone();
     let stack_c = stack.clone();
 
     // Core Add Logic
     let perform_add = Rc::new(move || {
         let mods = entry_mods_c.text().to_string();
-        let key = entry_key_c.text().to_string();
+
+        let key = if mouse_switch_c.is_active() {
+            get_mouse_code_from_index(mouse_dropdown_c.selected()).to_string()
+        } else {
+            entry_key_c.text().to_string()
+        };
+
         let flag = get_flag_from_index(flags_dropdown_c.selected());
 
         // Determine Dispatcher/Args based on mode
@@ -353,10 +393,12 @@ pub fn create_add_view(
     let local_stack_c = local_stack.clone();
     let confirm_label_c = confirm_label.clone();
 
+    let mouse_switch_c = mouse_switch.clone();
+
     add_btn.connect_clicked(move |_| {
         let key = entry_key_c.text().to_string();
 
-        if key.trim().is_empty() {
+        if !mouse_switch_c.is_active() && key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
                 .timeout(3)
