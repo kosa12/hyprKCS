@@ -2,8 +2,6 @@ use crate::ui::utils::setup_dispatcher_completion;
 use gtk::prelude::*;
 use gtk4 as gtk;
 
-/// Creates a new row for the macro builder.
-/// Returns the container widget (Box) and the two entries (Dispatcher, Args).
 pub fn create_macro_row(
     dispatcher_val: Option<&str>,
     args_val: Option<&str>,
@@ -39,15 +37,12 @@ pub fn create_macro_row(
     (row, disp_entry, args_entry, delete_btn)
 }
 
-/// Compiles the contents of the macro container into a single `exec` command.
-/// Returns `None` if the container is empty or has invalid rows.
 pub fn compile_macro(container: &gtk::Box) -> Option<(String, String)> {
     let mut commands = Vec::new();
 
     let mut child = container.first_child();
     while let Some(widget) = child {
         if let Some(box_widget) = widget.downcast_ref::<gtk::Box>() {
-            // Assume structure: [Entry, Entry, Button]
             let mut iter = box_widget.first_child();
             let disp_widget = iter.and_then(|w| w.downcast::<gtk::Entry>().ok());
             iter = box_widget.first_child().and_then(|w| w.next_sibling());
@@ -61,9 +56,6 @@ pub fn compile_macro(container: &gtk::Box) -> Option<(String, String)> {
                     let cmd = if a_text.trim().is_empty() {
                         format!("hyprctl dispatch {}", d_text.trim())
                     } else {
-                        // Escape double quotes in args if necessary?
-                        // Simple approach: assume user doesn't use complex quotes inside quotes for now
-                        // Or better: escape `"` to `\"`
                         let escaped_args = a_text.replace('"', "\\\"");
                         format!("hyprctl dispatch {} \"{}\"", d_text.trim(), escaped_args)
                     };
@@ -79,7 +71,6 @@ pub fn compile_macro(container: &gtk::Box) -> Option<(String, String)> {
     }
 
     let script = commands.join("; ");
-    // Final command: exec, bash -c "..."
     Some(("exec".to_string(), format!("bash -c \"{}\"", script)))
 }
 
@@ -107,6 +98,7 @@ pub fn parse_macro(dispatcher: &str, args: &str) -> Option<Vec<(String, String)>
         if let Some(rest) = part.strip_prefix("hyprctl dispatch ") {
             let rest = rest.trim();
             let (disp, arg) = rest.split_once(' ').unwrap_or((rest, ""));
+            let arg = arg.trim();
 
             // Unescape quotes if we added them: "arg" -> arg
             let clean_arg = if arg.starts_with('"') && arg.ends_with('"') {
