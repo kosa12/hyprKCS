@@ -79,6 +79,7 @@ fn test_add_keybind() {
         "0",
         None,
         None,
+        "",
     )
     .expect("Failed to add keybind");
 
@@ -134,6 +135,7 @@ fn test_update_keybind_description() {
         "exec",
         "kitty",
         Some("New Description".to_string()),
+        None,
     )
     .expect("Failed to update description");
 
@@ -162,7 +164,7 @@ fn test_parse_macro_keybind() {
 #[test]
 fn test_parser_corner_cases() {
     let _guard = lock_env();
-    let content = r#"
+    let content = r#" 
         # Case 1: Extra whitespace
         bind   =   SUPER  ,  Q  ,  exec  ,  kitty
         
@@ -206,4 +208,57 @@ fn test_parser_corner_cases() {
     // Case 5
     // Note: $mainMod is not defined in this file, so it won't be substituted.
     assert_eq!(binds[4].mods.as_ref(), "$mainMod");
+}
+
+#[test]
+fn test_add_keybind_with_flags() {
+    let _guard = lock_env();
+
+    let content = "$mainMod = SUPER\n";
+    let temp = TempFile::new(content);
+
+    add_keybind(
+        temp.path.clone(),
+        "",
+        "XF86AudioRaiseVolume",
+        "exec",
+        "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+        None,
+        None,
+        "el",
+    )
+    .expect("Failed to add keybind");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    // Should be bindel = ...
+    assert!(new_content.contains("bindel = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"));
+
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+    let binds = parse_config().unwrap();
+    assert_eq!(binds.len(), 1);
+    assert_eq!(binds[0].flags.as_ref(), "el");
+}
+
+#[test]
+fn test_update_keybind_with_flags() {
+    let _guard = lock_env();
+
+    let content = "bind = SUPER, Q, exec, kitty";
+    let temp = TempFile::new(content);
+
+    // Update to bindl
+    update_line(
+        temp.path.clone(),
+        0,
+        "SUPER",
+        "Q",
+        "exec",
+        "kitty",
+        None,
+        Some("l"),
+    )
+    .expect("Failed to update flags");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("bindl = SUPER, Q, exec, kitty"));
 }

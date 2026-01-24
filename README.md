@@ -34,6 +34,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables (e.g., `$mainMod`) for accuracy.
 - **Broken Bind Detection**: Automatically validates `exec` and `execr` commands, flagging keybinds that point to missing executables or scripts with a red exclamation mark.
+- **Bind Flags Support**: Full support for Hyprland's specialized bind flags like `binde` (repeat), `bindl` (locked), `bindr` (release), and more, selectable via a dropdown in the editor.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
 - **Interactive Restore**: Easily browse previous backups and restore your entire configuration tree with a single click.

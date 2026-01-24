@@ -1,6 +1,8 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
-use crate::ui::utils::components::create_recorder_row;
+use crate::ui::utils::components::{
+    create_flags_dropdown, create_recorder_row, get_flag_from_index, get_index_from_flag,
+};
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row, parse_macro};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
@@ -131,6 +133,11 @@ pub fn create_edit_view(
 
     form_box.append(&create_form_group("Modifiers:", &entry_mods));
     form_box.append(&create_form_group("Key:", &entry_key));
+
+    let current_flags = obj.property::<String>("flags");
+    let flags_dropdown = create_flags_dropdown();
+    flags_dropdown.set_selected(get_index_from_flag(&current_flags));
+    form_box.append(&create_form_group("Behavior (Flags):", &flags_dropdown));
 
     // --- Simple Mode Inputs ---
     let simple_container = gtk::Box::builder()
@@ -347,6 +354,7 @@ pub fn create_edit_view(
         let entry_desc = entry_desc.clone();
         let macro_switch_c = macro_switch.clone();
         let macro_list_c = macro_list.clone();
+        let flags_dropdown_c = flags_dropdown.clone();
 
         Rc::new(move || {
             let input_mods = entry_mods.text().to_string();
@@ -358,6 +366,7 @@ pub fn create_edit_view(
 
             let new_key = entry_key.text().to_string();
             let desc = entry_desc.text().to_string();
+            let new_flag = get_flag_from_index(flags_dropdown_c.selected());
 
             // Resolve Dispatcher/Args
             let (new_dispatcher, new_args) = if macro_switch_c.is_active() {
@@ -391,6 +400,7 @@ pub fn create_edit_view(
                 &new_dispatcher,
                 &new_args,
                 if desc.is_empty() { None } else { Some(desc) },
+                Some(new_flag),
             ) {
                 Ok(_) => {
                     reload_keybinds(&model_clone);

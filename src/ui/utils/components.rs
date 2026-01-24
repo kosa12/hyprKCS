@@ -179,3 +179,48 @@ pub fn create_recorder_row(
 
     recorder_box
 }
+
+pub fn create_flags_dropdown() -> gtk::DropDown {
+    let list = gtk::StringList::new(&[
+        "Standard (bind)",
+        "Locked (bindl)",
+        "Repeat (binde)",
+        "Release (bindr)",
+        "Locked + Repeat (bindel)",
+        "Ignore Mods (bindn)",
+        "Transparent (bindt)",
+        "Ignore Mods + Locked (bindnl)",
+    ]);
+
+    gtk::DropDown::builder()
+        .model(&list)
+        .build()
+}
+
+pub fn get_flag_from_index(index: u32) -> &'static str {
+    match index {
+        0 => "",
+        1 => "l",
+        2 => "e",
+        3 => "r",
+        4 => "el",
+        5 => "n",
+        6 => "t",
+        7 => "nl",
+        _ => "",
+    }
+}
+
+pub fn get_index_from_flag(flag: &str) -> u32 {
+    match flag {
+        "" => 0,
+        "l" => 1,
+        "e" => 2,
+        "r" => 3,
+        "el" => 4,
+        "n" => 5,
+        "t" => 6,
+        "nl" => 7,
+        _ => 0,
+    }
+}

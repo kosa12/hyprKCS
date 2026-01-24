@@ -1,5 +1,7 @@
 use crate::parser;
-use crate::ui::utils::components::create_recorder_row;
+use crate::ui::utils::components::{
+    create_flags_dropdown, create_recorder_row, get_flag_from_index,
+};
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
@@ -76,6 +78,9 @@ pub fn create_add_view(
 
     form_box.append(&create_form_group("Modifiers:", &entry_mods));
     form_box.append(&create_form_group("Key:", &entry_key));
+
+    let flags_dropdown = create_flags_dropdown();
+    form_box.append(&create_form_group("Behavior (Flags):", &flags_dropdown));
 
     // --- Simple Mode Inputs ---
     let simple_container = gtk::Box::builder()
@@ -262,12 +267,14 @@ pub fn create_add_view(
     let entry_desc_c = entry_desc.clone();
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
+    let flags_dropdown_c = flags_dropdown.clone();
     let stack_c = stack.clone();
 
     // Core Add Logic
     let perform_add = Rc::new(move || {
         let mods = entry_mods_c.text().to_string();
         let key = entry_key_c.text().to_string();
+        let flag = get_flag_from_index(flags_dropdown_c.selected());
 
         // Determine Dispatcher/Args based on mode
         let (dispatcher, args) = if macro_switch_c.is_active() {
@@ -306,6 +313,7 @@ pub fn create_add_view(
             &args,
             submap.clone(),
             if desc.is_empty() { None } else { Some(desc) },
+            flag,
         ) {
             Ok(_) => {
                 reload_keybinds(&model_clone);
