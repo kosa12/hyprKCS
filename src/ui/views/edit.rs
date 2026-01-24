@@ -103,8 +103,7 @@ pub fn create_edit_view(
         .build();
 
     let mouse_dropdown = create_mouse_button_dropdown();
-    let is_mouse_bind =
-        current_key.starts_with("mouse:") || current_key.starts_with("mouse_");
+    let is_mouse_bind = current_key.starts_with("mouse:") || current_key.starts_with("mouse_");
 
     if is_mouse_bind {
         mouse_dropdown.set_selected(get_index_from_mouse_code(&current_key));
@@ -142,34 +141,15 @@ pub fn create_edit_view(
         glib::Propagation::Proceed
     });
 
-    let description = obj.property::<String>("description");
-
-    let desc_label = if !description.is_empty() {
-        Some(
-            gtk::Label::builder()
-                .label(&format!("Description: {}", description))
-                .css_classes(["dim-label"])
-                .hexpand(true)
-                .halign(gtk::Align::Start)
-                .build(),
-        )
-    } else {
-        None
-    };
-
-    let center_widget: Option<&gtk::Widget> = if let Some(ref l) = desc_label {
-        Some(l.upcast_ref())
-    } else {
-        None
-    };
-
     let recorder_box = create_recorder_row(
         &entry_mods,
         &entry_key,
         &macro_switch,
         Some(&mouse_switch),
-        center_widget,
+        None,
     );
+
+    // Add Mouse Switch to recorder row area
 
     form_box.append(&recorder_box);
 
