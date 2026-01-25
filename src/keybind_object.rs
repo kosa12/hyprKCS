@@ -259,10 +259,11 @@ pub mod imp {
     }
 
     fn to_lower_rc(s: &str) -> Rc<str> {
-        if s.chars().all(|c| !c.is_uppercase()) {
+        let lower = s.to_lowercase();
+        if lower == s {
             Rc::from(s)
         } else {
-            Rc::from(s.to_lowercase())
+            Rc::from(lower)
         }
     }
 
