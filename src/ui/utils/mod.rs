@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod components;
+pub mod conflicts;
 pub mod execution;
 pub mod export;
 pub mod keybinds;

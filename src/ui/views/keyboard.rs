@@ -69,7 +69,6 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         .css_classes(["small", "mod-toggle"])
         .build();
 
-    // Default to SUPER enabled as it's most common
     btn_super.set_active(true);
 
     mod_box.append(&btn_super);

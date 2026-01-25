@@ -4,6 +4,7 @@ use crate::ui::utils::components::{
     create_flags_dropdown, create_mouse_button_dropdown, create_recorder_row, get_flag_from_index,
     get_index_from_flag, get_index_from_mouse_code, get_mouse_code_from_index,
 };
+use crate::ui::utils::conflicts::{check_conflict, generate_suggestions};
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row, parse_macro};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
@@ -21,6 +22,8 @@ pub fn create_edit_view(
     stack: &gtk::Stack,
     obj: KeybindObject,
     model: &gio::ListStore,
+    column_view: &gtk::ColumnView,
+    selection_model: &gtk::SingleSelection,
     toast_overlay: &adw::ToastOverlay,
     _editing_page: &gtk::Box,
 ) -> gtk::Widget {
@@ -321,6 +324,11 @@ pub fn create_edit_view(
 
     local_stack.add_named(&confirm_container, Some("confirm"));
 
+    // --- Conflict View Construction ---
+    use crate::ui::utils::conflicts::create_conflict_panel;
+    let conflict_panel = create_conflict_panel("Save Anyway");
+    local_stack.add_named(&conflict_panel.container, Some("conflict"));
+
     // --- Logic ---
 
     let entry_dispatcher_exec = entry_dispatcher.clone();
@@ -357,6 +365,11 @@ pub fn create_edit_view(
         local_stack_c.set_visible_child_name("form");
     });
 
+    let local_stack_c = local_stack.clone();
+    conflict_panel.back_btn.connect_clicked(move |_| {
+        local_stack_c.set_visible_child_name("form");
+    });
+
     let model_clone = model.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let file_path_str = obj.property::<String>("file-path");
@@ -364,6 +377,9 @@ pub fn create_edit_view(
     let stack_c = stack.clone();
 
     // Core Save Logic
+    let selection_model_c = selection_model.clone();
+    let column_view_c = column_view.clone();
+
     let do_save = {
         let file_path = file_path.clone();
         let model_clone = model_clone.clone();
@@ -379,11 +395,13 @@ pub fn create_edit_view(
         let flags_dropdown_c = flags_dropdown.clone();
         let mouse_switch_c = mouse_switch.clone();
         let mouse_dropdown_c = mouse_dropdown.clone();
+        let selection_model_c = selection_model_c.clone();
+        let column_view_c = column_view_c.clone();
 
         Rc::new(move || {
             let input_mods = entry_mods.text().to_string();
             let new_mods = if mods_had_prefix {
-                format!("${}", input_mods)
+                format!("${}", input_mods) // Corrected: escaped '$'
             } else {
                 input_mods
             };
@@ -414,7 +432,7 @@ pub fn create_edit_view(
                 let d = entry_dispatcher.text().to_string();
                 let input_args = entry_args.text().to_string();
                 let a = if args_had_prefix {
-                    format!("${}", input_args)
+                    format!("${}", input_args) // Corrected: escaped '$'
                 } else {
                     input_args
                 };
@@ -436,6 +454,32 @@ pub fn create_edit_view(
 
                     if let Err(e) = perform_backup(false) {
                         eprintln!("Auto-backup failed: {}", e);
+                    }
+
+                    // Restore Selection
+                    // We iterate the SELECTION MODEL (sorted view) to find matching item
+                    let mut found_idx = None;
+                    for i in 0..selection_model_c.n_items() {
+                        if let Some(item) =
+                            selection_model_c.item(i).and_downcast::<KeybindObject>()
+                        {
+                            let f = item.property::<String>("file-path");
+                            let l = item.property::<u64>("line-number") as usize;
+                            if f == file_path.to_string_lossy() && l == line_number {
+                                found_idx = Some(i);
+                                break;
+                            }
+                        }
+                    }
+
+                    if let Some(idx) = found_idx {
+                        selection_model_c.set_selected(idx);
+                        column_view_c.scroll_to(
+                            idx,
+                            None::<&gtk::ColumnViewColumn>,
+                            gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
+                            None::<gtk::ScrollInfo>,
+                        );
                     }
 
                     let toast = adw::Toast::builder()
@@ -461,18 +505,51 @@ pub fn create_edit_view(
         do_save_c();
     });
 
+    let do_save_c = do_save.clone();
+    conflict_panel.proceed_btn.connect_clicked(move |_| {
+        do_save_c();
+    });
+
     let entry_dispatcher_save = entry_dispatcher.clone();
     let local_stack_c = local_stack.clone();
     let confirm_label_c = confirm_label.clone();
     let toast_overlay_clone = toast_overlay.clone();
+    let entry_mods_c = entry_mods.clone();
     let entry_key_c = entry_key.clone();
     let entry_args_c = entry_args.clone();
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
     let mouse_switch_c = mouse_switch.clone();
+    let mouse_dropdown_c = mouse_dropdown.clone();
+
+    // Retrieve submap property to check against correct scope
+    let current_submap_prop = obj.property::<String>("submap");
+    let current_submap = if current_submap_prop.is_empty() {
+        None
+    } else {
+        Some(current_submap_prop)
+    };
+    let current_submap_clone = current_submap.clone();
+
+    // Clone conflict UI elements
+    let conflict_target_label_c = conflict_panel.target_label.clone();
+    let conflict_suggestions_box_c = conflict_panel.suggestions_box.clone();
+
+    let model_c = model.clone();
+    let file_path_str_c = obj.property::<String>("file-path");
 
     save_btn.connect_clicked(move |_| {
-        let new_key = entry_key_c.text().to_string();
+        let new_key = if mouse_switch_c.is_active() {
+            get_mouse_code_from_index(mouse_dropdown_c.selected()).to_string()
+        } else {
+            entry_key_c.text().to_string()
+        };
+        let input_mods = entry_mods_c.text().to_string();
+        let final_mods = if mods_had_prefix && !input_mods.starts_with('$') {
+            format!("${}", input_mods)
+        } else {
+            input_mods
+        };
 
         if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
@@ -520,6 +597,50 @@ pub fn create_edit_view(
                     }
                 }
             }
+        }
+
+        let variables = parser::get_variables().unwrap_or_else(|e| {
+            eprintln!("Failed to load variables for conflict checking: {}", e);
+            std::collections::HashMap::new()
+        });
+
+        // Conflict Checking
+        // We pass Some(line_number) to ignore the current line being edited
+        let submap_check = current_submap_clone.as_deref();
+        if let Some(conflict) = check_conflict(&final_mods, &new_key, submap_check, Some((&file_path_str_c, line_number)), &model_c, &variables) {
+            conflict_target_label_c.set_label(&format!(
+                "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
+                conflict.dispatcher, conflict.args, conflict.file, conflict.line
+            ));
+
+            // Populate suggestions
+            while let Some(child) = conflict_suggestions_box_c.first_child() {
+                conflict_suggestions_box_c.remove(&child);
+            }
+
+            let suggestions = generate_suggestions(&final_mods, &new_key, submap_check, &model_c, &variables);
+            if suggestions.is_empty() {
+                conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
+            } else {
+                for (s_mods, s_key) in suggestions {
+                    let btn = create_suggested_button(&format!("{} + {}", s_mods, s_key), None);
+                    let entry_mods_c_s = entry_mods_c.clone();
+                    let entry_key_c_s = entry_key_c.clone();
+                    let local_stack_c_s = local_stack_c.clone();
+                    let s_mods_str = s_mods.clone();
+                    let s_key_str = s_key.clone();
+
+                    btn.connect_clicked(move |_| {
+                        entry_mods_c_s.set_text(&s_mods_str);
+                        entry_key_c_s.set_text(&s_key_str);
+                        local_stack_c_s.set_visible_child_name("form");
+                    });
+                    conflict_suggestions_box_c.append(&btn);
+                }
+            }
+
+            local_stack_c.set_visible_child_name("conflict");
+            return;
         }
 
         do_save();

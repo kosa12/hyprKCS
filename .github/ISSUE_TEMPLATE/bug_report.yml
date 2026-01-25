@@ -39,3 +39,17 @@ body:
       placeholder: "Hyprland v0.39.1, hyprKCS v1.6.0, Arch Linux"
     validations:
       required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation Method
+      description: How did you install hyprKCS?
+      options:
+        - yay (AUR)
+        - crates.io
+        - nix (flake)
+        - Build from source
+        - Other
+    validations:
+      required: true

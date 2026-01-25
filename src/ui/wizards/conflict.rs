@@ -60,6 +60,8 @@ pub fn get_conflict_groups(model: &gio::ListStore) -> Vec<Vec<KeybindObject>> {
 pub fn create_conflict_wizard(
     stack: &gtk::Stack,
     model: &gio::ListStore,
+    column_view: &gtk::ColumnView,
+    selection_model: &gtk::SingleSelection,
     toast_overlay: &adw::ToastOverlay,
     wizard_container: &gtk::Box,
     group_index: usize,
@@ -187,6 +189,8 @@ pub fn create_conflict_wizard(
         // Wiring up buttons
         let stack_c = stack.clone();
         let model_c = model.clone();
+        let column_view_c = column_view.clone();
+        let selection_model_c = selection_model.clone();
         let toast_overlay_c = toast_overlay.clone();
         let wizard_container_c = wizard_container.clone();
         let file_path_buf = std::path::PathBuf::from(&file_path);
@@ -206,6 +210,8 @@ pub fn create_conflict_wizard(
                 refresh_wizard(
                     &stack_c,
                     &model_c,
+                    &column_view_c,
+                    &selection_model_c,
                     &toast_overlay_c,
                     &wizard_container_c,
                     actual_index,
@@ -215,6 +221,8 @@ pub fn create_conflict_wizard(
 
         let stack_c = stack.clone();
         let model_c = model.clone();
+        let column_view_c = column_view.clone();
+        let selection_model_c = selection_model.clone();
         let toast_overlay_c = toast_overlay.clone();
         let obj_clone_2 = obj.clone();
 
@@ -230,6 +238,8 @@ pub fn create_conflict_wizard(
                     &stack_c,
                     obj_clone_2.clone(),
                     &model_c,
+                    &column_view_c,
+                    &selection_model_c,
                     &toast_overlay_c,
                     &edit_page_container,
                 );
@@ -250,8 +260,6 @@ pub fn create_conflict_wizard(
     }
     bottom_bar.set_end_widget(Some(&done_btn));
 
-    container.append(&bottom_bar);
-
     let stack_c = stack.clone();
     done_btn.connect_clicked(move |_| {
         stack_c.set_visible_child_name("home");
@@ -259,6 +267,8 @@ pub fn create_conflict_wizard(
 
     let stack_c = stack.clone();
     let model_c = model.clone();
+    let column_view_c = column_view.clone();
+    let selection_model_c = selection_model.clone();
     let toast_overlay_c = toast_overlay.clone();
     let wizard_container_c = wizard_container.clone();
 
@@ -267,18 +277,23 @@ pub fn create_conflict_wizard(
         refresh_wizard(
             &stack_c,
             &model_c,
+            &column_view_c,
+            &selection_model_c,
             &toast_overlay_c,
             &wizard_container_c,
             actual_index + 1,
         );
     });
 
+    container.append(&bottom_bar);
     container.upcast()
 }
 
 fn refresh_wizard(
     stack: &gtk::Stack,
     model: &gio::ListStore,
+    column_view: &gtk::ColumnView,
+    selection_model: &gtk::SingleSelection,
     toast_overlay: &adw::ToastOverlay,
     wizard_container: &gtk::Box,
     index: usize,
@@ -286,6 +301,14 @@ fn refresh_wizard(
     while let Some(child) = wizard_container.first_child() {
         wizard_container.remove(&child);
     }
-    let view = create_conflict_wizard(stack, model, toast_overlay, wizard_container, index);
+    let view = create_conflict_wizard(
+        stack,
+        model,
+        column_view,
+        selection_model,
+        toast_overlay,
+        wizard_container,
+        index,
+    );
     wizard_container.append(&view);
 }

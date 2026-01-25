@@ -11,7 +11,6 @@ thread_local! {
 
 fn generate_css(config: &StyleConfig) -> String {
     let font_size = config.font_size.as_deref().unwrap_or("0.9rem");
-    // Submap is usually smaller
     let submap_font_size = if let Some(fs) = &config.font_size {
         format!("calc({} * 0.9)", fs)
     } else {
