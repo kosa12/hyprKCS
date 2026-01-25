@@ -536,6 +536,7 @@ pub fn create_edit_view(
     let conflict_suggestions_box_c = conflict_panel.suggestions_box.clone();
 
     let model_c = model.clone();
+    let file_path_str_c = obj.property::<String>("file-path");
 
     save_btn.connect_clicked(move |_| {
         let new_key = if mouse_switch_c.is_active() {
@@ -598,7 +599,7 @@ pub fn create_edit_view(
         // Conflict Checking
         // We pass Some(line_number) to ignore the current line being edited
         let submap_check = current_submap_clone.as_deref();
-        if let Some(conflict) = check_conflict(&new_mods, &new_key, submap_check, Some(line_number), &model_c, &variables) {
+        if let Some(conflict) = check_conflict(&new_mods, &new_key, submap_check, Some((&file_path_str_c, line_number)), &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
                 conflict.dispatcher, conflict.args, conflict.file, conflict.line

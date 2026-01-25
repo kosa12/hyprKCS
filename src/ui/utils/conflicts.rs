@@ -115,7 +115,7 @@ pub fn check_conflict(
     target_mods: &str,
     target_key: &str,
     target_submap: Option<&str>,
-    ignore_line: Option<usize>,
+    ignore_entry: Option<(&str, usize)>,
     model: &gio::ListStore,
     variables: &HashMap<String, String>,
 ) -> Option<ConflictInfo> {
@@ -128,8 +128,10 @@ pub fn check_conflict(
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
             let conflict_found = obj.with_data(|data| {
-                if let Some(ignored) = ignore_line {
-                    if data.line_number as usize == ignored {
+                if let Some((ignored_path, ignored_line)) = ignore_entry {
+                    if data.line_number as usize == ignored_line
+                        && data.file_path.as_ref() == ignored_path
+                    {
                         return None;
                     }
                 }
