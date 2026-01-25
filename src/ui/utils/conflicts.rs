@@ -168,6 +168,7 @@ pub fn generate_suggestions(
     variables: &HashMap<String, String>,
 ) -> Vec<(String, String)> {
     let mut suggestions = Vec::new();
+    let mut seen_mods = std::collections::HashSet::new();
     let target_submap = target_submap.unwrap_or("").trim();
 
     let resolved_mods = resolve(target_mods, variables);
@@ -176,6 +177,7 @@ pub fn generate_suggestions(
 
     let potential_mods = ["SHIFT", "CTRL", "ALT", "SUPER"];
 
+    // Pre-calculate occupied keybinds for faster lookup
     let mut occupied = std::collections::HashSet::new();
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
@@ -194,6 +196,7 @@ pub fn generate_suggestions(
         !occupied.contains(&(n_mods, n_key, target_submap.to_string()))
     };
 
+    // 1. Try adding a modifier
     for &pm in &potential_mods {
         if !norm_mods.contains(pm) {
             let new_mods = if target_mods.is_empty() {
@@ -202,16 +205,17 @@ pub fn generate_suggestions(
                 format!("{} {}", target_mods, pm)
             };
 
-            if is_free(&new_mods, target_key) {
+            if is_free(&new_mods, target_key) && seen_mods.insert(new_mods.clone()) {
                 suggestions.push((new_mods, target_key.to_string()));
             }
         }
     }
 
+    // 2. Try replacing modifiers (if collision exists)
     for &pm in &potential_mods {
         if !norm_mods.contains(pm) {
             let simple_mod = pm.to_string();
-            if is_free(&simple_mod, target_key) {
+            if is_free(&simple_mod, target_key) && seen_mods.insert(simple_mod.clone()) {
                 suggestions.push((simple_mod, target_key.to_string()));
             }
         }
