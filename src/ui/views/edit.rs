@@ -535,6 +535,8 @@ pub fn create_edit_view(
     let conflict_target_label_c = conflict_panel.target_label.clone();
     let conflict_suggestions_box_c = conflict_panel.suggestions_box.clone();
 
+    let model_c = model.clone();
+
     save_btn.connect_clicked(move |_| {
         let new_key = if mouse_switch_c.is_active() {
             get_mouse_code_from_index(mouse_dropdown_c.selected()).to_string()
@@ -591,10 +593,12 @@ pub fn create_edit_view(
             }
         }
 
+        let variables = parser::get_variables().unwrap_or_default();
+
         // Conflict Checking
         // We pass Some(line_number) to ignore the current line being edited
         let submap_check = current_submap_clone.as_deref();
-        if let Some(conflict) = check_conflict(&new_mods, &new_key, submap_check, Some(line_number)) {
+        if let Some(conflict) = check_conflict(&new_mods, &new_key, submap_check, Some(line_number), &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
                 conflict.dispatcher, conflict.args, conflict.file, conflict.line
@@ -605,7 +609,7 @@ pub fn create_edit_view(
                 conflict_suggestions_box_c.remove(&child);
             }
 
-            let suggestions = generate_suggestions(&new_mods, &new_key, submap_check);
+            let suggestions = generate_suggestions(&new_mods, &new_key, submap_check, &model_c, &variables);
             if suggestions.is_empty() {
                 conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
             } else {

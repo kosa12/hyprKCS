@@ -1,6 +1,7 @@
-use crate::parser;
+use crate::keybind_object::KeybindObject;
 use crate::ui::utils::components::{create_destructive_button, create_pill_button};
 use crate::ui::utils::keybinds::normalize;
+use gtk::gio;
 use gtk::prelude::*;
 use gtk4 as gtk;
 use std::collections::HashMap;
@@ -115,33 +116,42 @@ pub fn check_conflict(
     target_key: &str,
     target_submap: Option<&str>,
     ignore_line: Option<usize>,
+    model: &gio::ListStore,
+    variables: &HashMap<String, String>,
 ) -> Option<ConflictInfo> {
-    let keybinds = parser::parse_config().unwrap_or_default();
-    let variables = parser::get_variables().unwrap_or_default();
-
-    let resolved_mods = resolve(target_mods, &variables);
-    let resolved_key = resolve(target_key, &variables);
+    let resolved_mods = resolve(target_mods, variables);
+    let resolved_key = resolve(target_key, variables);
 
     let (norm_mods, norm_key) = normalize(&resolved_mods, &resolved_key);
     let target_submap = target_submap.unwrap_or("").trim();
 
-    for kb in keybinds {
-        if let Some(ignored) = ignore_line {
-            if kb.line_number == ignored {
-                continue;
-            }
-        }
+    for i in 0..model.n_items() {
+        if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+            let conflict_found = obj.with_data(|data| {
+                if let Some(ignored) = ignore_line {
+                    if data.line_number as usize == ignored {
+                        return None;
+                    }
+                }
 
-        let (kb_mods, kb_key) = normalize(&kb.clean_mods, &kb.key);
-        let kb_submap = kb.submap.as_deref().unwrap_or("").trim();
+                let (kb_mods, kb_key) = normalize(&data.clean_mods, &data.key);
+                let kb_submap = data.submap.as_deref().unwrap_or("").trim();
 
-        if norm_mods == kb_mods && norm_key == kb_key && target_submap == kb_submap {
-            return Some(ConflictInfo {
-                dispatcher: kb.dispatcher.to_string(),
-                args: kb.args.to_string(),
-                file: kb.file_path.to_string_lossy().to_string(),
-                line: kb.line_number,
+                if norm_mods == kb_mods && norm_key == kb_key && target_submap == kb_submap {
+                    Some(ConflictInfo {
+                        dispatcher: data.dispatcher.to_string(),
+                        args: data.args.as_deref().unwrap_or("").to_string(),
+                        file: data.file_path.to_string(),
+                        line: data.line_number as usize,
+                    })
+                } else {
+                    None
+                }
             });
+
+            if conflict_found.is_some() {
+                return conflict_found;
+            }
         }
     }
 
@@ -152,29 +162,34 @@ pub fn generate_suggestions(
     target_mods: &str,
     target_key: &str,
     target_submap: Option<&str>,
+    model: &gio::ListStore,
+    variables: &HashMap<String, String>,
 ) -> Vec<(String, String)> {
     let mut suggestions = Vec::new();
-    let keybinds = parser::parse_config().unwrap_or_default();
-    let variables = parser::get_variables().unwrap_or_default();
-
     let target_submap = target_submap.unwrap_or("").trim();
 
-    let resolved_mods = resolve(target_mods, &variables);
-    let resolved_key = resolve(target_key, &variables);
+    let resolved_mods = resolve(target_mods, variables);
+    let resolved_key = resolve(target_key, variables);
     let (norm_mods, _norm_key) = normalize(&resolved_mods, &resolved_key);
 
     let potential_mods = ["SHIFT", "CTRL", "ALT", "SUPER"];
 
-    let is_free = |mods: &str, key: &str| -> bool {
-        let r_mods = resolve(mods, &variables);
-        let r_key = resolve(key, &variables);
-        let (n_mods, n_key) = normalize(&r_mods, &r_key);
+    let mut occupied = std::collections::HashSet::new();
+    for i in 0..model.n_items() {
+        if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+            obj.with_data(|data| {
+                let (k_mods, k_key) = normalize(&data.clean_mods, &data.key);
+                let k_submap = data.submap.as_deref().unwrap_or("").trim();
+                occupied.insert((k_mods, k_key, k_submap.to_string()));
+            });
+        }
+    }
 
-        !keybinds.iter().any(|kb| {
-            let (k_mods, k_key) = normalize(&kb.clean_mods, &kb.key);
-            let k_submap = kb.submap.as_deref().unwrap_or("").trim();
-            k_mods == n_mods && k_key == n_key && k_submap == target_submap
-        })
+    let is_free = |mods: &str, key: &str| -> bool {
+        let r_mods = resolve(mods, variables);
+        let r_key = resolve(key, variables);
+        let (n_mods, n_key) = normalize(&r_mods, &r_key);
+        !occupied.contains(&(n_mods, n_key, target_submap.to_string()))
     };
 
     for &pm in &potential_mods {
@@ -191,7 +206,6 @@ pub fn generate_suggestions(
         }
     }
 
-    // 2. Try replacing modifiers (if collision exists)
     for &pm in &potential_mods {
         if !norm_mods.contains(pm) {
             let simple_mod = pm.to_string();
@@ -201,7 +215,6 @@ pub fn generate_suggestions(
         }
     }
 
-    // Limit and deduplicate
     suggestions.truncate(3);
     suggestions
 }

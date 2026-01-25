@@ -415,6 +415,7 @@ pub fn create_add_view(
 
     let mouse_switch_c = mouse_switch.clone();
     let mouse_dropdown_c = mouse_dropdown.clone();
+    let model_c = model.clone();
 
     add_btn.connect_clicked(move |_| {
         let key = if mouse_switch_c.is_active() {
@@ -477,8 +478,10 @@ pub fn create_add_view(
             }
         }
 
+        let variables = parser::get_variables().unwrap_or_default();
+
         // Check for conflicts
-        if let Some(conflict) = check_conflict(&mods, &key, submap, None) {
+        if let Some(conflict) = check_conflict(&mods, &key, submap, None, &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
                 conflict.dispatcher, conflict.args, conflict.file, conflict.line
@@ -489,7 +492,7 @@ pub fn create_add_view(
                 conflict_suggestions_box_c.remove(&child);
             }
 
-            let suggestions = generate_suggestions(&mods, &key, submap);
+            let suggestions = generate_suggestions(&mods, &key, submap, &model_c, &variables);
             if suggestions.is_empty() {
                 conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
             } else {
