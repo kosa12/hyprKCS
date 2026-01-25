@@ -31,9 +31,11 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         .tooltip_text("Back to List")
         .build();
 
-    let stack_clone = stack.clone();
+    let stack_weak = stack.downgrade();
     back_btn.connect_clicked(move |_| {
-        stack_clone.set_visible_child_name("home");
+        if let Some(s) = stack_weak.upgrade() {
+            s.set_visible_child_name("home");
+        }
     });
 
     let title = gtk::Label::builder()

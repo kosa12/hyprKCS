@@ -36,13 +36,15 @@ pub fn create_add_view(
 
     local_stack.add_named(&container, Some("form"));
 
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
     let header = create_page_header(
         "Add New Keybind",
         Some("Fill in the details below to add a new keybind"),
         "Back",
         move || {
-            stack_c.set_visible_child_name("home");
+            if let Some(s) = stack_weak.upgrade() {
+                s.set_visible_child_name("home");
+            }
         },
     );
 
@@ -285,19 +287,25 @@ pub fn create_add_view(
         }
     });
 
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
     cancel_btn.connect_clicked(move |_| {
-        stack_c.set_visible_child_name("home");
+        if let Some(s) = stack_weak.upgrade() {
+            s.set_visible_child_name("home");
+        }
     });
 
-    let local_stack_c = local_stack.clone();
+    let local_stack_weak = local_stack.downgrade();
     confirm_back_btn.connect_clicked(move |_| {
-        local_stack_c.set_visible_child_name("form");
+        if let Some(ls) = local_stack_weak.upgrade() {
+            ls.set_visible_child_name("form");
+        }
     });
 
-    let local_stack_c = local_stack.clone();
+    let local_stack_weak = local_stack.downgrade();
     conflict_panel.back_btn.connect_clicked(move |_| {
-        local_stack_c.set_visible_child_name("form");
+        if let Some(ls) = local_stack_weak.upgrade() {
+            ls.set_visible_child_name("form");
+        }
     });
 
     let model_clone = model.clone();
@@ -313,7 +321,7 @@ pub fn create_add_view(
     let flags_dropdown_c = flags_dropdown.clone();
     let mouse_switch_c = mouse_switch.clone();
     let mouse_dropdown_c = mouse_dropdown.clone();
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
 
     // Core Add Logic
     let perform_add = Rc::new(move || {
@@ -378,7 +386,9 @@ pub fn create_add_view(
                     .timeout(3)
                     .build();
                 toast_overlay_clone.add_toast(toast);
-                stack_c.set_visible_child_name("home");
+                if let Some(s) = stack_weak.upgrade() {
+                    s.set_visible_child_name("home");
+                }
             }
             Err(e) => {
                 let toast = adw::Toast::builder()
@@ -503,14 +513,16 @@ pub fn create_add_view(
                     let btn = create_suggested_button(&format!("{} + {}", s_mods, s_key), None);
                     let entry_mods_c_s = entry_mods_c.clone();
                     let entry_key_c_s = entry_key_c.clone();
-                    let local_stack_c_s = local_stack_c.clone();
                     let s_mods_str = s_mods.clone();
                     let s_key_str = s_key.clone();
+                    let local_stack_weak = local_stack_c.downgrade();
 
                     btn.connect_clicked(move |_| {
-                        entry_mods_c_s.set_text(&s_mods_str);
-                        entry_key_c_s.set_text(&s_key_str);
-                        local_stack_c_s.set_visible_child_name("form");
+                        if let Some(ls) = local_stack_weak.upgrade() {
+                            entry_mods_c_s.set_text(&s_mods_str);
+                            entry_key_c_s.set_text(&s_key_str);
+                            ls.set_visible_child_name("form");
+                        }
                     });
                     conflict_suggestions_box_c.append(&btn);
                 }

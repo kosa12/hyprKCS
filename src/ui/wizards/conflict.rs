@@ -80,9 +80,11 @@ pub fn create_conflict_wizard(
 
         let btn = create_suggested_button("Return Home", None);
 
-        let stack_clone = stack.clone();
+        let stack_weak = stack.downgrade();
         btn.connect_clicked(move |_| {
-            stack_clone.set_visible_child_name("home");
+            if let Some(s) = stack_weak.upgrade() {
+                s.set_visible_child_name("home");
+            }
         });
 
         status.set_child(Some(&btn));
@@ -110,7 +112,7 @@ pub fn create_conflict_wizard(
         .build();
 
     // Header
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
     let header_box = create_page_header(
         &format!(
             "Conflict {} of {}: {} {}",
@@ -125,7 +127,9 @@ pub fn create_conflict_wizard(
         )),
         "Back",
         move || {
-            stack_c.set_visible_child_name("home");
+            if let Some(s) = stack_weak.upgrade() {
+                s.set_visible_child_name("home");
+            }
         },
     );
     container.append(&header_box);
@@ -187,19 +191,25 @@ pub fn create_conflict_wizard(
         list_box.append(&row);
 
         // Wiring up buttons
-        let stack_c = stack.clone();
+        let stack_weak = stack.downgrade();
         let model_c = model.clone();
-        let column_view_c = column_view.clone();
-        let selection_model_c = selection_model.clone();
-        let toast_overlay_c = toast_overlay.clone();
-        let wizard_container_c = wizard_container.clone();
+        let column_view_weak = column_view.downgrade();
+        let selection_model_weak = selection_model.downgrade();
+        let toast_overlay_weak = toast_overlay.downgrade();
+        let wizard_container_weak = wizard_container.downgrade();
         let file_path_buf = std::path::PathBuf::from(&file_path);
 
         // Delete keeps us on the SAME index (the next one slides in)
         delete_btn.connect_clicked(move |_| {
+            let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
+            let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
+            let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
+            let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
+            let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
+
             if let Err(e) = parser::delete_keybind(file_path_buf.clone(), line_num as usize) {
                 let toast = adw::Toast::new(&format!("Error: {}", e));
-                toast_overlay_c.add_toast(toast);
+                toast_overlay.add_toast(toast);
             } else {
                 crate::ui::utils::reload_keybinds(&model_c);
 
@@ -208,43 +218,48 @@ pub fn create_conflict_wizard(
                 }
 
                 refresh_wizard(
-                    &stack_c,
+                    &stack,
                     &model_c,
-                    &column_view_c,
-                    &selection_model_c,
-                    &toast_overlay_c,
-                    &wizard_container_c,
+                    &column_view,
+                    &selection_model,
+                    &toast_overlay,
+                    &wizard_container,
                     actual_index,
                 );
             }
         });
 
-        let stack_c = stack.clone();
+        let stack_weak = stack.downgrade();
         let model_c = model.clone();
-        let column_view_c = column_view.clone();
-        let selection_model_c = selection_model.clone();
-        let toast_overlay_c = toast_overlay.clone();
+        let column_view_weak = column_view.downgrade();
+        let selection_model_weak = selection_model.downgrade();
+        let toast_overlay_weak = toast_overlay.downgrade();
         let obj_clone_2 = obj.clone();
 
         edit_btn.connect_clicked(move |_| {
+            let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
+            let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
+            let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
+            let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
+
             if let Some(edit_page_container) =
-                stack_c.child_by_name("edit").and_downcast::<gtk::Box>()
+                stack.child_by_name("edit").and_downcast::<gtk::Box>()
             {
                 while let Some(child) = edit_page_container.first_child() {
                     edit_page_container.remove(&child);
                 }
 
                 let edit_view = create_edit_view(
-                    &stack_c,
+                    &stack,
                     obj_clone_2.clone(),
                     &model_c,
-                    &column_view_c,
-                    &selection_model_c,
-                    &toast_overlay_c,
+                    &column_view,
+                    &selection_model,
+                    &toast_overlay,
                     &edit_page_container,
                 );
                 edit_page_container.append(&edit_view);
-                stack_c.set_visible_child_name("edit");
+                stack.set_visible_child_name("edit");
             }
         });
     }
@@ -260,27 +275,35 @@ pub fn create_conflict_wizard(
     }
     bottom_bar.set_end_widget(Some(&done_btn));
 
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
     done_btn.connect_clicked(move |_| {
-        stack_c.set_visible_child_name("home");
+        if let Some(s) = stack_weak.upgrade() {
+            s.set_visible_child_name("home");
+        }
     });
 
-    let stack_c = stack.clone();
+    let stack_weak = stack.downgrade();
     let model_c = model.clone();
-    let column_view_c = column_view.clone();
-    let selection_model_c = selection_model.clone();
-    let toast_overlay_c = toast_overlay.clone();
-    let wizard_container_c = wizard_container.clone();
+    let column_view_weak = column_view.downgrade();
+    let selection_model_weak = selection_model.downgrade();
+    let toast_overlay_weak = toast_overlay.downgrade();
+    let wizard_container_weak = wizard_container.downgrade();
 
     // Skip moves to NEXT index
     skip_btn.connect_clicked(move |_| {
+        let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
+        let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
+        let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
+        let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
+        let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
+
         refresh_wizard(
-            &stack_c,
+            &stack,
             &model_c,
-            &column_view_c,
-            &selection_model_c,
-            &toast_overlay_c,
-            &wizard_container_c,
+            &column_view,
+            &selection_model,
+            &toast_overlay,
+            &wizard_container,
             actual_index + 1,
         );
     });
