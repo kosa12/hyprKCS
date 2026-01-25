@@ -478,7 +478,10 @@ pub fn create_add_view(
             }
         }
 
-        let variables = parser::get_variables().unwrap_or_default();
+        let variables = parser::get_variables().unwrap_or_else(|e| {
+            eprintln!("Failed to load variables for conflict checking: {}", e);
+            std::collections::HashMap::new()
+        });
 
         // Check for conflicts
         if let Some(conflict) = check_conflict(&mods, &key, submap, None, &model_c, &variables) {

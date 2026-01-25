@@ -545,7 +545,7 @@ pub fn create_edit_view(
             entry_key_c.text().to_string()
         };
         let input_mods = entry_mods_c.text().to_string();
-        let final_mods = if mods_had_prefix {
+        let final_mods = if mods_had_prefix && !input_mods.starts_with('$') {
             format!("${}", input_mods)
         } else {
             input_mods
@@ -599,7 +599,10 @@ pub fn create_edit_view(
             }
         }
 
-        let variables = parser::get_variables().unwrap_or_default();
+        let variables = parser::get_variables().unwrap_or_else(|e| {
+            eprintln!("Failed to load variables for conflict checking: {}", e);
+            std::collections::HashMap::new()
+        });
 
         // Conflict Checking
         // We pass Some(line_number) to ignore the current line being edited

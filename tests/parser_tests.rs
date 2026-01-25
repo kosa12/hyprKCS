@@ -308,3 +308,53 @@ fn test_mouse_scroll_parsing() {
 
     assert_eq!(binds[1].key.as_ref(), "mouse_down");
 }
+
+#[test]
+fn test_variable_resolution_conflict_simulation() {
+    let _guard = lock_env();
+    let content = "$mainMod = SUPER\nbind = $mainMod, Q, exec, kitty";
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    // 1. Verify parse_config resolves variable
+    let binds = parse_config().expect("Failed to parse");
+    assert_eq!(binds.len(), 1);
+    assert_eq!(binds[0].mods.as_ref(), "SUPER");
+
+    // 2. Verify get_variables returns the variable
+    let variables = get_variables().expect("Failed to get variables");
+    assert_eq!(variables.get("$mainMod"), Some(&"SUPER".to_string()));
+
+    // 3. Simulate check_conflict logic
+    // Input: mods="$mainMod", key="Q"
+    let input_mods = "$mainMod";
+    let input_key = "Q";
+
+    // Resolve
+    let resolved_mods = if input_mods.contains('$') {
+        let mut result = input_mods.to_string();
+        // Simple resolve simulation matching conflicts.rs logic
+        for (key, val) in &variables {
+            if result.contains(key) {
+                result = result.replace(key, val);
+            }
+        }
+        result
+    } else {
+        input_mods.to_string()
+    };
+    assert_eq!(resolved_mods, "SUPER");
+
+    // Normalize
+    // (Simulate normalize: SUPER -> SUPER, Q -> q)
+    let norm_mods = resolved_mods.to_uppercase();
+    let norm_key = input_key.to_lowercase();
+
+    // Check against existing
+    let kb = &binds[0];
+    let kb_mods = kb.mods.to_uppercase();
+    let kb_key = kb.key.to_lowercase();
+
+    assert_eq!(norm_mods, kb_mods);
+    assert_eq!(norm_key, kb_key);
+}
