@@ -3,6 +3,7 @@ use crate::ui::utils::components::{
     create_flags_dropdown, create_mouse_button_dropdown, create_recorder_row, get_flag_from_index,
     get_mouse_code_from_index,
 };
+use crate::ui::utils::conflicts::{check_conflict, generate_suggestions};
 use crate::ui::utils::macro_builder::{compile_macro, create_macro_row};
 use crate::ui::utils::{
     command_exists, create_destructive_button, create_form_group, create_page_header,
@@ -253,6 +254,11 @@ pub fn create_add_view(
 
     local_stack.add_named(&confirm_container, Some("confirm"));
 
+    // --- Conflict View Construction ---
+    use crate::ui::utils::conflicts::create_conflict_panel;
+    let conflict_panel = create_conflict_panel("Add Anyway");
+    local_stack.add_named(&conflict_panel.container, Some("conflict"));
+
     // --- Logic ---
 
     let entry_dispatcher_exec = entry_dispatcher.clone();
@@ -286,6 +292,11 @@ pub fn create_add_view(
 
     let local_stack_c = local_stack.clone();
     confirm_back_btn.connect_clicked(move |_| {
+        local_stack_c.set_visible_child_name("form");
+    });
+
+    let local_stack_c = local_stack.clone();
+    conflict_panel.back_btn.connect_clicked(move |_| {
         local_stack_c.set_visible_child_name("form");
     });
 
@@ -384,19 +395,41 @@ pub fn create_add_view(
         perform_add_c();
     });
 
+    let perform_add_c = perform_add.clone();
+    conflict_panel.proceed_btn.connect_clicked(move |_| {
+        perform_add_c();
+    });
+
+    let entry_mods_c = entry_mods.clone();
     let entry_key_c = entry_key.clone();
     let entry_dispatcher_c = entry_dispatcher.clone();
     let entry_args_c = entry_args.clone();
+    let entry_submap_c = entry_submap.clone();
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
     let toast_overlay_clone = toast_overlay.clone();
     let local_stack_c = local_stack.clone();
     let confirm_label_c = confirm_label.clone();
+    let conflict_target_label_c = conflict_panel.target_label.clone();
+    let conflict_suggestions_box_c = conflict_panel.suggestions_box.clone();
 
     let mouse_switch_c = mouse_switch.clone();
+    let mouse_dropdown_c = mouse_dropdown.clone();
 
     add_btn.connect_clicked(move |_| {
-        let key = entry_key_c.text().to_string();
+        let key = if mouse_switch_c.is_active() {
+            get_mouse_code_from_index(mouse_dropdown_c.selected()).to_string()
+        } else {
+            entry_key_c.text().to_string()
+        };
+        let mods = entry_mods_c.text().to_string();
+        let submap_raw = entry_submap_c.text().to_string();
+        let submap_trimmed = submap_raw.trim();
+        let submap = if submap_trimmed.is_empty() {
+            None
+        } else {
+            Some(submap_trimmed)
+        };
 
         if !mouse_switch_c.is_active() && key.trim().is_empty() {
              let toast = adw::Toast::builder()
@@ -442,6 +475,43 @@ pub fn create_add_view(
                     return;
                 }
             }
+        }
+
+        // Check for conflicts
+        if let Some(conflict) = check_conflict(&mods, &key, submap, None) {
+            conflict_target_label_c.set_label(&format!(
+                "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
+                conflict.dispatcher, conflict.args, conflict.file, conflict.line
+            ));
+
+            // Populate suggestions
+            while let Some(child) = conflict_suggestions_box_c.first_child() {
+                conflict_suggestions_box_c.remove(&child);
+            }
+
+            let suggestions = generate_suggestions(&mods, &key, submap);
+            if suggestions.is_empty() {
+                conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
+            } else {
+                for (s_mods, s_key) in suggestions {
+                    let btn = create_suggested_button(&format!("{} + {}", s_mods, s_key), None);
+                    let entry_mods_c_s = entry_mods_c.clone();
+                    let entry_key_c_s = entry_key_c.clone();
+                    let local_stack_c_s = local_stack_c.clone();
+                    let s_mods_str = s_mods.clone();
+                    let s_key_str = s_key.clone();
+
+                    btn.connect_clicked(move |_| {
+                        entry_mods_c_s.set_text(&s_mods_str);
+                        entry_key_c_s.set_text(&s_key_str);
+                        local_stack_c_s.set_visible_child_name("form");
+                    });
+                    conflict_suggestions_box_c.append(&btn);
+                }
+            }
+
+            local_stack_c.set_visible_child_name("conflict");
+            return;
         }
 
         perform_add();

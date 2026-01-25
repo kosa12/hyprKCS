@@ -487,6 +487,8 @@ pub fn build_ui(app: &adw::Application) {
                                 &root_stack_c,
                                 obj,
                                 &model_key,
+                                &column_view_focus,
+                                &selection_model_key,
                                 &toast_overlay_key,
                                 &edit_page_container_key,
                             );
@@ -539,6 +541,8 @@ pub fn build_ui(app: &adw::Application) {
                 &root_stack_edit,
                 obj,
                 &model_store,
+                view,
+                &selection,
                 &toast_overlay_activate,
                 &edit_page_container_c,
             );
@@ -627,6 +631,7 @@ pub fn build_ui(app: &adw::Application) {
     let toast_wizard = toast_overlay.clone();
     let wizard_container_c = wizard_page_container.clone();
 
+    let column_view_wizard = column_view.clone();
     conflict_button.connect_clicked(move |_| {
         while let Some(child) = wizard_container_c.first_child() {
             wizard_container_c.remove(&child);
@@ -635,6 +640,8 @@ pub fn build_ui(app: &adw::Application) {
         let wizard_view = create_conflict_wizard(
             &stack_wizard,
             &model_wizard,
+            &column_view_wizard,
+            &selection_model,
             &toast_wizard,
             &wizard_container_c,
             0,
