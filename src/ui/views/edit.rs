@@ -544,7 +544,12 @@ pub fn create_edit_view(
         } else {
             entry_key_c.text().to_string()
         };
-        let new_mods = entry_mods_c.text().to_string();
+        let input_mods = entry_mods_c.text().to_string();
+        let final_mods = if mods_had_prefix {
+            format!("${}", input_mods)
+        } else {
+            input_mods
+        };
 
         if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
@@ -599,7 +604,7 @@ pub fn create_edit_view(
         // Conflict Checking
         // We pass Some(line_number) to ignore the current line being edited
         let submap_check = current_submap_clone.as_deref();
-        if let Some(conflict) = check_conflict(&new_mods, &new_key, submap_check, Some((&file_path_str_c, line_number)), &model_c, &variables) {
+        if let Some(conflict) = check_conflict(&final_mods, &new_key, submap_check, Some((&file_path_str_c, line_number)), &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
                 conflict.dispatcher, conflict.args, conflict.file, conflict.line
@@ -610,7 +615,7 @@ pub fn create_edit_view(
                 conflict_suggestions_box_c.remove(&child);
             }
 
-            let suggestions = generate_suggestions(&new_mods, &new_key, submap_check, &model_c, &variables);
+            let suggestions = generate_suggestions(&final_mods, &new_key, submap_check, &model_c, &variables);
             if suggestions.is_empty() {
                 conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
             } else {
