@@ -11,7 +11,7 @@ struct StringPool(HashSet<Rc<str>>);
 
 impl StringPool {
     fn new() -> Self {
-        Self(HashSet::with_capacity(128))
+        Self(HashSet::with_capacity(512))
     }
 
     fn intern(&mut self, s: Rc<str>) -> Rc<str> {
@@ -114,6 +114,7 @@ pub fn reload_keybinds(model: &gio::ListStore) {
     let favs = load_favorites();
 
     let mut pool = StringPool::new();
+    let mut new_objects = Vec::with_capacity(keybinds.len());
 
     for ((mut kb, conflict), is_broken) in keybinds
         .drain(..)
@@ -174,15 +175,15 @@ pub fn reload_keybinds(model: &gio::ListStore) {
             Some(kb.args.clone())
         };
 
-        let description_lower = kb.description.as_ref().and_then(|desc| {
+        let description_lower = kb.description.as_ref().map(|desc| {
             if desc.chars().any(|c| c.is_uppercase()) {
-                Some(pool.intern(desc.to_lowercase().into()))
+                pool.intern(desc.to_lowercase().into())
             } else {
-                Some(desc.clone())
+                desc.clone()
             }
         });
 
-        model.append(&KeybindObject::new(
+        new_objects.push(KeybindObject::new(
             kb.clone(),
             conflict.map(|s| s.to_string()),
             is_broken.map(|s| s.to_string()),
@@ -197,5 +198,5 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         ));
     }
 
-    // Sort model by line number by default
+    model.splice(0, 0, &new_objects);
 }

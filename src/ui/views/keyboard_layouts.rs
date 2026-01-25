@@ -389,6 +389,7 @@ pub const HU_ROW_4: &[KeyDef] = &[
 
 pub const HU_ROW_5: &[KeyDef] = ISO_ROW_5;
 
+#[allow(clippy::type_complexity)]
 pub fn get_layout_rows(layout: &str) -> (&[KeyDef], &[KeyDef], &[KeyDef], &[KeyDef], &[KeyDef]) {
     match layout {
         "ISO" => (ISO_ROW_1, ISO_ROW_2, ISO_ROW_3, ISO_ROW_4, ISO_ROW_5),

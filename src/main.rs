@@ -41,27 +41,27 @@ fn main() -> glib::ExitCode {
                                 .unwrap_or_default();
 
                             if let Some(ref q_mods) = query.mods {
-                                if !mods.contains(q_mods) {
+                                if !mods.contains(q_mods.as_ref()) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_key) = query.key {
-                                if !key.contains(q_key) {
+                                if !key.contains(q_key.as_ref()) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_action) = query.action {
-                                if !dispatcher.contains(q_action) {
+                                if !dispatcher.contains(q_action.as_ref()) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_args) = query.args {
-                                if !args_str.contains(q_args) {
+                                if !args_str.contains(q_args.as_ref()) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_desc) = query.description {
-                                if !desc_str.contains(q_desc) {
+                                if !desc_str.contains(q_desc.as_ref()) {
                                     return false;
                                 }
                             }
@@ -69,7 +69,7 @@ fn main() -> glib::ExitCode {
                             if query.general_query.is_empty() {
                                 return true;
                             }
-                            let text_to_match = &query.general_query;
+                            let text_to_match: &str = query.general_query.as_ref();
 
                             matcher.fuzzy_match(&mods, text_to_match).is_some()
                                 || matcher.fuzzy_match(&key, text_to_match).is_some()
@@ -137,6 +137,11 @@ fn main() -> glib::ExitCode {
     });
 
     app.connect_activate(ui::window::build_ui);
+
+    // Cleanup on shutdown
+    app.connect_shutdown(|_| {
+        ui::style::cleanup();
+    });
 
     app.run_with_args(&Vec::<String>::new())
 }

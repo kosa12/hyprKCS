@@ -138,7 +138,7 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
         };
 
         // If already listening, stop listening and reset
-        if btn.label().map_or(false, |l| l == "Listening...") {
+        if btn.label().is_some_and(|l| l == "Listening...") {
             btn.set_label("Record Combo");
             btn.remove_css_class("suggested-action");
             execute_hyprctl(&["reload"]);
@@ -179,7 +179,7 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
         };
 
         // Only process if we are actually listening
-        if record_btn.label().map_or(true, |l| l != "Listening...") {
+        if record_btn.label().is_none_or(|l| l != "Listening...") {
             return glib::Propagation::Proceed;
         }
 

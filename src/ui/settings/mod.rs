@@ -17,6 +17,7 @@ use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_settings_view(
     window: &adw::ApplicationWindow,
     stack: &gtk::Stack,

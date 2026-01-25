@@ -255,7 +255,7 @@ pub fn create_edit_view(
     });
 
     let entry_desc = gtk::Entry::builder()
-        .text(&obj.property::<String>("description"))
+        .text(obj.property::<String>("description"))
         .placeholder_text("Comment appended to the config line")
         .activates_default(true)
         .build();
@@ -430,7 +430,7 @@ pub fn create_edit_view(
                     None => {
                         let toast = adw::Toast::builder()
                             .title("Macro is empty or invalid")
-                            .timeout(3)
+                            .timeout(crate::config::constants::TOAST_TIMEOUT)
                             .build();
                         toast_overlay_clone.add_toast(toast);
                         return;
@@ -492,7 +492,7 @@ pub fn create_edit_view(
 
                     let toast = adw::Toast::builder()
                         .title("Keybind saved")
-                        .timeout(3)
+                        .timeout(crate::config::constants::TOAST_TIMEOUT)
                         .build();
                     toast_overlay_clone.add_toast(toast);
                     if let Some(s) = stack_weak.upgrade() {
@@ -501,8 +501,8 @@ pub fn create_edit_view(
                 }
                 Err(e) => {
                     let toast = adw::Toast::builder()
-                        .title(&format!("Error: {}", e))
-                        .timeout(5)
+                        .title(format!("Error: {}", e))
+                        .timeout(crate::config::constants::TOAST_TIMEOUT)
                         .build();
                     toast_overlay_clone.add_toast(toast);
                 }
@@ -564,7 +564,7 @@ pub fn create_edit_view(
         if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
-                .timeout(3)
+                                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                 .build();
             toast_overlay_clone.add_toast(toast);
             return;
@@ -574,7 +574,7 @@ pub fn create_edit_view(
              if compile_macro(&macro_list_c).is_none() {
                  let toast = adw::Toast::builder()
                     .title("Error: Macro must have at least one valid action")
-                    .timeout(3)
+                                        .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;
@@ -586,7 +586,7 @@ pub fn create_edit_view(
              if new_dispatcher.trim().is_empty() {
                 let toast = adw::Toast::builder()
                     .title("Error: Dispatcher cannot be empty")
-                    .timeout(3)
+                                        .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;
@@ -596,15 +596,13 @@ pub fn create_edit_view(
             if new_dispatcher == "exec" || new_dispatcher == "execr" {
                 let cmd = new_args.trim();
                 // Don't validate if it looks like a variable
-                if !cmd.starts_with('$') {
-                    if !command_exists(cmd) {
-                        confirm_label_c.set_label(&format!(
-                            "The command '{}' was not found in your PATH.\nAre you sure you want to save this keybind?",
-                            cmd
-                        ));
-                        local_stack_c.set_visible_child_name("confirm");
-                        return;
-                    }
+                if !cmd.starts_with('$') && !command_exists(cmd) {
+                    confirm_label_c.set_label(&format!(
+                        "The command '{}' was not found in your PATH.\nAre you sure you want to save this keybind?",
+                        cmd
+                    ));
+                    local_stack_c.set_visible_child_name("confirm");
+                    return;
                 }
             }
         }
@@ -675,7 +673,7 @@ pub fn create_edit_view(
 
                 let toast = adw::Toast::builder()
                     .title("Keybind deleted")
-                    .timeout(3)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 if let Some(s) = stack_weak.upgrade() {
@@ -684,8 +682,8 @@ pub fn create_edit_view(
             }
             Err(e) => {
                 let toast = adw::Toast::builder()
-                    .title(&format!("Error: {}", e))
-                    .timeout(5)
+                    .title(format!("Error: {}", e))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
             }

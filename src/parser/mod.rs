@@ -43,6 +43,9 @@ fn resolve_variables(
     for key in sorted_keys {
         if result.contains(key) {
             result = result.replace(key, &vars[key]);
+            if !result.contains('$') {
+                break;
+            }
         }
     }
     result
@@ -277,16 +280,12 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
 
                 // Custom splitter to respect quotes (e.g. for bash -c "...")
-                let mut parts = Vec::new();
-                let mut current_part = String::new();
+                let mut parts = Vec::with_capacity(4);
+                let mut current_part = String::with_capacity(32);
                 let mut in_quote = false;
                 let mut parts_count = 0;
 
-                let chars: Vec<char> = content_clean.chars().collect();
-                let mut i = 0;
-                while i < chars.len() {
-                    let c = chars[i];
-
+                for c in content_clean.chars() {
                     if parts_count < 3 {
                         if c == '"' {
                             in_quote = !in_quote;
@@ -302,7 +301,6 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         // For the 4th part (args), just take everything else
                         current_part.push(c);
                     }
-                    i += 1;
                 }
                 if !current_part.trim().is_empty() || parts_count >= 3 {
                     parts.push(current_part.trim().to_string());
@@ -366,6 +364,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     Ok(keybinds)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_line(
     path: PathBuf,
     line_number: usize,
@@ -396,8 +395,7 @@ pub fn update_line(
     let indent = &original_line[..indent_len];
     let trimmed_start = &original_line[indent_len..];
 
-    if trimmed_start.starts_with("bind") {
-        let after_bind = &trimmed_start[4..];
+    if let Some(after_bind) = trimmed_start.strip_prefix("bind") {
         if let Some(eq_idx) = after_bind.find('=') {
             let current_flags = after_bind[..eq_idx].trim();
 
@@ -444,6 +442,7 @@ pub fn update_line(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn add_keybind(
     path: PathBuf,
     mods: &str,
@@ -574,8 +573,7 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
         let indent = &original_line[..indent_len];
         let trimmed_start = &original_line[indent_len..];
 
-        if trimmed_start.starts_with("bind") {
-            let after_bind = &trimmed_start[4..];
+        if let Some(after_bind) = trimmed_start.strip_prefix("bind") {
             if let Some(eq_idx) = after_bind.find('=') {
                 let flags = after_bind[..eq_idx].trim();
 

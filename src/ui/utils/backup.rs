@@ -131,22 +131,20 @@ pub fn restore_backup(backup_path: &Path) -> Result<String> {
 
             if path.is_dir() {
                 restore_recursive(&path, backup_root, target_root, count, errors)?;
-            } else {
-                if let Ok(rel_path) = path.strip_prefix(backup_root) {
-                    let dest = target_root.join(rel_path);
+            } else if let Ok(rel_path) = path.strip_prefix(backup_root) {
+                let dest = target_root.join(rel_path);
 
-                    if let Some(parent) = dest.parent() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            errors.push(format!("Failed to create dir {:?}: {}", parent, e));
-                            continue;
-                        }
+                if let Some(parent) = dest.parent() {
+                    if let Err(e) = fs::create_dir_all(parent) {
+                        errors.push(format!("Failed to create dir {:?}: {}", parent, e));
+                        continue;
                     }
+                }
 
-                    if let Err(e) = fs::copy(&path, &dest) {
-                        errors.push(format!("Failed to copy {:?} to {:?}: {}", path, dest, e));
-                    } else {
-                        *count += 1;
-                    }
+                if let Err(e) = fs::copy(&path, &dest) {
+                    errors.push(format!("Failed to copy {:?} to {:?}: {}", path, dest, e));
+                } else {
+                    *count += 1;
                 }
             }
         }
@@ -191,7 +189,7 @@ pub fn generate_diff(backup_path: &Path) -> Result<String> {
         backup_root: &Path,
         hypr_root: &Path,
         output: &mut String,
-        errors: &mut Vec<String>,
+        _errors: &mut Vec<String>,
     ) -> Result<()> {
         for entry in fs::read_dir(current_backup_dir)? {
             let entry = entry?;
@@ -204,32 +202,30 @@ pub fn generate_diff(backup_path: &Path) -> Result<String> {
             }
 
             if path.is_dir() {
-                diff_recursive(&path, backup_root, hypr_root, output, errors)?;
-            } else {
-                if let Ok(rel_path) = path.strip_prefix(backup_root) {
-                    let current_file = hypr_root.join(rel_path);
-                    let backup_content = fs::read_to_string(&path).unwrap_or_default();
-                    let current_content = if current_file.exists() {
-                        fs::read_to_string(&current_file).unwrap_or_default()
-                    } else {
-                        String::new()
-                    };
+                diff_recursive(&path, backup_root, hypr_root, output, _errors)?;
+            } else if let Ok(rel_path) = path.strip_prefix(backup_root) {
+                let current_file = hypr_root.join(rel_path);
+                let backup_content = fs::read_to_string(&path).unwrap_or_default();
+                let current_content = if current_file.exists() {
+                    fs::read_to_string(&current_file).unwrap_or_default()
+                } else {
+                    String::new()
+                };
 
-                    if backup_content != current_content {
-                        output.push_str(&format!("--- {:?}\n", rel_path));
-                        output.push_str(&format!("+++ {:?}\n", rel_path));
+                if backup_content != current_content {
+                    output.push_str(&format!("--- {:?}\n", rel_path));
+                    output.push_str(&format!("+++ {:?}\n", rel_path));
 
-                        let diff = TextDiff::from_lines(&current_content, &backup_content);
-                        for change in diff.iter_all_changes() {
-                            let sign = match change.tag() {
-                                ChangeTag::Delete => "-",
-                                ChangeTag::Insert => "+",
-                                ChangeTag::Equal => " ",
-                            };
-                            output.push_str(&format!("{}{}", sign, change));
-                        }
-                        output.push_str("\n");
+                    let diff = TextDiff::from_lines(&current_content, &backup_content);
+                    for change in diff.iter_all_changes() {
+                        let sign = match change.tag() {
+                            ChangeTag::Delete => "-",
+                            ChangeTag::Insert => "+",
+                            ChangeTag::Equal => " ",
+                        };
+                        output.push_str(&format!("{}{}", sign, change));
                     }
+                    output.push('\n');
                 }
             }
         }

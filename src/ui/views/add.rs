@@ -342,7 +342,7 @@ pub fn create_add_view(
                 None => {
                     let toast = adw::Toast::builder()
                         .title("Macro is empty or invalid")
-                        .timeout(3)
+                        .timeout(crate::config::constants::TOAST_TIMEOUT)
                         .build();
                     toast_overlay_clone.add_toast(toast);
                     return;
@@ -383,7 +383,7 @@ pub fn create_add_view(
 
                 let toast = adw::Toast::builder()
                     .title("Keybind added successfully")
-                    .timeout(3)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 if let Some(s) = stack_weak.upgrade() {
@@ -392,8 +392,8 @@ pub fn create_add_view(
             }
             Err(e) => {
                 let toast = adw::Toast::builder()
-                    .title(&format!("Error: {}", e))
-                    .timeout(5)
+                    .title(format!("Error: {}", e))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
             }
@@ -445,7 +445,7 @@ pub fn create_add_view(
         if !mouse_switch_c.is_active() && key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
-                .timeout(3)
+                .timeout(crate::config::constants::TOAST_TIMEOUT)
                 .build();
             toast_overlay_clone.add_toast(toast);
             return;
@@ -458,7 +458,7 @@ pub fn create_add_view(
              if compile_macro(&macro_list_c).is_none() {
                  let toast = adw::Toast::builder()
                     .title("Error: Macro must have at least one valid action")
-                    .timeout(3)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;
@@ -469,7 +469,7 @@ pub fn create_add_view(
             if dispatcher.trim().is_empty() {
                 let toast = adw::Toast::builder()
                     .title("Error: Dispatcher cannot be empty")
-                    .timeout(3)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;

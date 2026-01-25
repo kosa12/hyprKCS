@@ -7,6 +7,35 @@ use std::cell::RefCell;
 thread_local! {
     static THEME_MONITOR: RefCell<Option<gio::FileMonitor>> = const { RefCell::new(None) };
     static APP_PROVIDER: RefCell<Option<gtk::CssProvider>> = const { RefCell::new(None) };
+    static THEME_PROVIDER: RefCell<Option<gtk::CssProvider>> = const { RefCell::new(None) };
+}
+
+pub fn cleanup() {
+    THEME_MONITOR.with(|m| {
+        if let Some(monitor) = m.borrow_mut().take() {
+            monitor.cancel();
+        }
+    });
+
+    if let Some(display) = gtk::gdk::Display::default() {
+        APP_PROVIDER.with(|p| {
+            if let Some(provider) = p.borrow().as_ref() {
+                gtk::style_context_remove_provider_for_display(&display, provider);
+            }
+        });
+        THEME_PROVIDER.with(|p| {
+            if let Some(provider) = p.borrow().as_ref() {
+                gtk::style_context_remove_provider_for_display(&display, provider);
+            }
+        });
+    }
+
+    APP_PROVIDER.with(|p| {
+        *p.borrow_mut() = None;
+    });
+    THEME_PROVIDER.with(|p| {
+        *p.borrow_mut() = None;
+    });
 }
 
 fn generate_css(config: &StyleConfig) -> String {
@@ -310,6 +339,11 @@ pub fn load_css() {
             theme_provider.load_from_file(&css_file);
         }
     }
+
+    // Store theme provider reference for cleanup
+    THEME_PROVIDER.with(|p| {
+        *p.borrow_mut() = Some(theme_provider.clone());
+    });
 
     gtk::style_context_add_provider_for_display(
         &display,

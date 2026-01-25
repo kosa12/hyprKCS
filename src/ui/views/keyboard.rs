@@ -39,7 +39,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     });
 
     let title = gtk::Label::builder()
-        .label(&format!("Visual Keyboard Map ({})", layout))
+        .label(format!("Visual Keyboard Map ({})", layout))
         .css_classes(["title-2"])
         .build();
 
