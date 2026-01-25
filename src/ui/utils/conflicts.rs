@@ -148,7 +148,10 @@ pub fn check_conflict(
                 let (kb_mods, kb_key) = normalize(&data.clean_mods, &data.key);
                 let kb_submap = data.submap.as_deref().unwrap_or("").trim();
 
-                if norm_mods == kb_mods && norm_key == kb_key && are_submaps_equiv(target_submap, kb_submap) {
+                if norm_mods == kb_mods
+                    && norm_key == kb_key
+                    && are_submaps_equiv(target_submap, kb_submap)
+                {
                     Some(ConflictInfo {
                         dispatcher: data.dispatcher.to_string(),
                         args: data.args.as_deref().unwrap_or("").to_string(),
@@ -200,7 +203,11 @@ pub fn generate_suggestions(
         }
     }
 
-    let target_submap_norm = if target_submap == "global" { "" } else { target_submap };
+    let target_submap_norm = if target_submap == "global" {
+        ""
+    } else {
+        target_submap
+    };
 
     let is_free = |mods: &str, key: &str| -> bool {
         let r_mods = resolve(mods, variables);
