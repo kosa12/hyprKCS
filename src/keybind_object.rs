@@ -131,30 +131,25 @@ impl KeybindObject {
             return false;
         }
 
+        // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
             // Match against both raw and clean mods for user convenience
-            if !data.mods_lower.contains(q_mods.as_ref())
-                && !data.clean_mods_lower.contains(q_mods.as_ref())
-            {
+            if !data.mods_lower.contains(q_mods) && !data.clean_mods_lower.contains(q_mods) {
                 return false;
             }
         }
         if let Some(ref q_key) = query.key {
-            if !data.key_lower.contains(q_key.as_ref()) {
+            if !data.key_lower.contains(q_key) {
                 return false;
             }
         }
         if let Some(ref q_action) = query.action {
-            if !data.dispatcher_lower.contains(q_action.as_ref()) {
+            if !data.dispatcher_lower.contains(q_action) {
                 return false;
             }
         }
         if let Some(ref q_args) = query.args {
-            if !data
-                .args_lower
-                .as_ref()
-                .is_some_and(|a| a.contains(q_args.as_ref()))
-            {
+            if !data.args_lower.as_ref().is_some_and(|a| a.contains(q_args)) {
                 return false;
             }
         }
@@ -162,7 +157,7 @@ impl KeybindObject {
             if !data
                 .description_lower
                 .as_ref()
-                .is_some_and(|d| d.contains(q_desc.as_ref()))
+                .is_some_and(|d| d.contains(q_desc))
             {
                 return false;
             }

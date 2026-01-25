@@ -9,7 +9,7 @@ use gtk::{gio, glib, prelude::*};
 use gtk4 as gtk;
 use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
 use libadwaita as adw;
-use std::sync::Arc;
+use std::rc::Rc;
 
 type FilterCallback = std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn()>>>>;
 
@@ -762,11 +762,11 @@ pub fn build_ui(app: &adw::Application) {
         }
     });
 
-    let matcher = Arc::new(SkimMatcherV2::default());
+    let matcher = Rc::new(SkimMatcherV2::default());
 
     let filter_func = move |text: String, category: u32| {
         let query = SearchQuery::parse(&text);
-        let m = Arc::clone(&matcher);
+        let m = Rc::clone(&matcher);
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();

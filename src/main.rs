@@ -41,27 +41,27 @@ fn main() -> glib::ExitCode {
                                 .unwrap_or_default();
 
                             if let Some(ref q_mods) = query.mods {
-                                if !mods.contains(q_mods.as_ref()) {
+                                if !mods.contains(q_mods) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_key) = query.key {
-                                if !key.contains(q_key.as_ref()) {
+                                if !key.contains(q_key) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_action) = query.action {
-                                if !dispatcher.contains(q_action.as_ref()) {
+                                if !dispatcher.contains(q_action) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_args) = query.args {
-                                if !args_str.contains(q_args.as_ref()) {
+                                if !args_str.contains(q_args) {
                                     return false;
                                 }
                             }
                             if let Some(ref q_desc) = query.description {
-                                if !desc_str.contains(q_desc.as_ref()) {
+                                if !desc_str.contains(q_desc) {
                                     return false;
                                 }
                             }

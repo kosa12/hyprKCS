@@ -1,68 +1,40 @@
-use std::borrow::Cow;
-
 pub struct SearchQuery {
-    pub mods: Option<Cow<'static, str>>,
-    pub key: Option<Cow<'static, str>>,
-    pub action: Option<Cow<'static, str>>,
-    pub args: Option<Cow<'static, str>>,
-    pub description: Option<Cow<'static, str>>,
-    pub general_query: Cow<'static, str>,
+    pub mods: Option<String>,
+    pub key: Option<String>,
+    pub action: Option<String>,
+    pub args: Option<String>,
+    pub description: Option<String>,
+    pub general_query: String,
 }
 
 impl SearchQuery {
     pub fn parse(text: &str) -> Self {
-        // Fast path for empty query
-        if text.is_empty() {
-            return SearchQuery {
-                mods: None,
-                key: None,
-                action: None,
-                args: None,
-                description: None,
-                general_query: Cow::Borrowed(""),
-            };
-        }
-
         let mut mods = None;
         let mut key = None;
         let mut action = None;
         let mut args = None;
         let mut description = None;
-        let mut general_terms: Vec<Cow<'static, str>> = Vec::with_capacity(4);
+        let mut general_terms = Vec::new();
 
         for token in text.split_whitespace() {
             let token_lower = token.to_lowercase();
             if let Some((tag, value)) = token_lower.split_once(':') {
                 if value.is_empty() {
-                    general_terms.push(Cow::Owned(token_lower));
+                    general_terms.push(token_lower);
                     continue;
                 }
                 match tag {
-                    "mod" | "mods" => mods = Some(Cow::Owned(value.to_string())),
-                    "key" => key = Some(Cow::Owned(value.to_string())),
-                    "act" | "action" | "disp" | "dispatcher" => {
-                        action = Some(Cow::Owned(value.to_string()))
-                    }
-                    "arg" | "args" => args = Some(Cow::Owned(value.to_string())),
-                    "desc" | "description" => description = Some(Cow::Owned(value.to_string())),
-                    _ => general_terms.push(Cow::Owned(token_lower)),
+                    "mod" | "mods" => mods = Some(value.to_string()),
+                    "key" => key = Some(value.to_string()),
+                    "act" | "action" | "disp" | "dispatcher" => action = Some(value.to_string()),
+                    "arg" | "args" => args = Some(value.to_string()),
+                    "desc" | "description" => description = Some(value.to_string()),
+                    _ => general_terms.push(token_lower),
                 }
             } else {
-                general_terms.push(Cow::Owned(token_lower));
+                general_terms.push(token_lower);
             }
         }
-
-        let general_query = if general_terms.is_empty() {
-            Cow::Borrowed("")
-        } else {
-            Cow::Owned(
-                general_terms
-                    .iter()
-                    .map(|s| s.as_ref())
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            )
-        };
 
         SearchQuery {
             mods,
@@ -70,7 +42,7 @@ impl SearchQuery {
             action,
             args,
             description,
-            general_query,
+            general_query: general_terms.join(" "),
         }
     }
 }
@@ -84,7 +56,7 @@ mod tests {
         let q = SearchQuery::parse("mod:SUPER key:Q exec");
         assert_eq!(q.mods.as_deref(), Some("super"));
         assert_eq!(q.key.as_deref(), Some("q"));
-        assert_eq!(q.general_query.as_ref(), "exec");
+        assert_eq!(q.general_query, "exec");
     }
 
     #[test]
@@ -99,14 +71,14 @@ mod tests {
     fn test_parse_general_only() {
         let q = SearchQuery::parse("JUST SEARCHING STUFF");
         assert_eq!(q.mods, None);
-        assert_eq!(q.general_query.as_ref(), "just searching stuff");
+        assert_eq!(q.general_query, "just searching stuff");
     }
 
     #[test]
     fn test_parse_mixed() {
         let q = SearchQuery::parse("Firefox mod:SUPER --private");
         assert_eq!(q.mods.as_deref(), Some("super"));
-        assert_eq!(q.general_query.as_ref(), "firefox --private");
+        assert_eq!(q.general_query, "firefox --private");
     }
 
     #[test]

@@ -564,7 +564,7 @@ pub fn create_edit_view(
         if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
                 .title("Error: Key cannot be empty")
-                                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                .timeout(crate::config::constants::TOAST_TIMEOUT)
                 .build();
             toast_overlay_clone.add_toast(toast);
             return;
@@ -574,7 +574,7 @@ pub fn create_edit_view(
              if compile_macro(&macro_list_c).is_none() {
                  let toast = adw::Toast::builder()
                     .title("Error: Macro must have at least one valid action")
-                                        .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;
@@ -586,7 +586,7 @@ pub fn create_edit_view(
              if new_dispatcher.trim().is_empty() {
                 let toast = adw::Toast::builder()
                     .title("Error: Dispatcher cannot be empty")
-                                        .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_clone.add_toast(toast);
                 return;
