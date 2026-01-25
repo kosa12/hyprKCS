@@ -9,6 +9,9 @@ use gtk::{gio, glib, prelude::*};
 use gtk4 as gtk;
 use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
 use libadwaita as adw;
+use std::rc::Rc;
+
+type FilterCallback = std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn()>>>>;
 
 pub fn build_ui(app: &adw::Application) {
     if let Some(window) = app.active_window() {
@@ -23,9 +26,7 @@ pub fn build_ui(app: &adw::Application) {
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
 
-    // Shared callback for refreshing the filter
-    let refresh_filter_callback: std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn()>>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let refresh_filter_callback: FilterCallback = std::rc::Rc::new(std::cell::RefCell::new(None));
 
     let column_view = gtk::ColumnView::new(None::<gtk::SelectionModel>);
     let sort_model = gtk::SortListModel::new(Some(filter_model.clone()), column_view.sorter());
@@ -45,7 +46,7 @@ pub fn build_ui(app: &adw::Application) {
 
     let factory_fav = gtk::SignalListItemFactory::new();
 
-    let refresh_c = refresh_filter_callback.clone();
+    let refresh_c = std::rc::Rc::downgrade(&refresh_filter_callback);
     factory_fav.connect_setup(move |_, list_item| {
         let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
         let btn = gtk::Button::builder()
@@ -54,7 +55,6 @@ pub fn build_ui(app: &adw::Application) {
             .halign(gtk::Align::Center)
             .build();
 
-        // Handle Click
         let list_item_weak = list_item.downgrade();
         let refresh_c = refresh_c.clone();
         btn.connect_clicked(move |b| {
@@ -86,8 +86,10 @@ pub fn build_ui(app: &adw::Application) {
                     }
 
                     // Trigger filter refresh to update list immediately if filtering by favorites
-                    if let Some(callback) = refresh_c.borrow().as_ref() {
-                        callback();
+                    if let Some(callback_rc) = refresh_c.upgrade() {
+                        if let Some(callback) = callback_rc.borrow().as_ref() {
+                            callback();
+                        }
                     }
                 }
             }
@@ -123,9 +125,9 @@ pub fn build_ui(app: &adw::Application) {
     let create_column = move |title: &str, property_name: &str, sort_prop: Option<&str>| {
         let factory = gtk::SignalListItemFactory::new();
         let prop_name = property_name.to_string();
-        let prop_name_css = property_name.to_string();
+        let is_mods = property_name == "mods";
 
-        let prop_name_css_clone = prop_name_css.clone();
+        let prop_name_setup = prop_name.clone();
         factory.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
 
@@ -138,7 +140,7 @@ pub fn build_ui(app: &adw::Application) {
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
 
-            match prop_name_css_clone.as_str() {
+            match prop_name_setup.as_str() {
                 "key" => label.add_css_class("key-label"),
                 "mods" => label.add_css_class("mod-label"),
                 "dispatcher" => label.add_css_class("dispatcher-label"),
@@ -148,7 +150,7 @@ pub fn build_ui(app: &adw::Application) {
                 _ => {}
             }
 
-            if prop_name_css_clone == "mods" {
+            if is_mods {
                 let box_layout = gtk::Box::new(gtk::Orientation::Horizontal, 8);
 
                 // Conflict Icon (Yellow Warning)
@@ -180,7 +182,7 @@ pub fn build_ui(app: &adw::Application) {
             let list_item = list_item.downcast_ref::<gtk::ListItem>().unwrap();
             let keybind = list_item.item().and_downcast::<KeybindObject>().unwrap();
 
-            let (label, icon_opt, broken_icon_opt) = if prop_name == "mods" {
+            let (label, icon_opt, broken_icon_opt) = if is_mods {
                 let box_layout = list_item.child().and_downcast::<gtk::Box>().unwrap();
                 let broken_icon = box_layout
                     .first_child()
@@ -280,10 +282,10 @@ pub fn build_ui(app: &adw::Application) {
     column_view.append_column(&col_desc);
     col_desc.set_visible(config.show_description);
 
-    if config.show_description {
-        if config.default_sort == "description" || config.default_sort == "desc" {
-            default_sort_col = Some(col_desc.clone());
-        }
+    if config.show_description
+        && (config.default_sort == "description" || config.default_sort == "desc")
+    {
+        default_sort_col = Some(col_desc.clone());
     }
 
     let col_submap = create_column("Submap", "submap", Some("submap"));
@@ -486,44 +488,40 @@ pub fn build_ui(app: &adw::Application) {
         let home_visible = root_stack.visible_child_name().as_deref() == Some("home");
         let search_focused = search_entry.has_focus();
 
-        if home_visible && search_focused {
-            if key == gtk::gdk::Key::Down {
-                column_view.grab_focus();
-                return glib::Propagation::Stop;
-            }
+        if home_visible && search_focused && key == gtk::gdk::Key::Down {
+            column_view.grab_focus();
+            return glib::Propagation::Stop;
         }
 
-        if home_visible && !search_focused {
-            if mods.is_empty() {
-                match key {
-                    gtk::gdk::Key::slash => {
-                        search_entry.grab_focus();
+        if home_visible && !search_focused && mods.is_empty() {
+            match key {
+                gtk::gdk::Key::slash => {
+                    search_entry.grab_focus();
+                    return glib::Propagation::Stop;
+                }
+                gtk::gdk::Key::Return => {
+                    if let Some(obj) = selection_model
+                        .selected_item()
+                        .and_downcast::<KeybindObject>()
+                    {
+                        while let Some(child) = edit_page_container.first_child() {
+                            edit_page_container.remove(&child);
+                        }
+                        let edit_view = create_edit_view(
+                            &root_stack,
+                            obj,
+                            &model_key,
+                            &column_view,
+                            &selection_model,
+                            &toast_overlay,
+                            &edit_page_container,
+                        );
+                        edit_page_container.append(&edit_view);
+                        root_stack.set_visible_child_name("edit");
                         return glib::Propagation::Stop;
                     }
-                    gtk::gdk::Key::Return => {
-                        if let Some(obj) = selection_model
-                            .selected_item()
-                            .and_downcast::<KeybindObject>()
-                        {
-                            while let Some(child) = edit_page_container.first_child() {
-                                edit_page_container.remove(&child);
-                            }
-                            let edit_view = create_edit_view(
-                                &root_stack,
-                                obj,
-                                &model_key,
-                                &column_view,
-                                &selection_model,
-                                &toast_overlay,
-                                &edit_page_container,
-                            );
-                            edit_page_container.append(&edit_view);
-                            root_stack.set_visible_child_name("edit");
-                            return glib::Propagation::Stop;
-                        }
-                    }
-                    _ => {}
                 }
+                _ => {}
             }
         }
 
@@ -641,11 +639,17 @@ pub fn build_ui(app: &adw::Application) {
         };
         match crate::ui::utils::perform_backup(true) {
             Ok(msg) => {
-                let toast = adw::Toast::new(&msg);
+                let toast = adw::Toast::builder()
+                    .title(&msg)
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .build();
                 toast_overlay.add_toast(toast);
             }
             Err(e) => {
-                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                let toast = adw::Toast::builder()
+                    .title(format!("Backup failed: {}", e))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .build();
                 toast_overlay.add_toast(toast);
             }
         }
@@ -660,8 +664,8 @@ pub fn build_ui(app: &adw::Application) {
                 None => return,
             };
             let mut conflict_count = 0;
-            for i in 0..model.n_items() {
-                if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
+            for obj in model.snapshot() {
+                if let Some(obj) = obj.downcast_ref::<KeybindObject>() {
                     if obj.with_data(|d| d.is_conflicted) {
                         conflict_count += 1;
                     }
@@ -679,7 +683,6 @@ pub fn build_ui(app: &adw::Application) {
     update_conflict_btn(&model);
 
     let update_conflict_btn_c = update_conflict_btn.clone();
-    let _conflict_btn_model = model.clone();
 
     // HACK: ListStore doesn't expose "on content changed" easily for deep property changes unless we bind to them.
     // However, we reload the whole model on add/edit/delete, triggering `items-changed`.
@@ -734,7 +737,8 @@ pub fn build_ui(app: &adw::Application) {
     let list_stack_weak = list_stack.downgrade();
     let scrolled_weak = scrolled_window.downgrade();
 
-    filter_model.connect_items_changed(move |m, _, _, _| {
+    // Use a signal handler id to allow disconnection if needed
+    let _filter_items_changed_id = filter_model.connect_items_changed(move |m, _, _, _| {
         let status_page = match status_page_weak.upgrade() {
             Some(w) => w,
             None => return,
@@ -758,11 +762,11 @@ pub fn build_ui(app: &adw::Application) {
         }
     });
 
-    let matcher = std::rc::Rc::new(SkimMatcherV2::default());
+    let matcher = Rc::new(SkimMatcherV2::default());
 
     let filter_func = move |text: String, category: u32| {
         let query = SearchQuery::parse(&text);
-        let m = matcher.clone();
+        let m = Rc::clone(&matcher);
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
@@ -949,7 +953,10 @@ pub fn build_ui(app: &adw::Application) {
             }),
             std::rc::Rc::new(move |msg| {
                 if let Some(toast_overlay) = toast_w_1.upgrade() {
-                    let toast = adw::Toast::new(&msg);
+                    let toast = adw::Toast::builder()
+                        .title(&msg)
+                        .timeout(crate::config::constants::TOAST_TIMEOUT)
+                        .build();
                     toast_overlay.add_toast(toast);
                 }
             }),

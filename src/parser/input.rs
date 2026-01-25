@@ -236,13 +236,12 @@ pub fn save_input_config(
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if trimmed.starts_with(&format!("{} {{ ", block_name))
-                || (trimmed.starts_with(block_name) && trimmed.ends_with("{ "))
+            if (trimmed.starts_with(&format!("{} {{ ", block_name))
+                || (trimmed.starts_with(block_name) && trimmed.ends_with("{ ")))
+                && !inside_block
             {
-                if !inside_block {
-                    inside_block = true;
-                    start_idx = Some(i);
-                }
+                inside_block = true;
+                start_idx = Some(i);
             }
             if inside_block && trimmed == "}" {
                 end_idx = Some(i);
@@ -254,8 +253,7 @@ pub fn save_input_config(
             let mut updated_keys = std::collections::HashSet::new();
             let mut changes = Vec::new();
 
-            for i in start + 1..end {
-                let line = &lines[i];
+            for (i, line) in lines.iter().enumerate().take(end).skip(start + 1) {
                 // regex: r"^(\s*)([a-zA-Z0-9_]+)(\s*=\s*)(.*)"
                 // Manual parsing to preserve indentation
 
@@ -366,10 +364,8 @@ pub fn save_input_config(
             } else {
                 lines.push(new_line);
             }
-        } else {
-            if let Some(idx) = gesture_line_idx {
-                lines.remove(idx);
-            }
+        } else if let Some(idx) = gesture_line_idx {
+            lines.remove(idx);
         }
     }
 

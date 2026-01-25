@@ -6,6 +6,7 @@ use gtk::glib::translate::IntoGlib;
 use gtk::prelude::*;
 use gtk4 as gtk;
 use libadwaita as adw;
+use std::path::Path;
 
 pub fn create_restore_view(
     stack: &gtk::Stack,
@@ -103,7 +104,7 @@ fn format_timestamp(ts_str: &str) -> String {
 }
 
 fn create_backup_row(
-    path: &std::path::PathBuf,
+    path: &Path,
     stack: &gtk::Stack,
     model: &gtk::gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
@@ -129,7 +130,7 @@ fn create_backup_row(
 
     let row = crate::ui::utils::create_card_row(&timestamp, Some(&raw_timestamp), &actions_box);
 
-    let path_c = path.clone();
+    let path_c = path.to_path_buf();
     let toast_c = toast_overlay.clone();
     let stack_c = stack.clone();
     let model_c = model.clone();
@@ -142,20 +143,26 @@ fn create_backup_row(
 
         match restore_backup(&p) {
             Ok(msg) => {
-                let toast = adw::Toast::new(&format!("Restore successful: {}", msg));
+                let toast = adw::Toast::builder()
+                    .title(format!("Restore successful: {}", msg))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .build();
                 t.add_toast(toast);
                 crate::ui::utils::reload_keybinds(&m);
                 crate::ui::style::reload_style();
                 s.set_visible_child_name("home");
             }
             Err(e) => {
-                let toast = adw::Toast::new(&format!("Restore failed: {}", e));
+                let toast = adw::Toast::builder()
+                    .title(format!("Restore failed: {}", e))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .build();
                 t.add_toast(toast);
             }
         }
     });
 
-    let path_diff = path.clone();
+    let path_diff = path.to_path_buf();
     let restore_container_c = restore_container.clone();
     let stack_diff = stack.clone();
     let model_diff = model.clone();
@@ -179,7 +186,7 @@ fn create_backup_row(
 }
 
 fn create_diff_view(
-    path: &std::path::PathBuf,
+    path: &Path,
     stack: &gtk::Stack,
     model: &gtk::gio::ListStore,
     toast_overlay: &adw::ToastOverlay,

@@ -17,21 +17,22 @@ impl SearchQuery {
         let mut general_terms = Vec::new();
 
         for token in text.split_whitespace() {
-            if let Some((tag, value)) = token.split_once(':') {
+            let token_lower = token.to_lowercase();
+            if let Some((tag, value)) = token_lower.split_once(':') {
                 if value.is_empty() {
-                    general_terms.push(token.to_lowercase());
+                    general_terms.push(token_lower);
                     continue;
                 }
-                match tag.to_lowercase().as_str() {
-                    "mod" | "mods" => mods = Some(value.to_lowercase()),
-                    "key" => key = Some(value.to_lowercase()),
-                    "act" | "action" | "disp" | "dispatcher" => action = Some(value.to_lowercase()),
-                    "arg" | "args" => args = Some(value.to_lowercase()),
-                    "desc" | "description" => description = Some(value.to_lowercase()),
-                    _ => general_terms.push(token.to_lowercase()),
+                match tag {
+                    "mod" | "mods" => mods = Some(value.to_string()),
+                    "key" => key = Some(value.to_string()),
+                    "act" | "action" | "disp" | "dispatcher" => action = Some(value.to_string()),
+                    "arg" | "args" => args = Some(value.to_string()),
+                    "desc" | "description" => description = Some(value.to_string()),
+                    _ => general_terms.push(token_lower),
                 }
             } else {
-                general_terms.push(token.to_lowercase());
+                general_terms.push(token_lower);
             }
         }
 
@@ -53,17 +54,17 @@ mod tests {
     #[test]
     fn test_parse_simple() {
         let q = SearchQuery::parse("mod:SUPER key:Q exec");
-        assert_eq!(q.mods, Some("super".to_string()));
-        assert_eq!(q.key, Some("q".to_string()));
+        assert_eq!(q.mods.as_deref(), Some("super"));
+        assert_eq!(q.key.as_deref(), Some("q"));
         assert_eq!(q.general_query, "exec");
     }
 
     #[test]
     fn test_parse_aliases() {
         let q = SearchQuery::parse("mods:SHIFT action:kill disp:ignore arg:something");
-        assert_eq!(q.mods, Some("shift".to_string()));
-        assert_eq!(q.action, Some("ignore".to_string()));
-        assert_eq!(q.args, Some("something".to_string()));
+        assert_eq!(q.mods.as_deref(), Some("shift"));
+        assert_eq!(q.action.as_deref(), Some("ignore"));
+        assert_eq!(q.args.as_deref(), Some("something"));
     }
 
     #[test]
@@ -76,7 +77,15 @@ mod tests {
     #[test]
     fn test_parse_mixed() {
         let q = SearchQuery::parse("Firefox mod:SUPER --private");
-        assert_eq!(q.mods, Some("super".to_string()));
+        assert_eq!(q.mods.as_deref(), Some("super"));
         assert_eq!(q.general_query, "firefox --private");
+    }
+
+    #[test]
+    fn test_parse_empty() {
+        let q = SearchQuery::parse("");
+        assert!(q.mods.is_none());
+        assert!(q.key.is_none());
+        assert!(q.general_query.is_empty());
     }
 }

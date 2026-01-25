@@ -11,6 +11,7 @@ glib::wrapper! {
 }
 
 impl KeybindObject {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         keybind: Keybind,
         conflict_reason: Option<String>,
@@ -42,7 +43,6 @@ impl KeybindObject {
             data.key = keybind.key;
             data.dispatcher = keybind.dispatcher;
 
-            // Use Option to save memory for often-empty fields
             data.args = if keybind.args.is_empty() {
                 None
             } else {
@@ -82,7 +82,6 @@ impl KeybindObject {
         obj
     }
 
-    /// Access internal data efficiently without going through GObject property system
     pub fn with_data<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&imp::KeybindData) -> R,
@@ -99,7 +98,6 @@ impl KeybindObject {
     ) -> bool {
         let data = self.imp().data.borrow();
 
-        // Category Filter - using cached lowercased strings
         let dispatcher_lower = &data.dispatcher_lower;
         let key_lower = &data.key_lower;
 
@@ -119,7 +117,7 @@ impl KeybindObject {
                     || dispatcher_lower.contains("pin")
             }
             3 => {
-                data.args_lower.as_ref().map_or(false, |a| {
+                data.args_lower.as_ref().is_some_and(|a| {
                     a.contains("volume") || a.contains("brightness") || a.contains("playerctl")
                 }) || dispatcher_lower.contains("audio")
             }
@@ -151,11 +149,7 @@ impl KeybindObject {
             }
         }
         if let Some(ref q_args) = query.args {
-            if !data
-                .args_lower
-                .as_ref()
-                .map_or(false, |a| a.contains(q_args))
-            {
+            if !data.args_lower.as_ref().is_some_and(|a| a.contains(q_args)) {
                 return false;
             }
         }
@@ -163,7 +157,7 @@ impl KeybindObject {
             if !data
                 .description_lower
                 .as_ref()
-                .map_or(false, |d| d.contains(q_desc))
+                .is_some_and(|d| d.contains(q_desc))
             {
                 return false;
             }
@@ -173,7 +167,7 @@ impl KeybindObject {
             return true;
         }
 
-        let text_to_match = &query.general_query;
+        let text_to_match: &str = query.general_query.as_ref();
 
         if data.mods_lower.contains(text_to_match)
             || data.clean_mods_lower.contains(text_to_match)
@@ -182,11 +176,11 @@ impl KeybindObject {
             || data
                 .args_lower
                 .as_ref()
-                .map_or(false, |a| a.contains(text_to_match))
+                .is_some_and(|a| a.contains(text_to_match))
             || data
                 .description_lower
                 .as_ref()
-                .map_or(false, |d| d.contains(text_to_match))
+                .is_some_and(|d| d.contains(text_to_match))
         {
             return true;
         }
@@ -206,11 +200,11 @@ impl KeybindObject {
             || data
                 .args_lower
                 .as_ref()
-                .map_or(false, |a| matcher.fuzzy_match(a, text_to_match).is_some())
+                .is_some_and(|a| matcher.fuzzy_match(a, text_to_match).is_some())
             || data
                 .description_lower
                 .as_ref()
-                .map_or(false, |d| matcher.fuzzy_match(d, text_to_match).is_some())
+                .is_some_and(|d| matcher.fuzzy_match(d, text_to_match).is_some())
     }
 }
 
@@ -240,7 +234,6 @@ pub mod imp {
         pub is_broken: bool,
         pub broken_reason: Option<Rc<str>>,
 
-        // Cached lowercase fields for search optimization
         pub mods_lower: Rc<str>,
         pub clean_mods_lower: Rc<str>,
         pub key_lower: Rc<str>,
@@ -258,6 +251,15 @@ pub mod imp {
     impl ObjectSubclass for KeybindObject {
         const NAME: &'static str = "KeybindObject";
         type Type = super::KeybindObject;
+    }
+
+    fn to_lower_rc(s: &str) -> Rc<str> {
+        let lower = s.to_lowercase();
+        if lower == s {
+            Rc::from(s)
+        } else {
+            Rc::from(lower)
+        }
     }
 
     impl ObjectImpl for KeybindObject {
@@ -287,16 +289,6 @@ pub mod imp {
 
         fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
             let mut data = self.data.borrow_mut();
-
-            // Helper to get lowercased Rc<str> efficiently
-            fn to_lower_rc(s: &str) -> Rc<str> {
-                let lower = s.to_lowercase();
-                if lower == s {
-                    Rc::from(s)
-                } else {
-                    Rc::from(lower)
-                }
-            }
 
             match pspec.name() {
                 "mods" => {

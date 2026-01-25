@@ -69,7 +69,7 @@ fn main() -> glib::ExitCode {
                             if query.general_query.is_empty() {
                                 return true;
                             }
-                            let text_to_match = &query.general_query;
+                            let text_to_match: &str = query.general_query.as_ref();
 
                             matcher.fuzzy_match(&mods, text_to_match).is_some()
                                 || matcher.fuzzy_match(&key, text_to_match).is_some()
@@ -137,6 +137,11 @@ fn main() -> glib::ExitCode {
     });
 
     app.connect_activate(ui::window::build_ui);
+
+    // Cleanup on shutdown
+    app.connect_shutdown(|_| {
+        ui::style::cleanup();
+    });
 
     app.run_with_args(&Vec::<String>::new())
 }

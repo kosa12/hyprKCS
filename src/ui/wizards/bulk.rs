@@ -224,7 +224,7 @@ pub fn create_bulk_replace_wizard(
                                 obj.property::<String>("key")
                             )
                         }
-                        _ => format!("{}", obj.property::<String>("dispatcher")),
+                        _ => obj.property::<String>("dispatcher"),
                     };
                     let lbl_ctx = gtk::Label::builder()
                         .label(&context_str)
@@ -355,7 +355,10 @@ pub fn create_bulk_replace_wizard(
             format!("Successfully updated {} keybinds.", success_count)
         };
 
-        let toast = adw::Toast::new(&msg);
+        let toast = adw::Toast::builder()
+            .title(&msg)
+            .timeout(crate::config::constants::TOAST_TIMEOUT)
+            .build();
         toast_overlay_c.add_toast(toast);
         stack_c.set_visible_child_name("home");
     });

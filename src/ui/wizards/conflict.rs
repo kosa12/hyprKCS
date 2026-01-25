@@ -223,7 +223,10 @@ pub fn create_conflict_wizard(
             };
 
             if let Err(e) = parser::delete_keybind(file_path_buf.clone(), line_num as usize) {
-                let toast = adw::Toast::new(&format!("Error: {}", e));
+                let toast = adw::Toast::builder()
+                    .title(format!("Error: {}", e))
+                    .timeout(crate::config::constants::TOAST_TIMEOUT)
+                    .build();
                 toast_overlay.add_toast(toast);
             } else {
                 crate::ui::utils::reload_keybinds(&model_c);
