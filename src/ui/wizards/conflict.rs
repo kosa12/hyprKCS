@@ -201,11 +201,26 @@ pub fn create_conflict_wizard(
 
         // Delete keeps us on the SAME index (the next one slides in)
         delete_btn.connect_clicked(move |_| {
-            let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
-            let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
-            let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
-            let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
-            let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
+            let stack = match stack_weak.upgrade() {
+                Some(s) => s,
+                None => return,
+            };
+            let wizard_container = match wizard_container_weak.upgrade() {
+                Some(w) => w,
+                None => return,
+            };
+            let toast_overlay = match toast_overlay_weak.upgrade() {
+                Some(t) => t,
+                None => return,
+            };
+            let column_view = match column_view_weak.upgrade() {
+                Some(c) => c,
+                None => return,
+            };
+            let selection_model = match selection_model_weak.upgrade() {
+                Some(s) => s,
+                None => return,
+            };
 
             if let Err(e) = parser::delete_keybind(file_path_buf.clone(), line_num as usize) {
                 let toast = adw::Toast::new(&format!("Error: {}", e));
@@ -237,10 +252,22 @@ pub fn create_conflict_wizard(
         let obj_clone_2 = obj.clone();
 
         edit_btn.connect_clicked(move |_| {
-            let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
-            let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
-            let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
-            let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
+            let stack = match stack_weak.upgrade() {
+                Some(s) => s,
+                None => return,
+            };
+            let column_view = match column_view_weak.upgrade() {
+                Some(c) => c,
+                None => return,
+            };
+            let selection_model = match selection_model_weak.upgrade() {
+                Some(s) => s,
+                None => return,
+            };
+            let toast_overlay = match toast_overlay_weak.upgrade() {
+                Some(t) => t,
+                None => return,
+            };
 
             if let Some(edit_page_container) =
                 stack.child_by_name("edit").and_downcast::<gtk::Box>()
@@ -291,11 +318,26 @@ pub fn create_conflict_wizard(
 
     // Skip moves to NEXT index
     skip_btn.connect_clicked(move |_| {
-        let stack = match stack_weak.upgrade() { Some(s) => s, None => return };
-        let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
-        let toast_overlay = match toast_overlay_weak.upgrade() { Some(t) => t, None => return };
-        let column_view = match column_view_weak.upgrade() { Some(c) => c, None => return };
-        let selection_model = match selection_model_weak.upgrade() { Some(s) => s, None => return };
+        let stack = match stack_weak.upgrade() {
+            Some(s) => s,
+            None => return,
+        };
+        let wizard_container = match wizard_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let toast_overlay = match toast_overlay_weak.upgrade() {
+            Some(t) => t,
+            None => return,
+        };
+        let column_view = match column_view_weak.upgrade() {
+            Some(c) => c,
+            None => return,
+        };
+        let selection_model = match selection_model_weak.upgrade() {
+            Some(s) => s,
+            None => return,
+        };
 
         refresh_wizard(
             &stack,

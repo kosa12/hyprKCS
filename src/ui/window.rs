@@ -453,12 +453,30 @@ pub fn build_ui(app: &adw::Application) {
     let edit_page_container_weak = edit_page_container.downgrade();
 
     controller.connect_key_pressed(move |_, key, _, mods| {
-        let search_entry = match search_entry_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
-        let root_stack = match root_stack_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
-        let column_view = match column_view_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
-        let selection_model = match selection_model_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
-        let edit_page_container = match edit_page_container_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
-        let toast_overlay = match toast_overlay_weak.upgrade() { Some(w) => w, None => return glib::Propagation::Proceed };
+        let search_entry = match search_entry_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let column_view = match column_view_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let selection_model = match selection_model_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let edit_page_container = match edit_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let toast_overlay = match toast_overlay_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
 
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {
             search_entry.grab_focus();
@@ -533,8 +551,14 @@ pub fn build_ui(app: &adw::Application) {
     let edit_page_container_weak = edit_page_container.downgrade();
 
     column_view.connect_activate(move |view, position| {
-        let root_stack = match root_stack_weak.upgrade() { Some(w) => w, None => return };
-        let edit_page_container = match edit_page_container_weak.upgrade() { Some(w) => w, None => return };
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let edit_page_container = match edit_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         let selection = view
             .model()
@@ -567,8 +591,14 @@ pub fn build_ui(app: &adw::Application) {
     let add_page_container_weak = add_page_container.downgrade();
 
     add_button.connect_clicked(move |_| {
-        let root_stack = match root_stack_weak.upgrade() { Some(w) => w, None => return };
-        let add_page_container = match add_page_container_weak.upgrade() { Some(w) => w, None => return };
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let add_page_container = match add_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         // Clear previous add form (optional but good for reset)
         while let Some(child) = add_page_container.first_child() {
@@ -586,8 +616,14 @@ pub fn build_ui(app: &adw::Application) {
     let wizard_container_weak = wizard_page_container.downgrade();
 
     bulk_button.connect_clicked(move |_| {
-        let stack = match stack_weak.upgrade() { Some(w) => w, None => return };
-        let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let wizard_container = match wizard_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         while let Some(child) = wizard_container.first_child() {
             wizard_container.remove(&child);
@@ -599,17 +635,21 @@ pub fn build_ui(app: &adw::Application) {
 
     let toast_overlay_weak = toast_overlay.downgrade();
     backup_button.connect_clicked(move |_| {
-        let toast_overlay = match toast_overlay_weak.upgrade() { Some(w) => w, None => return };
+        let toast_overlay = match toast_overlay_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
         match crate::ui::utils::perform_backup(true) {
-        Ok(msg) => {
-            let toast = adw::Toast::new(&msg);
-            toast_overlay.add_toast(toast);
+            Ok(msg) => {
+                let toast = adw::Toast::new(&msg);
+                toast_overlay.add_toast(toast);
+            }
+            Err(e) => {
+                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                toast_overlay.add_toast(toast);
+            }
         }
-        Err(e) => {
-            let toast = adw::Toast::new(&format!("Backup failed: {}", e));
-            toast_overlay.add_toast(toast);
-        }
-    }});
+    });
 
     // Logic to update conflict button visibility
     let update_conflict_btn = {
@@ -656,10 +696,22 @@ pub fn build_ui(app: &adw::Application) {
 
     let column_view_weak = column_view.downgrade();
     conflict_button.connect_clicked(move |_| {
-        let stack = match stack_weak.upgrade() { Some(w) => w, None => return };
-        let wizard_container = match wizard_container_weak.upgrade() { Some(w) => w, None => return };
-        let column_view = match column_view_weak.upgrade() { Some(w) => w, None => return };
-        let selection_model = match selection_model_weak.upgrade() { Some(w) => w, None => return };
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let wizard_container = match wizard_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let column_view = match column_view_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let selection_model = match selection_model_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         while let Some(child) = wizard_container.first_child() {
             wizard_container.remove(&child);
@@ -683,9 +735,18 @@ pub fn build_ui(app: &adw::Application) {
     let scrolled_weak = scrolled_window.downgrade();
 
     filter_model.connect_items_changed(move |m, _, _, _| {
-        let status_page = match status_page_weak.upgrade() { Some(w) => w, None => return };
-        let list_stack = match list_stack_weak.upgrade() { Some(w) => w, None => return };
-        let scrolled = match scrolled_weak.upgrade() { Some(w) => w, None => return };
+        let status_page = match status_page_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let list_stack = match list_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let scrolled = match scrolled_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         let has_items = m.n_items() > 0;
         status_page.set_visible(!has_items);
@@ -768,14 +829,23 @@ pub fn build_ui(app: &adw::Application) {
     let dropdown_weak = category_dropdown.downgrade();
 
     settings_button.connect_clicked(move |_| {
-        let stack = match stack_weak.upgrade() { Some(w) => w, None => return };
-        let container = match container_weak.upgrade() { Some(w) => w, None => return };
-        let window = match window_weak.upgrade() { Some(w) => w, None => return };
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let container = match container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let window = match window_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         while let Some(child) = container.first_child() {
             container.remove(&child);
         }
-        
+
         let col_desc_w = col_desc_weak.clone();
         let col_fav_w = col_fav_weak.clone();
         let col_args_w = col_args_weak.clone();
@@ -787,7 +857,7 @@ pub fn build_ui(app: &adw::Application) {
         let col_args_sort_w = col_args_weak.clone();
         let col_submap_sort_w = col_submap_weak.clone();
         let col_view_w = column_view_weak.clone();
-        
+
         let model_s = model_settings.clone();
         let model_s_restore = model_settings.clone();
         let toast_w = toast_overlay_weak.clone();
@@ -802,12 +872,19 @@ pub fn build_ui(app: &adw::Application) {
             &window,
             &stack,
             &model_s,
-            std::rc::Rc::new(move |s| if let Some(c) = col_desc_w.upgrade() { c.set_visible(s) }),
             std::rc::Rc::new(move |s| {
-                if let Some(c) = col_fav_w.upgrade() { c.set_visible(s); }
+                if let Some(c) = col_desc_w.upgrade() {
+                    c.set_visible(s)
+                }
+            }),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_fav_w.upgrade() {
+                    c.set_visible(s);
+                }
                 // Update dropdown options
                 if let Some(dropdown) = dropdown_w.upgrade() {
-                    let mut cat_list = vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
+                    let mut cat_list =
+                        vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
                     if s {
                         cat_list.push("Favorites");
                     }
@@ -822,16 +899,42 @@ pub fn build_ui(app: &adw::Application) {
                     }
                 }
             }),
-            std::rc::Rc::new(move |s| if let Some(c) = col_args_w.upgrade() { c.set_visible(s) }),
-            std::rc::Rc::new(move |s| if let Some(c) = col_submap_w.upgrade() { c.set_visible(s) }),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_args_w.upgrade() {
+                    c.set_visible(s)
+                }
+            }),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_submap_w.upgrade() {
+                    c.set_visible(s)
+                }
+            }),
             std::rc::Rc::new(move |sort_key| {
                 // Resolve weak refs
-                let col_mods = match col_mods_w.upgrade() { Some(c) => c, None => return };
-                let col_disp = match col_disp_w.upgrade() { Some(c) => c, None => return };
-                let col_args = match col_args_sort_w.upgrade() { Some(c) => c, None => return };
-                let col_submap = match col_submap_sort_w.upgrade() { Some(c) => c, None => return };
-                let col_key = match col_key_w.upgrade() { Some(c) => c, None => return };
-                let col_view = match col_view_w.upgrade() { Some(c) => c, None => return };
+                let col_mods = match col_mods_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_disp = match col_disp_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_args = match col_args_sort_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_submap = match col_submap_sort_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_key = match col_key_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_view = match col_view_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
 
                 let col = match sort_key.as_str() {
                     "mods" => Some(&col_mods),
@@ -851,9 +954,18 @@ pub fn build_ui(app: &adw::Application) {
                 }
             }),
             std::rc::Rc::new(move || {
-                let stack = match stack_w.upgrade() { Some(s) => s, None => return };
-                let restore_container = match restore_container_w.upgrade() { Some(c) => c, None => return };
-                let toast_overlay = match toast_w_2.upgrade() { Some(t) => t, None => return };
+                let stack = match stack_w.upgrade() {
+                    Some(s) => s,
+                    None => return,
+                };
+                let restore_container = match restore_container_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let toast_overlay = match toast_w_2.upgrade() {
+                    Some(t) => t,
+                    None => return,
+                };
 
                 while let Some(child) = restore_container.first_child() {
                     restore_container.remove(&child);
@@ -876,9 +988,15 @@ pub fn build_ui(app: &adw::Application) {
     let container_weak = keyboard_page_container.downgrade();
     let model_keyboard = model.clone();
     keyboard_button.connect_clicked(move |_| {
-        let stack = match stack_weak.upgrade() { Some(w) => w, None => return };
-        let container = match container_weak.upgrade() { Some(w) => w, None => return };
-        
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let container = match container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
         while let Some(child) = container.first_child() {
             container.remove(&child);
         }
