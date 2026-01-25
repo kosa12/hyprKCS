@@ -442,28 +442,53 @@ pub fn build_ui(app: &adw::Application) {
 
     let controller = gtk::EventControllerKey::new();
     controller.set_propagation_phase(gtk::PropagationPhase::Capture);
-    let search_entry_focus = search_entry.clone();
+    let search_entry_weak = search_entry.downgrade();
     let window_weak = window.downgrade();
-    let root_stack_c = root_stack.clone();
-    let column_view_focus = column_view.clone();
+    let root_stack_weak = root_stack.downgrade();
+    let column_view_weak = column_view.downgrade();
 
-    let selection_model_key = selection_model.clone();
+    let selection_model_weak = selection_model.downgrade();
     let model_key = model.clone();
-    let toast_overlay_key = toast_overlay.clone();
-    let edit_page_container_key = edit_page_container.clone();
+    let toast_overlay_weak = toast_overlay.downgrade();
+    let edit_page_container_weak = edit_page_container.downgrade();
 
     controller.connect_key_pressed(move |_, key, _, mods| {
+        let search_entry = match search_entry_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let column_view = match column_view_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let selection_model = match selection_model_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let edit_page_container = match edit_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+        let toast_overlay = match toast_overlay_weak.upgrade() {
+            Some(w) => w,
+            None => return glib::Propagation::Proceed,
+        };
+
         if mods.contains(gtk::gdk::ModifierType::CONTROL_MASK) && key == gtk::gdk::Key::f {
-            search_entry_focus.grab_focus();
+            search_entry.grab_focus();
             return glib::Propagation::Stop;
         }
 
-        let home_visible = root_stack_c.visible_child_name().as_deref() == Some("home");
-        let search_focused = search_entry_focus.has_focus();
+        let home_visible = root_stack.visible_child_name().as_deref() == Some("home");
+        let search_focused = search_entry.has_focus();
 
         if home_visible && search_focused {
             if key == gtk::gdk::Key::Down {
-                column_view_focus.grab_focus();
+                column_view.grab_focus();
                 return glib::Propagation::Stop;
             }
         }
@@ -472,28 +497,28 @@ pub fn build_ui(app: &adw::Application) {
             if mods.is_empty() {
                 match key {
                     gtk::gdk::Key::slash => {
-                        search_entry_focus.grab_focus();
+                        search_entry.grab_focus();
                         return glib::Propagation::Stop;
                     }
                     gtk::gdk::Key::Return => {
-                        if let Some(obj) = selection_model_key
+                        if let Some(obj) = selection_model
                             .selected_item()
                             .and_downcast::<KeybindObject>()
                         {
-                            while let Some(child) = edit_page_container_key.first_child() {
-                                edit_page_container_key.remove(&child);
+                            while let Some(child) = edit_page_container.first_child() {
+                                edit_page_container.remove(&child);
                             }
                             let edit_view = create_edit_view(
-                                &root_stack_c,
+                                &root_stack,
                                 obj,
                                 &model_key,
-                                &column_view_focus,
-                                &selection_model_key,
-                                &toast_overlay_key,
-                                &edit_page_container_key,
+                                &column_view,
+                                &selection_model,
+                                &toast_overlay,
+                                &edit_page_container,
                             );
-                            edit_page_container_key.append(&edit_view);
-                            root_stack_c.set_visible_child_name("edit");
+                            edit_page_container.append(&edit_view);
+                            root_stack.set_visible_child_name("edit");
                             return glib::Propagation::Stop;
                         }
                     }
@@ -503,12 +528,12 @@ pub fn build_ui(app: &adw::Application) {
         }
 
         if key == gtk::gdk::Key::Escape {
-            if root_stack_c.visible_child_name().as_deref() != Some("home") {
-                root_stack_c.set_visible_child_name("home");
+            if root_stack.visible_child_name().as_deref() != Some("home") {
+                root_stack.set_visible_child_name("home");
                 return glib::Propagation::Stop;
             }
-            if !search_entry_focus.text().is_empty() {
-                search_entry_focus.set_text("");
+            if !search_entry.text().is_empty() {
+                search_entry.set_text("");
                 return glib::Propagation::Stop;
             }
             if let Some(w) = window_weak.upgrade() {
@@ -522,10 +547,19 @@ pub fn build_ui(app: &adw::Application) {
 
     let model_store = model.clone();
     let toast_overlay_activate = toast_overlay.clone();
-    let root_stack_edit = root_stack.clone();
-    let edit_page_container_c = edit_page_container.clone();
+    let root_stack_weak = root_stack.downgrade();
+    let edit_page_container_weak = edit_page_container.downgrade();
 
     column_view.connect_activate(move |view, position| {
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let edit_page_container = match edit_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
         let selection = view
             .model()
             .unwrap()
@@ -533,70 +567,98 @@ pub fn build_ui(app: &adw::Application) {
             .unwrap();
         if let Some(obj) = selection.item(position).and_downcast::<KeybindObject>() {
             // Clear previous edit form
-            while let Some(child) = edit_page_container_c.first_child() {
-                edit_page_container_c.remove(&child);
+            while let Some(child) = edit_page_container.first_child() {
+                edit_page_container.remove(&child);
             }
 
             let edit_view = create_edit_view(
-                &root_stack_edit,
+                &root_stack,
                 obj,
                 &model_store,
                 view,
                 &selection,
                 &toast_overlay_activate,
-                &edit_page_container_c,
+                &edit_page_container,
             );
-            edit_page_container_c.append(&edit_view);
-            root_stack_edit.set_visible_child_name("edit");
+            edit_page_container.append(&edit_view);
+            root_stack.set_visible_child_name("edit");
         }
     });
 
     let model_clone_add = model.clone();
     let toast_overlay_add = toast_overlay.clone();
-    let root_stack_add = root_stack.clone();
-    let add_page_container_c = add_page_container.clone();
+    let root_stack_weak = root_stack.downgrade();
+    let add_page_container_weak = add_page_container.downgrade();
 
     add_button.connect_clicked(move |_| {
+        let root_stack = match root_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let add_page_container = match add_page_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
         // Clear previous add form (optional but good for reset)
-        while let Some(child) = add_page_container_c.first_child() {
-            add_page_container_c.remove(&child);
+        while let Some(child) = add_page_container.first_child() {
+            add_page_container.remove(&child);
         }
 
-        let add_view = create_add_view(&root_stack_add, &model_clone_add, &toast_overlay_add);
-        add_page_container_c.append(&add_view);
-        root_stack_add.set_visible_child_name("add");
+        let add_view = create_add_view(&root_stack, &model_clone_add, &toast_overlay_add);
+        add_page_container.append(&add_view);
+        root_stack.set_visible_child_name("add");
     });
 
     let model_bulk = model.clone();
     let toast_bulk = toast_overlay.clone();
-    let stack_bulk = root_stack.clone();
-    let wizard_container_bulk = wizard_page_container.clone();
+    let stack_weak = root_stack.downgrade();
+    let wizard_container_weak = wizard_page_container.downgrade();
 
     bulk_button.connect_clicked(move |_| {
-        while let Some(child) = wizard_container_bulk.first_child() {
-            wizard_container_bulk.remove(&child);
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let wizard_container = match wizard_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
+        while let Some(child) = wizard_container.first_child() {
+            wizard_container.remove(&child);
         }
-        let view = create_bulk_replace_wizard(&stack_bulk, &model_bulk, &toast_bulk);
-        wizard_container_bulk.append(&view);
-        stack_bulk.set_visible_child_name("wizard");
+        let view = create_bulk_replace_wizard(&stack, &model_bulk, &toast_bulk);
+        wizard_container.append(&view);
+        stack.set_visible_child_name("wizard");
     });
 
-    let toast_overlay_backup = toast_overlay.clone();
-    backup_button.connect_clicked(move |_| match crate::ui::utils::perform_backup(true) {
-        Ok(msg) => {
-            let toast = adw::Toast::new(&msg);
-            toast_overlay_backup.add_toast(toast);
-        }
-        Err(e) => {
-            let toast = adw::Toast::new(&format!("Backup failed: {}", e));
-            toast_overlay_backup.add_toast(toast);
+    let toast_overlay_weak = toast_overlay.downgrade();
+    backup_button.connect_clicked(move |_| {
+        let toast_overlay = match toast_overlay_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        match crate::ui::utils::perform_backup(true) {
+            Ok(msg) => {
+                let toast = adw::Toast::new(&msg);
+                toast_overlay.add_toast(toast);
+            }
+            Err(e) => {
+                let toast = adw::Toast::new(&format!("Backup failed: {}", e));
+                toast_overlay.add_toast(toast);
+            }
         }
     });
 
     // Logic to update conflict button visibility
     let update_conflict_btn = {
-        let conflict_button = conflict_button.clone();
+        let conflict_button_weak = conflict_button.downgrade();
         move |model: &gio::ListStore| {
+            let conflict_button = match conflict_button_weak.upgrade() {
+                Some(btn) => btn,
+                None => return,
+            };
             let mut conflict_count = 0;
             for i in 0..model.n_items() {
                 if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
@@ -627,41 +689,72 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     let model_wizard = model.clone();
-    let stack_wizard = root_stack.clone();
+    let stack_weak = root_stack.downgrade();
     let toast_wizard = toast_overlay.clone();
-    let wizard_container_c = wizard_page_container.clone();
+    let wizard_container_weak = wizard_page_container.downgrade();
+    let selection_model_weak = selection_model.downgrade();
 
-    let column_view_wizard = column_view.clone();
+    let column_view_weak = column_view.downgrade();
     conflict_button.connect_clicked(move |_| {
-        while let Some(child) = wizard_container_c.first_child() {
-            wizard_container_c.remove(&child);
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let wizard_container = match wizard_container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let column_view = match column_view_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let selection_model = match selection_model_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
+        while let Some(child) = wizard_container.first_child() {
+            wizard_container.remove(&child);
         }
 
         let wizard_view = create_conflict_wizard(
-            &stack_wizard,
+            &stack,
             &model_wizard,
-            &column_view_wizard,
+            &column_view,
             &selection_model,
             &toast_wizard,
-            &wizard_container_c,
+            &wizard_container,
             0,
         );
-        wizard_container_c.append(&wizard_view);
-        stack_wizard.set_visible_child_name("wizard");
+        wizard_container.append(&wizard_view);
+        stack.set_visible_child_name("wizard");
     });
 
-    let status_page_ref = status_page.clone();
-    let list_stack_ref = list_stack.clone();
-    let scrolled_ref = scrolled_window.clone();
+    let status_page_weak = status_page.downgrade();
+    let list_stack_weak = list_stack.downgrade();
+    let scrolled_weak = scrolled_window.downgrade();
 
     filter_model.connect_items_changed(move |m, _, _, _| {
+        let status_page = match status_page_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let list_stack = match list_stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let scrolled = match scrolled_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
         let has_items = m.n_items() > 0;
-        status_page_ref.set_visible(!has_items);
-        scrolled_ref.set_visible(has_items);
+        status_page.set_visible(!has_items);
+        scrolled.set_visible(has_items);
         if has_items {
-            list_stack_ref.set_visible_child(&scrolled_ref);
+            list_stack.set_visible_child(&scrolled);
         } else {
-            list_stack_ref.set_visible_child(&status_page_ref);
+            list_stack.set_visible_child(&status_page);
         }
     });
 
@@ -719,115 +812,197 @@ pub fn build_ui(app: &adw::Application) {
         filter_func_2(text, cat);
     });
 
-    let stack_settings = root_stack.clone();
-    let container_settings = settings_page_container.clone();
-    let window_settings = window.clone();
-    let col_desc_clone = col_desc.clone();
-    let col_fav_clone = col_fav.clone();
-    let col_args_clone = col_args.clone();
-    let col_submap_clone = col_submap.clone();
-    let col_key_clone = col_key.clone();
-    let col_mods_clone = col_mods.clone();
-    let col_disp_clone = col_disp.clone();
-    let column_view_clone = column_view.clone();
+    let stack_weak = root_stack.downgrade();
+    let container_weak = settings_page_container.downgrade();
+    let window_weak = window.downgrade();
+    let col_desc_weak = col_desc.downgrade();
+    let col_fav_weak = col_fav.downgrade();
+    let col_args_weak = col_args.downgrade();
+    let col_submap_weak = col_submap.downgrade();
+    let col_key_weak = col_key.downgrade();
+    let col_mods_weak = col_mods.downgrade();
+    let col_disp_weak = col_disp.downgrade();
+    let column_view_weak = column_view.downgrade();
     let model_settings = model.clone();
-    let toast_overlay_settings = toast_overlay.clone();
-    let restore_container_settings = restore_page_container.clone();
-    let dropdown_settings = category_dropdown.clone();
+    let toast_overlay_weak = toast_overlay.downgrade();
+    let restore_container_weak = restore_page_container.downgrade();
+    let dropdown_weak = category_dropdown.downgrade();
 
     settings_button.connect_clicked(move |_| {
-        while let Some(child) = container_settings.first_child() {
-            container_settings.remove(&child);
-        }
-        let col_desc_c = col_desc_clone.clone();
-        let col_fav_c = col_fav_clone.clone();
-        let col_args_c = col_args_clone.clone();
-        let col_submap_c = col_submap_clone.clone();
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let container = match container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let window = match window_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
-        let col_key_c = col_key_clone.clone();
-        let col_mods_c = col_mods_clone.clone();
-        let col_disp_c = col_disp_clone.clone();
-        let col_args_sort_c = col_args_clone.clone();
-        let col_submap_sort_c = col_submap_clone.clone();
-        let col_view_c = column_view_clone.clone();
+        while let Some(child) = container.first_child() {
+            container.remove(&child);
+        }
+
+        let col_desc_w = col_desc_weak.clone();
+        let col_fav_w = col_fav_weak.clone();
+        let col_args_w = col_args_weak.clone();
+        let col_submap_w = col_submap_weak.clone();
+
+        let col_key_w = col_key_weak.clone();
+        let col_mods_w = col_mods_weak.clone();
+        let col_disp_w = col_disp_weak.clone();
+        let col_args_sort_w = col_args_weak.clone();
+        let col_submap_sort_w = col_submap_weak.clone();
+        let col_view_w = column_view_weak.clone();
+
         let model_s = model_settings.clone();
         let model_s_restore = model_settings.clone();
-        let toast_s = toast_overlay_settings.clone();
-        let stack_s = stack_settings.clone();
-        let restore_container_s = restore_container_settings.clone();
-        let dropdown_s = dropdown_settings.clone();
+        let toast_w = toast_overlay_weak.clone();
+        let stack_w = stack_weak.clone();
+        let restore_container_w = restore_container_weak.clone();
+        let dropdown_w = dropdown_weak.clone();
 
-        let toast_s_1 = toast_s.clone();
-        let toast_s_2 = toast_s.clone();
+        let toast_w_1 = toast_w.clone();
+        let toast_w_2 = toast_w.clone();
 
         let view = crate::ui::settings::create_settings_view(
-            &window_settings,
-            &stack_settings,
+            &window,
+            &stack,
             &model_s,
-            std::rc::Rc::new(move |s| col_desc_c.set_visible(s)),
             std::rc::Rc::new(move |s| {
-                col_fav_c.set_visible(s);
-                // Update dropdown options
-                let mut cat_list = vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
-                if s {
-                    cat_list.push("Favorites");
-                }
-                // Preserve selection if possible, otherwise default to All
-                let selected = dropdown_s.selected();
-                let model = gtk::StringList::new(&cat_list);
-                dropdown_s.set_model(Some(&model));
-                if selected < model.n_items() {
-                    dropdown_s.set_selected(selected);
-                } else {
-                    dropdown_s.set_selected(0);
+                if let Some(c) = col_desc_w.upgrade() {
+                    c.set_visible(s)
                 }
             }),
-            std::rc::Rc::new(move |s| col_args_c.set_visible(s)),
-            std::rc::Rc::new(move |s| col_submap_c.set_visible(s)),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_fav_w.upgrade() {
+                    c.set_visible(s);
+                }
+                // Update dropdown options
+                if let Some(dropdown) = dropdown_w.upgrade() {
+                    let mut cat_list =
+                        vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
+                    if s {
+                        cat_list.push("Favorites");
+                    }
+                    // Preserve selection if possible, otherwise default to All
+                    let selected = dropdown.selected();
+                    let model = gtk::StringList::new(&cat_list);
+                    dropdown.set_model(Some(&model));
+                    if selected < model.n_items() {
+                        dropdown.set_selected(selected);
+                    } else {
+                        dropdown.set_selected(0);
+                    }
+                }
+            }),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_args_w.upgrade() {
+                    c.set_visible(s)
+                }
+            }),
+            std::rc::Rc::new(move |s| {
+                if let Some(c) = col_submap_w.upgrade() {
+                    c.set_visible(s)
+                }
+            }),
             std::rc::Rc::new(move |sort_key| {
+                // Resolve weak refs
+                let col_mods = match col_mods_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_disp = match col_disp_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_args = match col_args_sort_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_submap = match col_submap_sort_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_key = match col_key_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let col_view = match col_view_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+
                 let col = match sort_key.as_str() {
-                    "mods" => Some(&col_mods_c),
-                    "dispatcher" => Some(&col_disp_c),
-                    "args" => Some(&col_args_sort_c),
-                    "submap" => Some(&col_submap_sort_c),
-                    _ => Some(&col_key_c), // Default key
+                    "mods" => Some(&col_mods),
+                    "dispatcher" => Some(&col_disp),
+                    "args" => Some(&col_args),
+                    "submap" => Some(&col_submap),
+                    _ => Some(&col_key), // Default key
                 };
                 if let Some(c) = col {
-                    col_view_c.sort_by_column(Some(c), gtk::SortType::Ascending);
+                    col_view.sort_by_column(Some(c), gtk::SortType::Ascending);
                 }
             }),
             std::rc::Rc::new(move |msg| {
-                let toast = adw::Toast::new(&msg);
-                toast_s_1.add_toast(toast);
+                if let Some(toast_overlay) = toast_w_1.upgrade() {
+                    let toast = adw::Toast::new(&msg);
+                    toast_overlay.add_toast(toast);
+                }
             }),
             std::rc::Rc::new(move || {
-                while let Some(child) = restore_container_s.first_child() {
-                    restore_container_s.remove(&child);
+                let stack = match stack_w.upgrade() {
+                    Some(s) => s,
+                    None => return,
+                };
+                let restore_container = match restore_container_w.upgrade() {
+                    Some(c) => c,
+                    None => return,
+                };
+                let toast_overlay = match toast_w_2.upgrade() {
+                    Some(t) => t,
+                    None => return,
+                };
+
+                while let Some(child) = restore_container.first_child() {
+                    restore_container.remove(&child);
                 }
                 let restore_view = crate::ui::views::create_restore_view(
-                    &stack_s,
+                    &stack,
                     &model_s_restore,
-                    &toast_s_2,
-                    &restore_container_s,
+                    &toast_overlay,
+                    &restore_container,
                 );
-                restore_container_s.append(&restore_view);
-                stack_s.set_visible_child_name("restore");
+                restore_container.append(&restore_view);
+                stack.set_visible_child_name("restore");
             }),
         );
-        container_settings.append(&view);
-        stack_settings.set_visible_child_name("settings");
+        container.append(&view);
+        stack.set_visible_child_name("settings");
     });
 
-    let stack_keyboard = root_stack.clone();
-    let container_keyboard = keyboard_page_container.clone();
+    let stack_weak = root_stack.downgrade();
+    let container_weak = keyboard_page_container.downgrade();
     let model_keyboard = model.clone();
     keyboard_button.connect_clicked(move |_| {
-        while let Some(child) = container_keyboard.first_child() {
-            container_keyboard.remove(&child);
+        let stack = match stack_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let container = match container_weak.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+
+        while let Some(child) = container.first_child() {
+            container.remove(&child);
         }
-        let view = crate::ui::views::create_keyboard_view(&stack_keyboard, &model_keyboard);
-        container_keyboard.append(&view);
-        stack_keyboard.set_visible_child_name("keyboard");
+        let view = crate::ui::views::create_keyboard_view(&stack, &model_keyboard);
+        container.append(&view);
+        stack.set_visible_child_name("keyboard");
     });
 
     window.present();
