@@ -277,8 +277,12 @@ fn test_variable_empty_value() {
 
     let vars = get_defined_variables().expect("Parse failed");
     assert_eq!(vars.len(), 2);
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$empty" && v.value.as_ref() == ""));
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$spaced" && v.value.as_ref() == ""));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$empty" && v.value.as_ref() == ""));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$spaced" && v.value.as_ref() == ""));
 }
 
 #[test]
@@ -357,10 +361,18 @@ fn test_variable_whitespace_variations() {
 
     let vars = get_defined_variables().expect("Parse failed");
     assert_eq!(vars.len(), 4);
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$a" && v.value.as_ref() == "1"));
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$b" && v.value.as_ref() == "2"));
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$c" && v.value.as_ref() == "3"));
-    assert!(vars.iter().any(|v| v.name.as_ref() == "$d" && v.value.as_ref() == "4"));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$a" && v.value.as_ref() == "1"));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$b" && v.value.as_ref() == "2"));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$c" && v.value.as_ref() == "3"));
+    assert!(vars
+        .iter()
+        .any(|v| v.name.as_ref() == "$d" && v.value.as_ref() == "4"));
 }
 
 #[test]
