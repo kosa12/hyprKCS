@@ -140,7 +140,7 @@ fn test_bulk_replace_dispatcher() {
     let content = r#"
         bind = SUPER, 1, workspace, 1
         bind = SUPER, 2, workspace, 2
-        bind = SUPER, Q, killactive, 
+        bind = SUPER, Q, killactive,
     "#;
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);

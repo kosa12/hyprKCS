@@ -44,10 +44,10 @@ impl Drop for TempFile {
 #[test]
 fn test_quoted_args_complex() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         # Case: Quoted args with commas inside
         bind = SUPER, M, exec, notify-send "Hello, World"
-        
+
         # Case: Quoted args with escaped quotes
         bind = SUPER, N, exec, bash -c "echo \"This is complex\""
 
@@ -91,7 +91,7 @@ fn test_args_with_commas_no_quotes() {
 #[test]
 fn test_variable_substitution_in_binds() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         $mainMod = SUPER
         $term = kitty
         $browser = firefox
@@ -115,7 +115,7 @@ fn test_variable_substitution_in_binds() {
 #[test]
 fn test_variable_recursive() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         $color = red
         $cmd = notify-send "Color is $color"
         bind = SUPER, C, exec, $cmd
@@ -132,10 +132,10 @@ fn test_variable_recursive() {
 #[test]
 fn test_flags_parsing() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         bindl = , Switch, exec, swaylock
         bindr = SUPER, Super_L, exec, pkill -SIGUSR1 waybar
-        binde = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ 
+        binde = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
     "#;
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
@@ -151,7 +151,7 @@ fn test_flags_parsing() {
 #[test]
 fn test_inline_comments() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         bind = SUPER, Q, killactive # Close window
         bind = SUPER, E, exec, dolphin #Open File Manager
     "#;
@@ -168,11 +168,11 @@ fn test_inline_comments() {
 #[test]
 fn test_preceding_comments() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         # Terminal
         bind = SUPER, T, exec, kitty
 
-        #   Launch Browser   
+        #   Launch Browser
         bind = SUPER, B, exec, firefox
     "#;
     let temp = TempFile::new(content);
