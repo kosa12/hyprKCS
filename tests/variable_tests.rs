@@ -389,3 +389,40 @@ fn test_variable_with_inline_comment() {
     assert_eq!(v1.value.as_ref(), "value");
     assert_eq!(v2.value.as_ref(), "val");
 }
+
+#[test]
+fn test_variable_with_dollar_in_value() {
+    let _guard = lock_env();
+    let content = r#"
+        $price = $100
+        bind = SUPER, P, exec, echo $price
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Parse failed");
+    // It should resolve $price to $100.
+    // NOTE: In the current implementation, if $1 is not defined, it remains $1.
+    assert_eq!(binds[0].args.as_ref(), "echo $100");
+}
+
+#[test]
+fn test_variable_naming_conventions() {
+    let _guard = lock_env();
+    let content = r#"
+        $VAR_1 = underscore
+        $var-2 = dash
+        bind = SUPER, 1, exec, echo $VAR_1
+        bind = SUPER, 2, exec, echo $var-2
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let variables = get_variables().expect("Failed to get variables");
+    assert_eq!(variables.get("$VAR_1").unwrap(), "underscore");
+
+    // Note: Hyprland usually only supports [a-zA-Z0-9_] for variable names.
+    // Let's see if the parser handles dashes.
+    let binds = parse_config().expect("Parse failed");
+    assert_eq!(binds[0].args.as_ref(), "echo underscore");
+}

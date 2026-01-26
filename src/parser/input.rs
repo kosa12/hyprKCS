@@ -50,12 +50,16 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
         let trimmed = line.trim();
 
         // Detect block start
-        if trimmed.starts_with("input {")
-            || (trimmed.starts_with("input") && trimmed.ends_with("{ "))
+        if trimmed == "input {"
+            || trimmed == "input{"
+            || (trimmed.starts_with("input") && trimmed.ends_with("{"))
         {
-            current_block = "input";
-            block_depth = 1;
-            continue;
+            let block_name = trimmed.split('{').next().unwrap_or("").trim();
+            if block_name == "input" {
+                current_block = "input";
+                block_depth = 1;
+                continue;
+            }
         }
 
         // Global scope check for gesture

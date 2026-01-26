@@ -40,7 +40,7 @@ pub fn normalize(mods: &str, key: &str) -> (String, String) {
     )
 }
 
-fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
+pub fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
     let mut collision_map: std::collections::HashMap<(String, String, Rc<str>), Vec<usize>> =
         std::collections::HashMap::new();
 
