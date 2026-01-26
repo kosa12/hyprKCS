@@ -55,22 +55,77 @@ fn test_rename_variable_references_word_boundaries() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // Rename $mod -> $mainMod
-    // Note: rename_variable_references expects the clean name (no $)
     let _count = rename_variable_references("mod", "mainMod").expect("Rename failed");
-
-    // Should have renamed in definition, one bind, and the comment.
-    // Wait, the comment match: "# This is $mod in a comment" -> "$mod" is a match.
-    // "$modding" should NOT be matched because of word boundary.
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
     assert!(new_content.contains("$mainMod = SUPER"));
     assert!(new_content.contains("bind = $mainMod, Q, exec, kitty"));
     assert!(new_content.contains("# This is $mainMod in a comment"));
-
     assert!(new_content.contains("$mod_alt = ALT"));
     assert!(new_content.contains("bind = $mod_alt, W, exec, firefox"));
-    assert!(new_content.contains("echo $modding")); // Should remain unchanged
+    assert!(new_content.contains("echo $modding"));
+}
+
+#[test]
+fn test_rename_numeric_suffix_boundaries() {
+    let _guard = lock_env();
+    let content = r#"
+        $ws1 = 1
+        $ws10 = 10
+        $ws100 = 100
+        bind = SUPER, 1, workspace, $ws1
+        bind = SUPER, 0, workspace, $ws10
+        bind = SUPER SHIFT, 0, workspace, $ws100
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    rename_variable_references("ws1", "workspace1").expect("Rename failed");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("$workspace1 = 1"));
+    assert!(new_content.contains("workspace, $workspace1"));
+    assert!(new_content.contains("$ws10 = 10"));
+    assert!(new_content.contains("$ws100 = 100"));
+}
+
+#[test]
+fn test_consecutive_variables() {
+    let _guard = lock_env();
+    let content = r#"
+        $a = foo
+        $b = bar
+        bind = SUPER, X, exec, echo $a$b
+        bind = SUPER, Y, exec, echo $a/$b
+        bind = SUPER, Z, exec, echo $a-$b
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    rename_variable_references("a", "first").expect("Rename failed");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("$first = foo"));
+    assert!(new_content.contains("echo $first$b"));
+    assert!(new_content.contains("echo $first/$b"));
+    assert!(new_content.contains("echo $first-$b"));
+}
+
+#[test]
+fn test_variable_at_line_boundaries() {
+    let _guard = lock_env();
+    let content = "$term = kitty\nbind = SUPER, Return, exec, $term\n$term";
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let count = count_variable_references("term").expect("Count failed");
+    assert_eq!(count, 2); // bind usage + standalone $term at end
+
+    inline_variable_references("term", "kitty").expect("Inline failed");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("exec, kitty"));
+    assert!(new_content.ends_with("kitty\n") || new_content.ends_with("kitty"));
 }
 
 #[test]
@@ -86,11 +141,8 @@ fn test_count_variable_references() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // count_variable_references should exclude the definition "$term ="
     let count = count_variable_references("term").expect("Count failed");
-
-    // Expected: 2 binds, 1 other var usage, 1 comment = 4
-    assert_eq!(count, 4);
+    assert_eq!(count, 4); // 2 binds + 1 other var usage + 1 comment
 }
 
 #[test]
@@ -104,18 +156,28 @@ fn test_inline_variable_references() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // Inline $term -> kitty
     inline_variable_references("term", "kitty").expect("Inline failed");
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
-
-    // Definition should REMAINE (inline function specifically avoids definition)
-    // The user's request was "replace it with the value" on delete.
-    // The UI then calls delete_variable separately.
-    assert!(new_content.contains("$term = kitty"));
-
+    assert!(new_content.contains("$term = kitty")); // Definition remains
     assert!(new_content.contains("bind = SUPER, Return, exec, kitty"));
     assert!(new_content.contains("$other = kitty"));
+}
+
+#[test]
+fn test_inline_with_special_chars() {
+    let _guard = lock_env();
+    let content = r#"
+        $browser = firefox --new-window
+        bind = SUPER, B, exec, $browser
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    inline_variable_references("browser", "firefox --new-window").expect("Inline failed");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("bind = SUPER, B, exec, firefox --new-window"));
 }
 
 #[test]
@@ -125,28 +187,37 @@ fn test_refactor_hardcoded_references() {
         $term = kitty
         bind = SUPER, Return, exec, kitty
         bind = SUPER SHIFT, Return, exec, kitty-stable
-        # kitty in comment (should not be refactored by refactor_hardcoded_references as it only targets bind lines)
+        # kitty in comment
         exec-once = kitty
     "#;
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // Refactor "kitty" -> "$term"
     let _count = refactor_hardcoded_references("kitty", "term").expect("Refactor failed");
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
-
-    // Should refactor the bind
     assert!(new_content.contains("bind = SUPER, Return, exec, $term"));
-
-    // Should NOT refactor "kitty-stable" (boundary)
     assert!(new_content.contains("bind = SUPER SHIFT, Return, exec, kitty-stable"));
-
-    // Should NOT refactor "exec-once" (only targets "bind" lines in current implementation)
-    assert!(new_content.contains("exec-once = kitty"));
-
-    // Should NOT refactor comment
+    assert!(new_content.contains("exec-once = kitty")); // Only targets bind lines
     assert!(new_content.contains("# kitty in comment"));
+}
+
+#[test]
+fn test_refactor_path_like_value() {
+    let _guard = lock_env();
+    let content = r#"
+        $script = ~/.config/hypr/script.sh
+        bind = SUPER, S, exec, ~/.config/hypr/script.sh
+        bind = SUPER, D, exec, ~/.config/hypr/script.sh --daemon
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    refactor_hardcoded_references("~/.config/hypr/script.sh", "script").expect("Refactor failed");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    assert!(new_content.contains("bind = SUPER, S, exec, $script"));
+    assert!(new_content.contains("bind = SUPER, D, exec, $script --daemon"));
 }
 
 #[test]
@@ -159,13 +230,10 @@ fn test_variable_add_update_delete() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // 1. Add
     add_variable(temp.path.clone(), "newVar", "newValue").expect("Add failed");
     let c = std::fs::read_to_string(&temp.path).unwrap();
     assert!(c.contains("$newVar = newValue"));
 
-    // 2. Update
-    // get_defined_variables to find line number
     let vars = get_defined_variables().expect("Get defined failed");
     let v = vars.iter().find(|v| v.name.as_ref() == "$oldVar").unwrap();
     update_variable(
@@ -180,11 +248,9 @@ fn test_variable_add_update_delete() {
     assert!(c.contains("$oldVarRenamed = updatedValue"));
     assert!(!c.contains("$oldVar = value"));
 
-    // 3. Delete
     let vars = get_defined_variables().expect("Get defined failed 2");
     let v = vars.iter().find(|v| v.name.as_ref() == "$newVar").unwrap();
 
-    // Verify line content before deletion to ensure we aren't deleting shifted/wrong line
     let content_lines: Vec<String> = std::fs::read_to_string(&temp.path)
         .unwrap()
         .lines()
@@ -203,6 +269,19 @@ fn test_variable_add_update_delete() {
 }
 
 #[test]
+fn test_variable_empty_value() {
+    let _guard = lock_env();
+    let content = "$empty =\n$spaced =   \n";
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let vars = get_defined_variables().expect("Parse failed");
+    assert_eq!(vars.len(), 2);
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$empty" && v.value.as_ref() == ""));
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$spaced" && v.value.as_ref() == ""));
+}
+
+#[test]
 fn test_variable_recursive_definition_handling() {
     let _guard = lock_env();
     let content = r#"
@@ -213,11 +292,9 @@ fn test_variable_recursive_definition_handling() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // Verify parser resolves it
     let binds = parse_config().expect("Parse failed");
     assert_eq!(binds[0].args.as_ref(), "echo red");
 
-    // Rename $color -> $primary
     rename_variable_references("color", "primary").expect("Rename failed");
 
     let c = std::fs::read_to_string(&temp.path).unwrap();
@@ -226,16 +303,30 @@ fn test_variable_recursive_definition_handling() {
 }
 
 #[test]
+fn test_variable_triple_chain() {
+    let _guard = lock_env();
+    let content = r#"
+        $base = value
+        $mid = $base
+        $top = $mid
+        bind = SUPER, X, exec, echo $top
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let binds = parse_config().expect("Parse failed");
+    assert_eq!(binds[0].args.as_ref(), "echo value");
+}
+
+#[test]
 fn test_variable_rename_cross_file() {
     let _guard = lock_env();
 
-    // Create a sourced file
     let sourced_content = r#"
         bind = $mainMod, T, exec, kitty
     "#;
     let sourced_temp = TempFile::new(sourced_content);
 
-    // Create main config that sources the other file
     let main_content = format!(
         "$mainMod = SUPER\nsource = {}",
         sourced_temp.path.to_string_lossy()
@@ -244,19 +335,45 @@ fn test_variable_rename_cross_file() {
 
     std::env::set_var("HYPRKCS_CONFIG", &main_temp.path);
 
-    // Verify initial state
     let binds = parse_config().expect("Initial parse failed");
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].mods.as_ref(), "SUPER");
 
-    // Rename $mainMod -> $superKey
     rename_variable_references("mainMod", "superKey").expect("Cross-file rename failed");
 
-    // Check main file
     let main_c = std::fs::read_to_string(&main_temp.path).unwrap();
     assert!(main_c.contains("$superKey = SUPER"));
 
-    // Check sourced file
     let sourced_c = std::fs::read_to_string(&sourced_temp.path).unwrap();
     assert!(sourced_c.contains("bind = $superKey, T, exec, kitty"));
+}
+
+#[test]
+fn test_variable_whitespace_variations() {
+    let _guard = lock_env();
+    let content = "$a=1\n$b = 2\n$c  =  3\n$d=  4\n";
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let vars = get_defined_variables().expect("Parse failed");
+    assert_eq!(vars.len(), 4);
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$a" && v.value.as_ref() == "1"));
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$b" && v.value.as_ref() == "2"));
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$c" && v.value.as_ref() == "3"));
+    assert!(vars.iter().any(|v| v.name.as_ref() == "$d" && v.value.as_ref() == "4"));
+}
+
+#[test]
+fn test_variable_with_inline_comment() {
+    let _guard = lock_env();
+    let content = "$var = value # this is a comment\n$var2 = val#ue\n";
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let vars = get_defined_variables().expect("Parse failed");
+    let v1 = vars.iter().find(|v| v.name.as_ref() == "$var").unwrap();
+    let v2 = vars.iter().find(|v| v.name.as_ref() == "$var2").unwrap();
+
+    assert_eq!(v1.value.as_ref(), "value");
+    assert_eq!(v2.value.as_ref(), "val");
 }
