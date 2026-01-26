@@ -6,6 +6,9 @@ use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+type RefreshHandle = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
+type HeaderUpdateFn = Rc<dyn Fn(&str, Option<&str>)>;
+
 pub fn create_variables_page(
     _window: &adw::ApplicationWindow,
     on_show_toast: Rc<dyn Fn(String)>,
@@ -295,13 +298,13 @@ pub fn create_variables_page(
     let current_var: Rc<RefCell<Option<Variable>>> = Rc::new(RefCell::new(None));
 
     // -- Refresh Forward Declaration --
-    let refresh_handle: Rc<RefCell<Option<Rc<dyn Fn()>>>> = Rc::new(RefCell::new(None));
+    let refresh_handle: RefreshHandle = Rc::new(RefCell::new(None));
 
     // -- Header Update Logic --
     let header_c = header.clone();
-    let update_header_title: Rc<dyn Fn(&str, Option<&str>)> =
+    let update_header_title: HeaderUpdateFn =
         Rc::new(move |title: &str, subtitle: Option<&str>| {
-            if let Some(_) = header_c.last_child() {
+            if header_c.last_child().is_some() {
                 let mut i = 0;
                 let mut child_opt = header_c.first_child();
                 while let Some(widget) = child_opt {
@@ -358,8 +361,8 @@ pub fn create_variables_page(
             eprintln!("Failed to backup config: {}", e);
         }
 
-        let clean_name = if name.starts_with('$') {
-            name[1..].to_string()
+        let clean_name = if let Some(stripped) = name.strip_prefix('$') {
+            stripped.to_string()
         } else {
             name
         };
@@ -479,8 +482,8 @@ pub fn create_variables_page(
              return;
         }
 
-        let clean_name = if name.starts_with('$') {
-            name[1..].to_string()
+        let clean_name = if let Some(stripped) = name.strip_prefix('$') {
+            stripped.to_string()
         } else {
             name
         };
@@ -584,7 +587,7 @@ fn refresh_list_ui(
     name_entry: &gtk::Entry,
     value_entry: &gtk::Entry,
     toast: &Rc<dyn Fn(String)>,
-    update_header_title: &Rc<dyn Fn(&str, Option<&str>)>,
+    update_header_title: &HeaderUpdateFn,
     warning_body: &gtk::Label,
     delete_confirm_btn: &gtk::Button,
     refactor_switch: &gtk::Switch,
@@ -724,11 +727,8 @@ fn refresh_list_ui(
                 delete_btn.connect_clicked(move |btn| {
                     let name_clean = var_del.name.trim_start_matches('$');
 
-                    // Check usages
-                    let usage_count = match parser::count_variable_references(name_clean) {
-                         Ok(c) => c,
-                         Err(_) => 0,
-                    };
+                    let usage_count =
+                        parser::count_variable_references(name_clean).unwrap_or_default();
 
                     if usage_count > 0 {
                          // Dependent Case
