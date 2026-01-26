@@ -5,6 +5,7 @@ pub mod general;
 pub mod gestures;
 pub mod input;
 pub mod ui_elements;
+pub mod variables;
 pub mod window;
 
 use crate::config::StyleConfig;
@@ -104,6 +105,10 @@ pub fn create_settings_view(
         on_restore_clicked,
     );
     settings_stack.add_titled(&page_general, Some("general"), "General");
+
+    // ================== PAGE 1.5: VARIABLES ==================
+    let page_vars = variables::create_variables_page(window, on_show_toast.clone());
+    settings_stack.add_titled(&page_vars, Some("variables"), "Variables");
 
     // ================== PAGE 2: WINDOW ==================
     let page_window = window::create_window_page(config.clone(), window);

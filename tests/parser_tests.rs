@@ -164,10 +164,10 @@ fn test_parse_macro_keybind() {
 #[test]
 fn test_parser_corner_cases() {
     let _guard = lock_env();
-    let content = r#" 
+    let content = r#"
         # Case 1: Extra whitespace
         bind   =   SUPER  ,  Q  ,  exec  ,  kitty
-        
+
         # Case 2: No args
         bind = CTRL, C, killactive
 

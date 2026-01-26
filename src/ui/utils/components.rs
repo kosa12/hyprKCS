@@ -74,7 +74,9 @@ pub fn create_page_header(
             .label(sub)
             .css_classes(["dim-label", "caption"])
             .halign(gtk::Align::Start)
-            .wrap(true)
+            .wrap(false)
+            .ellipsize(gtk::pango::EllipsizeMode::Middle)
+            .max_width_chars(40)
             .build();
         title_box.append(&sub_label);
     }

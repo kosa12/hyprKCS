@@ -20,6 +20,14 @@ pub struct Keybind {
     pub file_path: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct Variable {
+    pub name: Rc<str>,
+    pub value: Rc<str>,
+    pub line_number: usize,
+    pub file_path: PathBuf,
+}
+
 pub fn get_config_path() -> Result<PathBuf> {
     if let Ok(env_path) = std::env::var("HYPRKCS_CONFIG") {
         return Ok(PathBuf::from(env_path));
@@ -51,6 +59,18 @@ fn resolve_variables(
     result
 }
 
+fn split_comment(line: &str) -> (&str, &str) {
+    if let Some(idx) = line.find(" #") {
+        (&line[..idx], &line[idx..])
+    } else if line.trim_start().starts_with('#') {
+        ("", line)
+    } else if let Some(idx) = line.find('#') {
+        (&line[..idx], &line[idx..])
+    } else {
+        (line, "")
+    }
+}
+
 fn expand_path(
     path_str: &str,
     current_file: &Path,
@@ -80,6 +100,7 @@ struct ParserContext {
     variables: HashMap<String, String>,
     sorted_keys: Vec<String>,
     visited: HashSet<PathBuf>,
+    keys_dirty: bool,
 }
 
 impl ParserContext {
@@ -88,38 +109,54 @@ impl ParserContext {
             variables: HashMap::new(),
             sorted_keys: Vec::new(),
             visited: HashSet::new(),
+            keys_dirty: false,
         }
     }
 
-    fn update_sorted_keys(&mut self) {
-        // Only update if variable count changed to save work
-        if self.sorted_keys.len() != self.variables.len() {
+    fn mark_dirty(&mut self) {
+        self.keys_dirty = true;
+    }
+
+    fn ensure_sorted(&mut self) {
+        if self.keys_dirty {
             self.sorted_keys = self.variables.keys().cloned().collect();
             self.sorted_keys
                 .sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
+            self.keys_dirty = false;
         }
     }
 }
 
 struct ConfigData {
     variables: HashMap<String, String>,
+    defined_variables: Vec<Variable>,
     file_cache: HashMap<PathBuf, Rc<String>>,
 }
 
 fn load_config_data() -> Result<ConfigData> {
     let main_path = get_config_path()?;
     let mut ctx = ParserContext::new();
-    let mut file_cache = HashMap::new();
+    let mut file_cache: HashMap<PathBuf, Rc<String>> = HashMap::new();
+    let mut path_cache: HashMap<PathBuf, Rc<PathBuf>> = HashMap::new();
+    let mut defined_variables = Vec::new();
 
     fn collect_recursive(
         path: PathBuf,
         ctx: &mut ParserContext,
         file_cache: &mut HashMap<PathBuf, Rc<String>>,
+        path_cache: &mut HashMap<PathBuf, Rc<PathBuf>>,
+        defined_variables: &mut Vec<Variable>,
     ) -> Result<()> {
         if !path.exists() || ctx.visited.contains(&path) {
             return Ok(());
         }
         ctx.visited.insert(path.clone());
+
+        // Get or create shared path reference
+        let shared_path = path_cache
+            .entry(path.clone())
+            .or_insert_with(|| Rc::new(path.clone()))
+            .clone();
 
         let content = if let Some(cached) = file_cache.get(&path) {
             cached.clone()
@@ -130,7 +167,7 @@ fn load_config_data() -> Result<ConfigData> {
             rc
         };
 
-        for line in content.lines() {
+        for (line_idx, line) in content.lines().enumerate() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -140,12 +177,27 @@ fn load_config_data() -> Result<ConfigData> {
             if line.starts_with('$') {
                 if let Some((name_part, value_part)) = line.split_once('=') {
                     let name = name_part.trim().to_string();
-                    let raw_value = value_part.split('#').next().unwrap_or("").trim();
+                    let (raw_value_part, _) = split_comment(value_part);
+                    let raw_value = raw_value_part.trim();
 
                     if !name.is_empty() {
-                        ctx.update_sorted_keys();
-                        let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
+                        // Store the definition for UI management (use shared path)
+                        defined_variables.push(Variable {
+                            name: Rc::from(name.as_str()),
+                            value: Rc::from(raw_value), // Store raw value for editing
+                            line_number: line_idx,
+                            file_path: (*shared_path).clone(),
+                        });
+
+                        // Resolve for parser usage - only if value contains variables
+                        let value = if raw_value.contains('$') {
+                            ctx.ensure_sorted();
+                            resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys)
+                        } else {
+                            raw_value.to_string()
+                        };
                         ctx.variables.insert(name, value);
+                        ctx.mark_dirty();
                     }
                 }
             }
@@ -155,19 +207,36 @@ fn load_config_data() -> Result<ConfigData> {
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
                     let path_str = path_part.split('#').next().unwrap_or("").trim();
 
-                    ctx.update_sorted_keys();
-                    let sourced_path =
-                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
-                    let _ = collect_recursive(sourced_path, ctx, file_cache);
+                    // Only get sorted keys if path contains variables
+                    let sourced_path = if path_str.contains('$') {
+                        ctx.ensure_sorted();
+                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys)
+                    } else {
+                        expand_path(path_str, &path, &ctx.variables, &[])
+                    };
+                    let _ = collect_recursive(
+                        sourced_path,
+                        ctx,
+                        file_cache,
+                        path_cache,
+                        defined_variables,
+                    );
                 }
             }
         }
         Ok(())
     }
 
-    collect_recursive(main_path, &mut ctx, &mut file_cache)?;
+    collect_recursive(
+        main_path,
+        &mut ctx,
+        &mut file_cache,
+        &mut path_cache,
+        &mut defined_variables,
+    )?;
     Ok(ConfigData {
         variables: ctx.variables,
+        defined_variables,
         file_cache,
     })
 }
@@ -175,6 +244,345 @@ fn load_config_data() -> Result<ConfigData> {
 pub fn get_variables() -> Result<HashMap<String, String>> {
     let data = load_config_data()?;
     Ok(data.variables)
+}
+
+pub fn get_defined_variables() -> Result<Vec<Variable>> {
+    let data = load_config_data()?;
+    Ok(data.defined_variables)
+}
+
+pub fn get_loaded_files() -> Result<Vec<PathBuf>> {
+    let data = load_config_data()?;
+    Ok(data.file_cache.keys().cloned().collect())
+}
+
+fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) -> (String, bool) {
+    let search_term = format!("${}", old_name);
+    let replacement = format!("${}", new_name);
+
+    let mut new_content = String::with_capacity(content.len());
+    let mut last_idx = 0;
+    let mut modified = false;
+
+    let matches: Vec<_> = content.match_indices(&search_term).collect();
+
+    for (idx, _) in matches {
+        // Check word boundary
+        let after_idx = idx + search_term.len();
+
+        let is_boundary = if after_idx >= content.len() {
+            true
+        } else {
+            let c = content[after_idx..].chars().next().unwrap();
+            !c.is_alphanumeric() && c != '_'
+        };
+
+        if is_boundary {
+            // Append everything up to match
+            new_content.push_str(&content[last_idx..idx]);
+            // Append replacement
+            new_content.push_str(&replacement);
+            last_idx = after_idx;
+            modified = true;
+        }
+    }
+
+    // Append remaining
+    new_content.push_str(&content[last_idx..]);
+
+    (new_content, modified)
+}
+
+pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usize> {
+    let files = get_loaded_files()?;
+    let mut count = 0;
+
+    for path in files {
+        if !path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+        let (new_content, modified) = replace_variable_in_content(&content, old_name, new_name);
+
+        if modified {
+            std::fs::write(&path, new_content)?;
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+pub fn count_variable_references(name: &str) -> Result<usize> {
+    let files = get_loaded_files()?;
+    let mut count = 0;
+
+    let search_term = format!("${}", name.trim_start_matches('$'));
+
+    for path in files {
+        if !path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+        let matches: Vec<_> = content.match_indices(&search_term).collect();
+
+        for (idx, _) in matches {
+            let after_idx = idx + search_term.len();
+
+            let is_boundary = if after_idx >= content.len() {
+                true
+            } else {
+                let c = content[after_idx..].chars().next().unwrap();
+                !c.is_alphanumeric() && c != '_'
+            };
+
+            let mut is_definition = false;
+            if is_boundary {
+                let mut check_idx = after_idx;
+                while check_idx < content.len() {
+                    let c = content[check_idx..].chars().next().unwrap();
+                    if !c.is_whitespace() {
+                        if c == '=' {
+                            is_definition = true;
+                        }
+                        break;
+                    }
+                    check_idx += c.len_utf8();
+                }
+            }
+
+            if is_boundary && !is_definition {
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
+}
+
+pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
+    let files = get_loaded_files()?;
+    let mut count = 0;
+
+    // We are replacing $name with value
+    let search_term = format!("${}", name.trim_start_matches('$'));
+    let replacement = value; // No $ prefix for value (unless value has it, which we pass as is)
+
+    for path in files {
+        if !path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+
+        // Custom replacement logic to avoid regex dependency
+        let mut new_content = String::with_capacity(content.len());
+        let mut last_idx = 0;
+        let mut modified = false;
+
+        let matches: Vec<_> = content.match_indices(&search_term).collect();
+
+        for (idx, _) in matches {
+            let after_idx = idx + search_term.len();
+
+            let is_boundary = if after_idx >= content.len() {
+                true
+            } else {
+                let c = content[after_idx..].chars().next().unwrap();
+                !c.is_alphanumeric() && c != '_'
+            };
+
+            // Avoid replacing the definition itself: "$name ="
+            // Quick heuristic: check if next non-whitespace char is '='
+            let mut is_definition = false;
+            if is_boundary {
+                let mut check_idx = after_idx;
+                while check_idx < content.len() {
+                    let c = content[check_idx..].chars().next().unwrap();
+                    if !c.is_whitespace() {
+                        if c == '=' {
+                            is_definition = true;
+                        }
+                        break;
+                    }
+                    check_idx += c.len_utf8();
+                }
+            }
+
+            if is_boundary && !is_definition {
+                new_content.push_str(&content[last_idx..idx]);
+                new_content.push_str(replacement);
+                last_idx = after_idx;
+                modified = true;
+            }
+        }
+
+        new_content.push_str(&content[last_idx..]);
+
+        if modified {
+            std::fs::write(&path, new_content)?;
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+/// Finds occurrences of a literal value in keybind lines and replaces them with a variable reference.
+/// Returns the total number of actual replacements made across all configuration files.
+pub fn refactor_hardcoded_references(value: &str, variable_name: &str) -> Result<usize> {
+    let files = get_loaded_files()?;
+    let mut count = 0;
+
+    // We want to replace `value` with `$variable_name`
+    let replacement = format!("${}", variable_name.trim_start_matches('$'));
+    let search_term = value;
+
+    for path in files {
+        if !path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+        let mut modified = false;
+
+        // Iterate line by line to only target "bind" lines
+        let lines: Vec<&str> = content.lines().collect();
+        let mut new_lines = Vec::with_capacity(lines.len());
+
+        for line in lines {
+            let line_trimmed = line.trim();
+            if line_trimmed.starts_with("bind") {
+                // Perform replacement on this line
+                let mut new_line = String::with_capacity(line.len());
+                let mut line_last_idx = 0;
+                let matches: Vec<_> = line.match_indices(search_term).collect();
+
+                let mut line_modified = false;
+
+                for (idx, _) in matches {
+                    let after_idx = idx + search_term.len();
+
+                    // Word boundary check
+                    let is_start_boundary = if idx == 0 {
+                        true
+                    } else {
+                        let c = line[..idx].chars().last().unwrap();
+                        !c.is_alphanumeric() && c != '_' && c != '-' && c != '$'
+                    };
+
+                    let is_end_boundary = if after_idx >= line.len() {
+                        true
+                    } else {
+                        let c = line[after_idx..].chars().next().unwrap();
+                        !c.is_alphanumeric() && c != '_' && c != '-'
+                    };
+
+                    if is_start_boundary && is_end_boundary {
+                        new_line.push_str(&line[line_last_idx..idx]);
+                        new_line.push_str(&replacement);
+                        line_last_idx = after_idx;
+                        line_modified = true;
+                        count += 1;
+                    }
+                }
+                new_line.push_str(&line[line_last_idx..]);
+
+                if line_modified {
+                    new_lines.push(new_line);
+                    modified = true;
+                } else {
+                    new_lines.push(line.to_string());
+                }
+            } else {
+                new_lines.push(line.to_string());
+            }
+        }
+
+        if modified {
+            write_lines(&path, &new_lines)?;
+        }
+    }
+    Ok(count)
+}
+
+pub fn write_lines<P: AsRef<Path>>(path: P, lines: &[String]) -> Result<()> {
+    let mut content = lines.join("\n");
+    if !content.is_empty() {
+        content.push('\n');
+    }
+    std::fs::write(path, content).context("Failed to write to file")
+}
+
+pub fn add_variable(path: PathBuf, name: &str, value: &str) -> Result<()> {
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut lines: Vec<String> = if content.is_empty() {
+        vec![]
+    } else {
+        content.lines().map(|s| s.to_string()).collect()
+    };
+
+    let new_line = format!("${} = {}", name.trim_start_matches('$'), value);
+
+    // Try to find a block of variables to append to
+    let mut insert_idx = 0;
+    let mut found_vars = false;
+    for (i, line) in lines.iter().enumerate() {
+        if line.trim().starts_with('$') {
+            found_vars = true;
+            insert_idx = i + 1;
+        } else if found_vars && !line.trim().is_empty() {
+            // End of variable block?
+            break;
+        }
+    }
+
+    if found_vars {
+        lines.insert(insert_idx, new_line);
+    } else {
+        // No variables found, insert at top or after comments
+        let mut top_idx = 0;
+        for (i, line) in lines.iter().enumerate() {
+            if !line.trim().starts_with('#') {
+                top_idx = i;
+                break;
+            }
+        }
+        lines.insert(top_idx, new_line);
+    }
+
+    write_lines(&path, &lines)
+}
+
+pub fn update_variable(
+    path: PathBuf,
+    line_number: usize,
+    new_name: &str,
+    new_value: &str,
+) -> Result<()> {
+    let content = std::fs::read_to_string(&path)?;
+    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+    if line_number >= lines.len() {
+        return Err(anyhow::anyhow!("Line number out of bounds"));
+    }
+
+    // Preserve comments if any
+    let original = &lines[line_number];
+    let (_, comment_part) = split_comment(original);
+
+    lines[line_number] = format!(
+        "${} = {}{}{}",
+        new_name.trim_start_matches('$'),
+        new_value,
+        if comment_part.is_empty() { "" } else { " " },
+        comment_part
+    );
+    write_lines(&path, &lines)
+}
+
+pub fn delete_variable(path: PathBuf, line_number: usize) -> Result<()> {
+    // Reuse existing delete logic since it's just line removal
+    delete_keybind(path, line_number)
 }
 
 pub fn parse_config() -> Result<Vec<Keybind>> {
@@ -385,7 +793,7 @@ pub fn update_line(
     let original_line = &lines[line_number];
     // Manual parsing for update_line logic
     // We want to preserve indentation and the 'bind' part
-    // regex was: r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^#]*)"
+    // regex was: r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^"]*)"
 
     // 1. Indent
     let indent_len = original_line
@@ -428,8 +836,7 @@ pub fn update_line(
             }
 
             lines[line_number] = new_line;
-            std::fs::write(&path, lines.join("\n"))?;
-            Ok(())
+            write_lines(&path, &lines)
         } else {
             Err(anyhow::anyhow!(
                 "Could not parse original line structure (missing =)"
@@ -506,12 +913,12 @@ pub fn add_keybind(
 
         if let Some(idx) = insert_index {
             lines.insert(idx, new_line);
-            std::fs::write(&path, lines.join("\n"))?;
+            write_lines(&path, &lines)?;
             Ok(idx)
         } else if found_submap {
             // Should have been handled above, but fallback
             lines.push(new_line);
-            std::fs::write(&path, lines.join("\n"))?;
+            write_lines(&path, &lines)?;
             Ok(lines.len() - 1)
         } else {
             // Submap doesn't exist, create it
@@ -520,13 +927,13 @@ pub fn add_keybind(
             lines.push(new_line);
             lines.push("submap = reset".to_string());
 
-            std::fs::write(&path, lines.join("\n"))?;
+            write_lines(&path, &lines)?;
             Ok(lines.len() - 2) // Index of the new bind
         }
     } else {
         // Global map
         lines.push(new_line);
-        std::fs::write(&path, lines.join("\n"))?;
+        write_lines(&path, &lines)?;
         Ok(lines.len() - 1)
     }
 }
@@ -540,9 +947,7 @@ pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {
     }
 
     lines.remove(line_number);
-    std::fs::write(&path, lines.join("\n"))?;
-
-    Ok(())
+    write_lines(&path, &lines)
 }
 
 pub struct BatchUpdate {
@@ -610,6 +1015,5 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
         }
     }
 
-    std::fs::write(&path, lines.join("\n"))?;
-    Ok(())
+    write_lines(&path, &lines)
 }

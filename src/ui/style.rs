@@ -77,7 +77,7 @@ fn generate_css(config: &StyleConfig) -> String {
             margin: 4px 0;
             color: @window_fg_color;
         }}
-        
+
         .mod-label {{
             font-weight: 600;
             background-color: alpha(@accent_color, 0.1);
@@ -162,7 +162,7 @@ fn generate_css(config: &StyleConfig) -> String {
         columnview {{
             background-color: transparent;
         }}
-        
+
         columnview listview {{
             margin: 8px;
         }}
@@ -183,13 +183,13 @@ fn generate_css(config: &StyleConfig) -> String {
         }}
 
         columnview row:selected label,
-        columnview row:selected .key-label, 
+        columnview row:selected .key-label,
         columnview row:selected .mod-label,
         columnview row:selected .dispatcher-label {{
             color: #242424;
         }}
 
-        columnview row:selected .key-label, 
+        columnview row:selected .key-label,
         columnview row:selected .mod-label {{
             background-color: rgba(0, 0, 0, 0.1);
             border-color: rgba(0, 0, 0, 0.15);
@@ -208,11 +208,11 @@ fn generate_css(config: &StyleConfig) -> String {
             color: #242424;
         }}
 
-        columnview row:selected .warning, 
+        columnview row:selected .warning,
         columnview row:selected button.warning {{
             color: #7a5000;
         }}
-        
+
         /* Clean Search Entry */
         searchbar > revealer > box {{
             padding: 12px;
@@ -270,13 +270,13 @@ fn generate_css(config: &StyleConfig) -> String {
             -gtk-icon-shadow: none;
             outline: none;
         }}
-        
+
         button.record-btn:hover {{
             background-color: alpha(@window_fg_color, 0.12);
             box-shadow: none;
             border: none;
         }}
-        
+
         button.record-btn:focus {{
              background-color: alpha(@window_fg_color, 0.16);
              box-shadow: none;
@@ -290,7 +290,7 @@ fn generate_css(config: &StyleConfig) -> String {
             min-height: 28px;
             font-size: 1rem;
         }}
-        
+
         button.small.circular {{
             padding: 4px;
             min-width: 28px;

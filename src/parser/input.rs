@@ -369,6 +369,5 @@ pub fn save_input_config(
         }
     }
 
-    std::fs::write(&path, lines.join("\n"))?;
-    Ok(())
+    super::write_lines(&path, &lines)
 }
