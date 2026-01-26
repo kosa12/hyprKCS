@@ -100,6 +100,7 @@ struct ParserContext {
     variables: HashMap<String, String>,
     sorted_keys: Vec<String>,
     visited: HashSet<PathBuf>,
+    keys_dirty: bool,
 }
 
 impl ParserContext {
@@ -108,15 +109,20 @@ impl ParserContext {
             variables: HashMap::new(),
             sorted_keys: Vec::new(),
             visited: HashSet::new(),
+            keys_dirty: false,
         }
     }
 
-    fn update_sorted_keys(&mut self) {
-        // Only update if variable count changed to save work
-        if self.sorted_keys.len() != self.variables.len() {
+    fn mark_dirty(&mut self) {
+        self.keys_dirty = true;
+    }
+
+    fn ensure_sorted(&mut self) {
+        if self.keys_dirty {
             self.sorted_keys = self.variables.keys().cloned().collect();
             self.sorted_keys
                 .sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
+            self.keys_dirty = false;
         }
     }
 }
@@ -130,19 +136,27 @@ struct ConfigData {
 fn load_config_data() -> Result<ConfigData> {
     let main_path = get_config_path()?;
     let mut ctx = ParserContext::new();
-    let mut file_cache = HashMap::new();
+    let mut file_cache: HashMap<PathBuf, Rc<String>> = HashMap::new();
+    let mut path_cache: HashMap<PathBuf, Rc<PathBuf>> = HashMap::new();
     let mut defined_variables = Vec::new();
 
     fn collect_recursive(
         path: PathBuf,
         ctx: &mut ParserContext,
         file_cache: &mut HashMap<PathBuf, Rc<String>>,
+        path_cache: &mut HashMap<PathBuf, Rc<PathBuf>>,
         defined_variables: &mut Vec<Variable>,
     ) -> Result<()> {
         if !path.exists() || ctx.visited.contains(&path) {
             return Ok(());
         }
         ctx.visited.insert(path.clone());
+
+        // Get or create shared path reference
+        let shared_path = path_cache
+            .entry(path.clone())
+            .or_insert_with(|| Rc::new(path.clone()))
+            .clone();
 
         let content = if let Some(cached) = file_cache.get(&path) {
             cached.clone()
@@ -167,18 +181,23 @@ fn load_config_data() -> Result<ConfigData> {
                     let raw_value = raw_value_part.trim();
 
                     if !name.is_empty() {
-                        ctx.update_sorted_keys();
-                        // Store the definition for UI management
+                        // Store the definition for UI management (use shared path)
                         defined_variables.push(Variable {
                             name: Rc::from(name.as_str()),
                             value: Rc::from(raw_value), // Store raw value for editing
                             line_number: line_idx,
-                            file_path: path.clone(),
+                            file_path: (*shared_path).clone(),
                         });
 
-                        // Resolve for parser usage
-                        let value = resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys);
+                        // Resolve for parser usage - only if value contains variables
+                        let value = if raw_value.contains('$') {
+                            ctx.ensure_sorted();
+                            resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys)
+                        } else {
+                            raw_value.to_string()
+                        };
                         ctx.variables.insert(name, value);
+                        ctx.mark_dirty();
                     }
                 }
             }
@@ -188,17 +207,33 @@ fn load_config_data() -> Result<ConfigData> {
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
                     let path_str = path_part.split('#').next().unwrap_or("").trim();
 
-                    ctx.update_sorted_keys();
-                    let sourced_path =
-                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys);
-                    let _ = collect_recursive(sourced_path, ctx, file_cache, defined_variables);
+                    // Only get sorted keys if path contains variables
+                    let sourced_path = if path_str.contains('$') {
+                        ctx.ensure_sorted();
+                        expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys)
+                    } else {
+                        expand_path(path_str, &path, &ctx.variables, &[])
+                    };
+                    let _ = collect_recursive(
+                        sourced_path,
+                        ctx,
+                        file_cache,
+                        path_cache,
+                        defined_variables,
+                    );
                 }
             }
         }
         Ok(())
     }
 
-    collect_recursive(main_path, &mut ctx, &mut file_cache, &mut defined_variables)?;
+    collect_recursive(
+        main_path,
+        &mut ctx,
+        &mut file_cache,
+        &mut path_cache,
+        &mut defined_variables,
+    )?;
     Ok(ConfigData {
         variables: ctx.variables,
         defined_variables,
