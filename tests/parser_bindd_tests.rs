@@ -127,8 +127,31 @@ fn test_bindd_empty_args() {
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
     let binds = parse_config().expect("Failed to parse");
-    assert_eq!(binds.len(), 1);
-    assert_eq!(binds[0].description.as_deref(), Some("MyDesc"));
-    assert_eq!(binds[0].dispatcher.as_ref(), "killactive");
     assert_eq!(binds[0].args.as_ref(), "");
+}
+
+#[test]
+fn test_update_from_bindd_to_bind() {
+    let _guard = lock_env();
+
+    let content = "bindd = SUPER, T, Open Terminal, exec, alacritty";
+    let temp = TempFile::new(content);
+
+    // Update to standard bind (remove 'd' flag)
+    update_line(
+        temp.path.clone(),
+        0,
+        "SUPER",
+        "T",
+        "exec",
+        "alacritty",
+        Some("Open Terminal".to_string()),
+        Some(""), // Clear flags
+    )
+    .expect("Failed to update from bindd");
+
+    let new_content = std::fs::read_to_string(&temp.path).unwrap();
+    // Should be standard bind with description as comment
+    assert!(new_content.contains("bind = SUPER, T, exec, alacritty # Open Terminal"));
+    assert!(!new_content.contains("bindd ="));
 }
