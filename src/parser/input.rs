@@ -50,16 +50,22 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
         let trimmed = line.trim();
 
         // Detect block start
-        if trimmed == "input {"
-            || trimmed == "input{"
-            || (trimmed.starts_with("input") && trimmed.ends_with("{"))
-        {
-            let block_name = trimmed.split('{').next().unwrap_or("").trim();
-            if block_name == "input" {
-                current_block = "input";
-                block_depth = 1;
-                continue;
-            }
+        // Must be exactly "input {" or "input{" or "input" followed by whitespace then "{"
+        let is_input_start = if trimmed == "input {" || trimmed == "input{" {
+            true
+        } else if trimmed.starts_with("input") && trimmed.ends_with('{') {
+            // Check if what follows 'input' is whitespace
+            let after_input = &trimmed[5..]; // safe because starts_with("input")
+            let before_brace = after_input.trim_end_matches('{');
+            before_brace.trim().is_empty() && !before_brace.is_empty()
+        } else {
+            false
+        };
+
+        if is_input_start {
+            current_block = "input";
+            block_depth = 1;
+            continue;
         }
 
         // Global scope check for gesture
@@ -240,10 +246,19 @@ pub fn save_input_config(
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if (trimmed.starts_with(&format!("{} {{ ", block_name))
-                || (trimmed.starts_with(block_name) && trimmed.ends_with("{ ")))
-                && !inside_block
-            {
+            
+            // Strict detection for "input {"
+            let is_input_start = if trimmed == "input {" || trimmed == "input{" {
+                true
+            } else if trimmed.starts_with("input") && trimmed.ends_with('{') {
+                let after_input = &trimmed[5..];
+                let before_brace = after_input.trim_end_matches('{');
+                before_brace.trim().is_empty() && !before_brace.is_empty()
+            } else {
+                false
+            };
+
+            if is_input_start && !inside_block {
                 inside_block = true;
                 start_idx = Some(i);
             }
