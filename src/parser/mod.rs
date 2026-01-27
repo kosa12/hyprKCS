@@ -858,18 +858,16 @@ pub fn update_line(
                         indent, flags, new_mods, new_key, desc_str, new_dispatcher, new_args
                     )
                 }
+            } else if new_args.trim().is_empty() {
+                format!(
+                    "{}bind{} = {}, {}, {}",
+                    indent, flags, new_mods, new_key, new_dispatcher
+                )
             } else {
-                if new_args.trim().is_empty() {
-                    format!(
-                        "{}bind{} = {}, {}, {}",
-                        indent, flags, new_mods, new_key, new_dispatcher
-                    )
-                } else {
-                    format!(
-                        "{}bind{} = {}, {}, {}, {}",
-                        indent, flags, new_mods, new_key, new_dispatcher, new_args
-                    )
-                }
+                format!(
+                    "{}bind{} = {}, {}, {}, {}",
+                    indent, flags, new_mods, new_key, new_dispatcher, new_args
+                )
             };
 
             if !is_bindd {
@@ -926,6 +924,7 @@ pub fn add_keybind(
 
     let mut new_line = if is_bindd {
         let desc_str = description.as_deref().unwrap_or("");
+
         if args.trim().is_empty() {
             format!(
                 "{} = {}, {}, {}, {}",
@@ -937,12 +936,10 @@ pub fn add_keybind(
                 bind_cmd, mods, key, desc_str, dispatcher, args
             )
         }
+    } else if args.trim().is_empty() {
+        format!("{} = {}, {}, {}", bind_cmd, mods, key, dispatcher)
     } else {
-        if args.trim().is_empty() {
-            format!("{} = {}, {}, {}", bind_cmd, mods, key, dispatcher)
-        } else {
-            format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, dispatcher, args)
-        }
+        format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, dispatcher, args)
     };
 
     if !is_bindd {
@@ -1075,23 +1072,21 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
                             update.new_args
                         )
                     }
+                } else if update.new_args.trim().is_empty() {
+                    format!(
+                        "{}bind{} = {}, {}, {}",
+                        indent, flags, update.new_mods, update.new_key, update.new_dispatcher
+                    )
                 } else {
-                    if update.new_args.trim().is_empty() {
-                        format!(
-                            "{}bind{} = {}, {}, {}",
-                            indent, flags, update.new_mods, update.new_key, update.new_dispatcher
-                        )
-                    } else {
-                        format!(
-                            "{}bind{} = {}, {}, {}, {}",
-                            indent,
-                            flags,
-                            update.new_mods,
-                            update.new_key,
-                            update.new_dispatcher,
-                            update.new_args
-                        )
-                    }
+                    format!(
+                        "{}bind{} = {}, {}, {}, {}",
+                        indent,
+                        flags,
+                        update.new_mods,
+                        update.new_key,
+                        update.new_dispatcher,
+                        update.new_args
+                    )
                 };
 
                 if !is_bindd {
