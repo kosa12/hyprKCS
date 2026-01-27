@@ -10,23 +10,32 @@ pub struct Args {
 
 impl Args {
     pub fn parse() -> Self {
+        Self::parse_from(std::env::args())
+    }
+
+    pub fn parse_from<I, T>(args: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<String>,
+    {
         let mut config = None;
         let mut print = false;
         let mut search = None;
         let mut doctor = false;
 
-        let mut args = env::args().skip(1);
-        while let Some(arg) = args.next() {
-            match arg.as_str() {
+        let mut args_iter = args.into_iter().skip(1);
+        while let Some(arg) = args_iter.next() {
+            let arg_str = arg.into();
+            match arg_str.as_str() {
                 "-c" | "--config" => {
-                    if let Some(path) = args.next() {
-                        config = Some(PathBuf::from(path));
+                    if let Some(path) = args_iter.next() {
+                        config = Some(PathBuf::from(path.into()));
                     }
                 }
                 "-p" | "--print" => print = true,
                 "-s" | "--search" => {
-                    if let Some(term) = args.next() {
-                        search = Some(term);
+                    if let Some(term) = args_iter.next() {
+                        search = Some(term.into());
                     }
                 }
                 "--doctor" => doctor = true,

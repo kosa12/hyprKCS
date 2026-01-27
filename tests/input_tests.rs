@@ -64,6 +64,60 @@ fn test_load_input_simple() {
 }
 
 #[test]
+fn test_load_input_no_space() {
+    let _guard = lock_env();
+    let content = r#"
+        input{
+            kb_layout = pl
+        }
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let (input, _) = load_input_config().expect("Failed to load input config");
+
+    assert_eq!(input.kb_layout, "pl");
+}
+
+#[test]
+fn test_load_input_weird_spacing() {
+    let _guard = lock_env();
+    let content = r#"
+        input {
+            kb_layout=pl
+            sensitivity  =  -0.5
+            follow_mouse =1 # inline comment
+        }
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let (input, _) = load_input_config().expect("Failed load");
+    assert_eq!(input.kb_layout, "pl");
+    assert!((input.sensitivity - -0.5).abs() < f64::EPSILON);
+    assert_eq!(input.follow_mouse, 1);
+}
+
+#[test]
+fn test_multiple_input_blocks() {
+    let _guard = lock_env();
+    let content = r#"
+        input {
+            kb_layout = us
+        }
+        input {
+            sensitivity = 0.8
+        }
+    "#;
+    let temp = TempFile::new(content);
+    std::env::set_var("HYPRKCS_CONFIG", &temp.path);
+
+    let (input, _) = load_input_config().expect("Failed load");
+    assert_eq!(input.kb_layout, "us");
+    assert!((input.sensitivity - 0.8).abs() < f64::EPSILON);
+}
+
+#[test]
 fn test_load_gestures_new_syntax() {
     let _guard = lock_env();
     let content = r#"
@@ -89,20 +143,16 @@ fn test_save_input_round_trip() {
     let temp = TempFile::new(content);
     std::env::set_var("HYPRKCS_CONFIG", &temp.path);
 
-    // Load
     let (mut input, mut gestures) = load_input_config().expect("Failed initial load");
     assert_eq!(input.kb_layout, "us");
 
-    // Modify
     input.kb_layout = "br".to_string();
     input.sensitivity = -0.2;
     gestures.workspace_swipe = true;
     gestures.workspace_swipe_fingers = 3;
 
-    // Save
     save_input_config(&input, &gestures).expect("Failed to save");
 
-    // Reload
     let (input2, gestures2) = load_input_config().expect("Failed reload");
 
     assert_eq!(input2.kb_layout, "br");
@@ -114,7 +164,6 @@ fn test_save_input_round_trip() {
 #[test]
 fn test_legacy_cleanup() {
     let _guard = lock_env();
-    // Input config with legacy fields and a legacy gestures block
     let content = r#"
         input {
             kb_layout = us

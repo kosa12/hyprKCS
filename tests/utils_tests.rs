@@ -1,5 +1,19 @@
+use hyprKCS::ui::utils::execution::command_exists;
 use hyprKCS::ui::utils::keybinds::normalize;
 use hyprKCS::ui::utils::macro_builder::parse_macro;
+
+#[test]
+fn test_command_exists() {
+    // ls is guaranteed to exist on unix
+    assert!(command_exists("ls"));
+    assert!(command_exists("ls -la"));
+    assert!(command_exists("[float] ls"));
+
+    // non-existent
+    assert!(!command_exists(
+        "this-command-definitely-does-not-exist-12345"
+    ));
+}
 
 #[test]
 fn test_normalize_keybinds() {
@@ -21,6 +35,12 @@ fn test_normalize_keybinds() {
     let (mods, key) = normalize("super shift", "RETURN");
     assert_eq!(mods, "SHIFT SUPER");
     assert_eq!(key, "return");
+
+    let (mods, _) = normalize("SUPER + CTRL + ALT", "T");
+    assert_eq!(mods, "ALT CTRL SUPER");
+
+    let (mods, _) = normalize("   SUPER   SHIFT   ", "Q");
+    assert_eq!(mods, "SHIFT SUPER");
 }
 
 #[test]
