@@ -209,6 +209,7 @@ pub fn create_flags_dropdown() -> gtk::DropDown {
         "Transparent (bindt)",
         "Ignore Mods + Locked (bindnl)",
         "Mouse (bindm)",
+        "Description (bindd)",
     ]);
 
     gtk::DropDown::builder().model(&list).build()
@@ -225,6 +226,7 @@ pub fn get_flag_from_index(index: u32) -> &'static str {
         6 => "t",
         7 => "nl",
         8 => "m",
+        9 => "d",
         _ => "",
     }
 }
@@ -240,6 +242,7 @@ pub fn get_index_from_flag(flag: &str) -> u32 {
         "t" => 6,
         "nl" => 7,
         "m" => 8,
+        "d" => 9,
         _ => 0,
     }
 }

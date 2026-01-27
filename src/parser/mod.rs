@@ -688,13 +688,16 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
 
                 // Custom splitter to respect quotes (e.g. for bash -c "...")
-                let mut parts = Vec::with_capacity(4);
+                let mut parts = Vec::with_capacity(5);
                 let mut current_part = String::with_capacity(32);
                 let mut in_quote = false;
                 let mut parts_count = 0;
 
+                let is_bindd = flags == "d";
+                let limit = if is_bindd { 4 } else { 3 };
+
                 for c in content_clean.chars() {
-                    if parts_count < 3 {
+                    if parts_count < limit {
                         if c == '"' {
                             in_quote = !in_quote;
                             current_part.push(c);
@@ -706,23 +709,52 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                             current_part.push(c);
                         }
                     } else {
-                        // For the 4th part (args), just take everything else
+                        // For the last part (args), just take everything else
                         current_part.push(c);
                     }
                 }
-                if !current_part.trim().is_empty() || parts_count >= 3 {
+                if !current_part.trim().is_empty() || parts_count >= limit {
                     parts.push(current_part.trim().to_string());
                 }
 
                 if parts.len() >= 3 {
-                    let mods: Rc<str> = Rc::from(parts[0].as_str());
-                    let key: Rc<str> = Rc::from(parts[1].as_str());
-                    let dispatcher: Rc<str> = Rc::from(parts[2].as_str());
-                    let args: Rc<str> = if parts.len() > 3 {
-                        Rc::from(parts[3].as_str())
+                    let mods: Rc<str>;
+                    let key: Rc<str>;
+                    let dispatcher: Rc<str>;
+                    let args: Rc<str>;
+
+                    if is_bindd {
+                        mods = Rc::from(parts[0].as_str());
+                        key = Rc::from(parts[1].as_str());
+                        // parts[2] is description
+                        if parts.len() > 2 {
+                             let desc_str = parts[2].trim();
+                             if !desc_str.is_empty() {
+                                 description = Some(Rc::from(desc_str));
+                             }
+                        }
+
+                        if parts.len() > 3 {
+                            dispatcher = Rc::from(parts[3].as_str());
+                        } else {
+                            dispatcher = Rc::from("");
+                        }
+
+                        if parts.len() > 4 {
+                            args = Rc::from(parts[4].as_str());
+                        } else {
+                            args = Rc::from("");
+                        }
                     } else {
-                        Rc::from("")
-                    };
+                        mods = Rc::from(parts[0].as_str());
+                        key = Rc::from(parts[1].as_str());
+                        dispatcher = Rc::from(parts[2].as_str());
+                        args = if parts.len() > 3 {
+                            Rc::from(parts[3].as_str())
+                        } else {
+                            Rc::from("")
+                        };
+                    }
 
                     keybinds.push(Keybind {
                         mods: mods.clone(),
@@ -808,30 +840,48 @@ pub fn update_line(
             let current_flags = after_bind[..eq_idx].trim();
 
             let flags = new_flags.unwrap_or(current_flags);
+            let is_bindd = flags == "d";
 
             // preserve existing spacing around equals if possible, or just standard " = "
             // The original code reconstructed the line completely anyway.
 
-            let mut new_line = if new_args.trim().is_empty() {
-                format!(
-                    "{}bind{} = {}, {}, {}",
-                    indent, flags, new_mods, new_key, new_dispatcher
-                )
-            } else {
-                format!(
-                    "{}bind{} = {}, {}, {}, {}",
-                    indent, flags, new_mods, new_key, new_dispatcher, new_args
-                )
-            };
-
-            if let Some(desc) = description {
-                if !desc.trim().is_empty() {
-                    new_line = format!("{} # {}", new_line, desc.trim());
+            let mut new_line = if is_bindd {
+                let desc_str = description.as_deref().unwrap_or("");
+                if new_args.trim().is_empty() {
+                    format!(
+                        "{}bind{} = {}, {}, {}, {}",
+                        indent, flags, new_mods, new_key, desc_str, new_dispatcher
+                    )
+                } else {
+                    format!(
+                        "{}bind{} = {}, {}, {}, {}, {}",
+                        indent, flags, new_mods, new_key, desc_str, new_dispatcher, new_args
+                    )
                 }
             } else {
-                // Preserve existing comment if no new description provided
-                if let Some(idx) = original_line.find('#') {
-                    new_line = format!("{} {}", new_line, &original_line[idx..]);
+                if new_args.trim().is_empty() {
+                    format!(
+                        "{}bind{} = {}, {}, {}",
+                        indent, flags, new_mods, new_key, new_dispatcher
+                    )
+                } else {
+                    format!(
+                        "{}bind{} = {}, {}, {}, {}",
+                        indent, flags, new_mods, new_key, new_dispatcher, new_args
+                    )
+                }
+            };
+
+            if !is_bindd {
+                if let Some(desc) = description {
+                    if !desc.trim().is_empty() {
+                        new_line = format!("{} # {}", new_line, desc.trim());
+                    }
+                } else {
+                    // Preserve existing comment if no new description provided
+                    if let Some(idx) = original_line.find('#') {
+                        new_line = format!("{} {}", new_line, &original_line[idx..]);
+                    }
                 }
             }
 
@@ -867,21 +917,33 @@ pub fn add_keybind(
         content.lines().map(|s| s.to_string()).collect()
     };
 
+    let is_bindd = flags == "d";
     let bind_cmd = if flags.is_empty() {
         "bind".to_string()
     } else {
         format!("bind{}", flags)
     };
 
-    let mut new_line = if args.trim().is_empty() {
-        format!("{} = {}, {}, {}", bind_cmd, mods, key, dispatcher)
+    let mut new_line = if is_bindd {
+        let desc_str = description.as_deref().unwrap_or("");
+        if args.trim().is_empty() {
+            format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, desc_str, dispatcher)
+        } else {
+            format!("{} = {}, {}, {}, {}, {}", bind_cmd, mods, key, desc_str, dispatcher, args)
+        }
     } else {
-        format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, dispatcher, args)
+        if args.trim().is_empty() {
+            format!("{} = {}, {}, {}", bind_cmd, mods, key, dispatcher)
+        } else {
+            format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, dispatcher, args)
+        }
     };
 
-    if let Some(desc) = description {
-        if !desc.trim().is_empty() {
-            new_line = format!("{} # {}", new_line, desc.trim());
+    if !is_bindd {
+        if let Some(desc) = description {
+            if !desc.trim().is_empty() {
+                new_line = format!("{} # {}", new_line, desc.trim());
+            }
         }
     }
 
@@ -981,32 +1043,56 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
         if let Some(after_bind) = trimmed_start.strip_prefix("bind") {
             if let Some(eq_idx) = after_bind.find('=') {
                 let flags = after_bind[..eq_idx].trim();
+                let is_bindd = flags == "d";
 
-                let mut new_line = if update.new_args.trim().is_empty() {
-                    format!(
-                        "{}bind{} = {}, {}, {}",
-                        indent, flags, update.new_mods, update.new_key, update.new_dispatcher
-                    )
-                } else {
-                    format!(
-                        "{}bind{} = {}, {}, {}, {}",
-                        indent,
-                        flags,
-                        update.new_mods,
-                        update.new_key,
-                        update.new_dispatcher,
-                        update.new_args
-                    )
-                };
-
-                if let Some(desc) = update.description {
-                    if !desc.trim().is_empty() {
-                        new_line = format!("{} # {}", new_line, desc.trim());
+                let mut new_line = if is_bindd {
+                    let desc_str = update.description.as_deref().unwrap_or("");
+                    if update.new_args.trim().is_empty() {
+                        format!(
+                            "{}bind{} = {}, {}, {}, {}",
+                            indent, flags, update.new_mods, update.new_key, desc_str, update.new_dispatcher
+                        )
+                    } else {
+                        format!(
+                            "{}bind{} = {}, {}, {}, {}, {}",
+                            indent,
+                            flags,
+                            update.new_mods,
+                            update.new_key,
+                            desc_str,
+                            update.new_dispatcher,
+                            update.new_args
+                        )
                     }
                 } else {
-                    // Preserve existing comment if no new description provided
-                    if let Some(idx) = original_line.find('#') {
-                        new_line = format!("{} {}", new_line, &original_line[idx..]);
+                    if update.new_args.trim().is_empty() {
+                        format!(
+                            "{}bind{} = {}, {}, {}",
+                            indent, flags, update.new_mods, update.new_key, update.new_dispatcher
+                        )
+                    } else {
+                        format!(
+                            "{}bind{} = {}, {}, {}, {}",
+                            indent,
+                            flags,
+                            update.new_mods,
+                            update.new_key,
+                            update.new_dispatcher,
+                            update.new_args
+                        )
+                    }
+                };
+
+                if !is_bindd {
+                    if let Some(desc) = update.description {
+                        if !desc.trim().is_empty() {
+                            new_line = format!("{} # {}", new_line, desc.trim());
+                        }
+                    } else {
+                        // Preserve existing comment if no new description provided
+                        if let Some(idx) = original_line.find('#') {
+                            new_line = format!("{} {}", new_line, &original_line[idx..]);
+                        }
                     }
                 }
 
