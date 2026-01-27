@@ -1,4 +1,4 @@
-use hyprKCS::parser ::*;
+use hyprKCS::parser::*;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};

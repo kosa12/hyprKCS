@@ -728,10 +728,10 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         key = Rc::from(parts[1].as_str());
                         // parts[2] is description
                         if parts.len() > 2 {
-                             let desc_str = parts[2].trim();
-                             if !desc_str.is_empty() {
-                                 description = Some(Rc::from(desc_str));
-                             }
+                            let desc_str = parts[2].trim();
+                            if !desc_str.is_empty() {
+                                description = Some(Rc::from(desc_str));
+                            }
                         }
 
                         if parts.len() > 3 {
@@ -927,9 +927,15 @@ pub fn add_keybind(
     let mut new_line = if is_bindd {
         let desc_str = description.as_deref().unwrap_or("");
         if args.trim().is_empty() {
-            format!("{} = {}, {}, {}, {}", bind_cmd, mods, key, desc_str, dispatcher)
+            format!(
+                "{} = {}, {}, {}, {}",
+                bind_cmd, mods, key, desc_str, dispatcher
+            )
         } else {
-            format!("{} = {}, {}, {}, {}, {}", bind_cmd, mods, key, desc_str, dispatcher, args)
+            format!(
+                "{} = {}, {}, {}, {}, {}",
+                bind_cmd, mods, key, desc_str, dispatcher, args
+            )
         }
     } else {
         if args.trim().is_empty() {
@@ -1050,7 +1056,12 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
                     if update.new_args.trim().is_empty() {
                         format!(
                             "{}bind{} = {}, {}, {}, {}",
-                            indent, flags, update.new_mods, update.new_key, desc_str, update.new_dispatcher
+                            indent,
+                            flags,
+                            update.new_mods,
+                            update.new_key,
+                            desc_str,
+                            update.new_dispatcher
                         )
                     } else {
                         format!(

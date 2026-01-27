@@ -74,7 +74,7 @@ fn test_nested_sources_relative_paths() {
 
     let binds = parse_config().expect("Failed to parse nested sources");
     assert_eq!(binds.len(), 3);
-    
+
     // Sort binds by key to ensure stable order for assertions
     let mut binds_sorted = binds.clone();
     binds_sorted.sort_by_key(|b| b.key.clone());
@@ -127,7 +127,7 @@ fn test_submap_nesting_and_reset() {
     std::env::set_var("HYPRKCS_CONFIG", &main_path);
 
     let binds = parse_config().expect("Failed to parse submaps");
-    
+
     // 1. bind = SUPER, R, submap, resize (None)
     // 2. binde = , right, resizeactive, 10 0 (Some("resize"))
     // 3. binde = , left, resizeactive, -10 0 (Some("resize"))
@@ -158,9 +158,15 @@ fn test_comma_in_quotes_exec() {
 
     let binds = parse_config().expect("Failed to parse commas in quotes");
     assert_eq!(binds.len(), 2);
-    
-    assert_eq!(binds[0].args.as_ref(), "notify-send \"Title, with comma\", \"Message, with comma\"");
-    assert_eq!(binds[1].args.as_ref(), "bash -c \"echo '1,2,3' | cut -d, -f1\"");
+
+    assert_eq!(
+        binds[0].args.as_ref(),
+        "notify-send \"Title, with comma\", \"Message, with comma\""
+    );
+    assert_eq!(
+        binds[1].args.as_ref(),
+        "bash -c \"echo '1,2,3' | cut -d, -f1\""
+    );
 }
 
 #[test]
@@ -193,17 +199,17 @@ fn test_env_var_expansion_in_path() {
 
     // Create a file in a custom location and use $HOME (via ~ expansion)
     // Note: expand_path handles ~
-    
+
     let extra_path = config.write_file("my_extra.conf", "bind = SUPER, Z, exec, zebra");
-    
+
     // We can't easily mock HOME for dirs::home_dir() without potential side effects on other tests
     // But we can test absolute paths and relative paths which are expanded.
-    
+
     let main_conf = format!("source = {}", extra_path.to_string_lossy());
     let main_path = config.write_file("hyprland.conf", &main_conf);
-    
+
     std::env::set_var("HYPRKCS_CONFIG", &main_path);
-    
+
     let binds = parse_config().expect("Failed to parse absolute source path");
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].args.as_ref(), "zebra");

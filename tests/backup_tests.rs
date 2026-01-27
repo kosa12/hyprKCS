@@ -1,4 +1,4 @@
-use hyprKCS::ui::utils::backup :: *;
+use hyprKCS::ui::utils::backup::*;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
@@ -52,13 +52,13 @@ impl Drop for TempConfigDir {
 fn test_backup_and_restore() {
     let _guard = lock_env();
     let temp = TempConfigDir::new();
-    
+
     let hypr_dir = temp.hypr_dir();
     fs::create_dir_all(&hypr_dir).unwrap();
-    
+
     let conf_path = hypr_dir.join("hyprland.conf");
     fs::write(&conf_path, "bind = SUPER, Q, exec, kitty").unwrap();
-    
+
     let sub_dir = hypr_dir.join("configs");
     fs::create_dir_all(&sub_dir).unwrap();
     fs::write(sub_dir.join("other.conf"), "source = something").unwrap();
@@ -95,13 +95,17 @@ fn test_prune_backups() {
 
     let hyprkcs_dir = temp.path.join("hyprkcs");
     fs::create_dir_all(&hyprkcs_dir).unwrap();
-    fs::write(hyprkcs_dir.join("hyprkcs.conf"), "maxBackupsEnabled = true\nmaxBackupsCount = 3\nautoBackup = true").unwrap();
+    fs::write(
+        hyprkcs_dir.join("hyprkcs.conf"),
+        "maxBackupsEnabled = true\nmaxBackupsCount = 3\nautoBackup = true",
+    )
+    .unwrap();
 
     fs::create_dir_all(temp.hypr_dir()).unwrap();
     fs::write(temp.hypr_dir().join("hyprland.conf"), "test").unwrap();
 
     perform_backup(false).expect("Backup failed");
-    
+
     let backups = list_backups().expect("Failed to list backups");
     assert_eq!(backups.len(), 3);
 }
@@ -112,7 +116,7 @@ fn test_generate_diff() {
     let temp = TempConfigDir::new();
     let hypr_dir = temp.hypr_dir();
     fs::create_dir_all(&hypr_dir).unwrap();
-    
+
     let conf_path = hypr_dir.join("hyprland.conf");
     fs::write(&conf_path, "line1\nline2\n").unwrap();
 
@@ -123,7 +127,7 @@ fn test_generate_diff() {
     fs::write(&conf_path, "line1\nline2 modified\nline3\n").unwrap();
 
     let diff = generate_diff(backup_path).expect("Failed to generate diff");
-    
+
     assert!(diff.contains("-line2 modified"));
     assert!(diff.contains("+line2"));
     assert!(diff.contains("-line3"));

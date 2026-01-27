@@ -13,7 +13,14 @@ fn test_cli_parsing_basic() {
 
 #[test]
 fn test_cli_parsing_full() {
-    let args = vec!["hyprkcs", "-c", "/path/to/config", "-s", "my search", "--doctor"];
+    let args = vec![
+        "hyprkcs",
+        "-c",
+        "/path/to/config",
+        "-s",
+        "my search",
+        "--doctor",
+    ];
     let parsed = Args::parse_from(args);
     assert!(!parsed.print); // -p was not provided
     assert!(parsed.doctor);
@@ -23,7 +30,14 @@ fn test_cli_parsing_full() {
 
 #[test]
 fn test_cli_parsing_long_flags() {
-    let args = vec!["hyprkcs", "--config", "/alt/path", "--print", "--search", "term"];
+    let args = vec![
+        "hyprkcs",
+        "--config",
+        "/alt/path",
+        "--print",
+        "--search",
+        "term",
+    ];
     let parsed = Args::parse_from(args);
     assert!(parsed.print);
     assert!(!parsed.doctor);

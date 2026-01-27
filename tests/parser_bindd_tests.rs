@@ -68,7 +68,10 @@ fn test_parse_bindd() {
     let b2 = &binds[1];
     assert_eq!(b2.flags.as_ref(), "d");
     assert_eq!(b2.description.as_deref(), Some("Mute Audio"));
-    assert_eq!(b2.args.as_ref(), "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle");
+    assert_eq!(
+        b2.args.as_ref(),
+        "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+    );
 }
 
 #[test]
