@@ -246,7 +246,7 @@ pub fn save_input_config(
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            
+
             // Strict detection for "input {"
             let is_input_start = if trimmed == "input {" || trimmed == "input{" {
                 true

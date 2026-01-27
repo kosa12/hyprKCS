@@ -97,7 +97,7 @@ input_device {
     save_input_config(&input, &gestures).expect("Failed to save");
 
     let new_content = std::fs::read_to_string(&temp.path).unwrap();
-    
+
     // Valid block should be updated
     assert!(new_content.contains("kb_layout = gb"));
     // Misleading block should be preserved untouched
