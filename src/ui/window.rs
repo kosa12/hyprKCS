@@ -23,13 +23,14 @@ pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
     reload_keybinds(&model);
 
-    // --- IPC Hot Reload ---
+    // --- IPC Hot Reload (Polling) ---
     let (sender, receiver) = std::sync::mpsc::channel();
     let model_ipc = model.clone();
+    let _watcher = crate::watcher::create_config_watcher(sender);
 
-    crate::watcher::start_config_watcher(sender);
+    glib::timeout_add_local(std::time::Duration::from_millis(1000), move || {
+        let _ = &_watcher;
 
-    glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
         let mut reload = false;
         while let Ok(_) = receiver.try_recv() {
             reload = true;

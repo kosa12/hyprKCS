@@ -1,50 +1,59 @@
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use std::thread;
 
-pub fn start_config_watcher(sender: Sender<()>) {
-    thread::spawn(move || {
-        let config_path_res = crate::parser::get_config_path();
-        if let Err(e) = config_path_res {
-            eprintln!("Failed to get config path for watcher: {}", e);
-            return;
+pub fn create_config_watcher(sender: Sender<()>) -> Option<RecommendedWatcher> {
+    let mut files = crate::parser::get_loaded_files().unwrap_or_default();
+    if files.is_empty() {
+        if let Ok(path) = crate::parser::get_config_path() {
+            files.push(path);
         }
-        let config_file = config_path_res.unwrap();
-        let watch_path = config_file.parent().unwrap_or(Path::new(".")).to_path_buf();
+    }
 
-        let (tx, rx) = std::sync::mpsc::channel();
+    let mut dirs_to_watch: Vec<PathBuf> = files.iter()
+        .filter_map(|p| p.parent())
+        .map(|p| p.to_path_buf())
+        .collect();
 
-        let mut watcher = match RecommendedWatcher::new(tx, Config::default()) {
-            Ok(w) => w,
-            Err(e) => {
-                eprintln!("Failed to create file watcher: {}", e);
-                return;
-            }
-        };
+    dirs_to_watch.sort();
+    dirs_to_watch.dedup();
 
-        if let Err(e) = watcher.watch(&watch_path, RecursiveMode::Recursive) {
-            eprintln!(
-                "Failed to start recursive watcher on {:?}: {}",
-                watch_path, e
-            );
-            return;
+    let mut final_dirs: Vec<PathBuf> = Vec::new();
+    for dir in dirs_to_watch {
+        if !final_dirs.iter().any(|parent| dir.starts_with(parent)) {
+            final_dirs.push(dir);
         }
+    }
 
-        for res in rx {
-            match res {
-                Ok(event) => {
-                    let relevant = event
-                        .paths
-                        .iter()
-                        .any(|p| p.extension().map_or(false, |ext| ext == "conf"));
+    let files_to_check = files;
+    let sender = sender.clone();
 
-                    if relevant {
-                        let _ = sender.send(());
-                    }
+    let mut watcher = match RecommendedWatcher::new(move |res: Result<notify::Event, _>| {
+        match res {
+            Ok(event) => {
+                let relevant = event.paths.iter().any(|p| {
+                    files_to_check.iter().any(|f| f == p)
+                });
+
+                if relevant {
+                    let _ = sender.send(());
                 }
-                Err(e) => eprintln!("Watch error: {:?}", e),
-            }
+            },
+            Err(e) => eprintln!("Watch error: {:?}", e),
         }
-    });
+    }, Config::default()) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("Failed to create file watcher: {}", e);
+            return None;
+        }
+    };
+
+    for dir in final_dirs {
+        if let Err(e) = watcher.watch(&dir, RecursiveMode::Recursive) {
+             eprintln!("Failed to start recursive watcher on {:?}: {}", dir, e);
+        }
+    }
+
+    Some(watcher)
 }

@@ -122,6 +122,7 @@ pub fn reload_keybinds(model: &gio::ListStore) {
                         && d.args.as_deref().unwrap_or("") == kb.args.as_ref()
                         && d.submap.as_deref() == kb.submap.as_deref()
                         && d.description.as_deref() == kb.description.as_deref()
+                        && d.flags == kb.flags
                 });
                 if !matches {
                     all_match = false;
