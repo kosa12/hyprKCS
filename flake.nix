@@ -19,7 +19,7 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "1.21.2";
+            version = "1.22.0";
 
             src = let
               fs = pkgs.lib.fileset;
@@ -52,7 +52,7 @@
             meta = with pkgs.lib; {
               description = "A fast, minimal Hyprland keybind cheat sheet written in Rust/GTK4";
               homepage = "https://github.com/kosa12/hyprKCS";
-              license = licenses.mit;
+              license = licenses.gpl3;
               maintainers = [ ]; # Add yourself if you publish to nixpkgs
             };
           };

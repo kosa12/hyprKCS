@@ -1,8 +1,8 @@
 [package]
 name = "hyprKCS"
-version = "1.21.2"
+version = "1.22.0"
 edition = "2021"
-license = "MIT"
+license = "GPL-3.0"
 description = "A fast, lightweight, and graphical keybind manager for Hyprland"
 repository = "https://github.com/kosa12/hyprKCS"
 homepage = "https://github.com/kosa12/hyprKCS"
@@ -24,6 +24,7 @@ anyhow = { version = "1.0.100", default-features = false }
 dirs = "6.0.0"
 gtk4-layer-shell = "0.7.1"
 fuzzy-matcher = "0.3.7"
+libc = "0.2"
 chrono = { version = "0.4.43", default-features = false, features = ["clock"] }
 similar = "2.7.0"
 notify = { version = "8.2.0", default-features = false }
