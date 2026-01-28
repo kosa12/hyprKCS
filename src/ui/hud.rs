@@ -1,4 +1,4 @@
-use crate::config::hud::{load_hud_config, HudPosition};
+use crate::config::hud::{get_hud_pid_path, load_hud_config, HudPosition};
 use crate::config::StyleConfig;
 use gtk::gio;
 use gtk::glib;
@@ -8,15 +8,7 @@ use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use libadwaita as adw;
 use libc;
 use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
-
-fn get_hud_pid_path() -> Option<PathBuf> {
-    std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .or_else(|| dirs::config_dir().map(|d| d.join(crate::config::constants::HYPRKCS_DIR)))
-        .map(|d| d.join(crate::config::constants::HUD_PID))
-}
 
 fn update_window_position(window: &gtk::ApplicationWindow, position: HudPosition) {
     // Reset anchors first

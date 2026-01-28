@@ -152,3 +152,24 @@ pub fn save_hud_config(config: &HudConfig) -> std::io::Result<()> {
     fs::write(&tmp_path, content)?;
     fs::rename(tmp_path, path)
 }
+
+pub fn get_hud_pid_path() -> Option<PathBuf> {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::config_dir().map(|d| d.join(super::constants::HYPRKCS_DIR)))
+        .map(|d| d.join(super::constants::HUD_PID))
+}
+
+pub fn is_hud_running() -> bool {
+    if let Some(pid_path) = get_hud_pid_path() {
+        if let Ok(pid_str) = fs::read_to_string(&pid_path) {
+            if let Ok(pid) = pid_str.trim().parse::<i32>() {
+                // Check if process exists (signal 0)
+                unsafe {
+                    return libc::kill(pid, 0) == 0;
+                }
+            }
+        }
+    }
+    false
+}

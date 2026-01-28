@@ -1,4 +1,6 @@
-use crate::config::hud::{load_hud_config, save_hud_config, HudKeybind, HudPosition};
+use crate::config::hud::{
+    get_hud_pid_path, is_hud_running, load_hud_config, save_hud_config, HudKeybind, HudPosition,
+};
 use crate::keybind_object::KeybindObject;
 use gtk::{gio, glib};
 use gtk4 as gtk;
@@ -6,16 +8,8 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::fs;
-use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
-
-fn get_hud_pid_path() -> Option<PathBuf> {
-    std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .or_else(|| dirs::config_dir().map(|d| d.join(crate::config::constants::HYPRKCS_DIR)))
-        .map(|d| d.join(crate::config::constants::HUD_PID))
-}
 
 pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>) -> gtk::Widget {
     let main_box = gtk::Box::builder()
@@ -68,8 +62,17 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
         let _ = save_hud_config(&cfg);
     });
 
+    // Check if process is actually running to determine switch state
+    let is_running = is_hud_running();
+    if config.borrow().enabled != is_running {
+        // Mismatch detected. Sync config to reality (if dead, mark disabled).
+        // If we want to auto-restart, we'd do it here, but safer to default to "Off" if dead.
+        config.borrow_mut().enabled = is_running;
+        let _ = save_hud_config(&config.borrow());
+    }
+
     let enable_switch = gtk::Switch::builder()
-        .active(config.borrow().enabled)
+        .active(is_running)
         .valign(gtk::Align::Center)
         .build();
 
