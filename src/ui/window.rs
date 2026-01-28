@@ -23,7 +23,7 @@ pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
     reload_keybinds(&model);
 
-    // --- IPC Hot Reload (Polling) ---
+    // --- Config File Hot Reload (File Watcher + Polling) ---
     let (sender, receiver) = std::sync::mpsc::channel();
     let model_ipc = model.clone();
     let _watcher = crate::watcher::create_config_watcher(sender);
