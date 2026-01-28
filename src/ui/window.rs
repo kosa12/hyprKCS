@@ -23,7 +23,7 @@ pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
     reload_keybinds(&model);
 
-    // --- IPC Hot Reload (Polling) ---
+    // --- IPC Hot Reload ---
     let (sender, receiver) = std::sync::mpsc::channel();
     let model_ipc = model.clone();
 
