@@ -17,13 +17,13 @@ pub fn create_config_watcher(sender: Sender<()>) -> Option<RecommendedWatcher> {
             match parent {
                 Some(path) if path.as_os_str().is_empty() => std::env::current_dir().ok(),
                 Some(path) => {
-                     if path.is_absolute() {
-                         Some(path.to_path_buf())
-                     } else {
-                         // Try to make absolute via CWD
-                         std::env::current_dir().map(|cwd| cwd.join(path)).ok()
-                     }
-                },
+                    if path.is_absolute() {
+                        Some(path.to_path_buf())
+                    } else {
+                        // Try to make absolute via CWD
+                        std::env::current_dir().map(|cwd| cwd.join(path)).ok()
+                    }
+                }
                 None => None,
             }
         })
