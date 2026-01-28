@@ -2,6 +2,7 @@ use crate::config::favorites::{is_favorite, load_favorites};
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::execution::command_exists;
 use gtk::gio;
+use gtk::prelude::*;
 use gtk4 as gtk;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -102,12 +103,41 @@ fn detect_broken(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {
 }
 
 pub fn reload_keybinds(model: &gio::ListStore) {
-    model.remove_all();
-
     let mut keybinds = crate::parser::parse_config().unwrap_or_else(|err| {
         eprintln!("Error parsing config: {}", err);
         vec![]
     });
+
+    // Optimization: Check if the new keybinds are identical to the current model
+    // This prevents scroll jumping/UI refreshes when the config file is touched but content hasn't meaningfully changed
+    let n_items = model.n_items();
+    if n_items as usize == keybinds.len() {
+        let mut all_match = true;
+        for (i, kb) in keybinds.iter().enumerate() {
+            if let Some(obj) = model.item(i as u32).and_downcast::<KeybindObject>() {
+                let matches = obj.with_data(|d| {
+                    d.mods.as_ref() == kb.mods.as_ref()
+                        && d.key.as_ref() == kb.key.as_ref()
+                        && d.dispatcher.as_ref() == kb.dispatcher.as_ref()
+                        && d.args.as_deref().unwrap_or("") == kb.args.as_ref()
+                        && d.submap.as_deref() == kb.submap.as_deref()
+                        && d.description.as_deref() == kb.description.as_deref()
+                        && d.flags == kb.flags
+                });
+                if !matches {
+                    all_match = false;
+                    break;
+                }
+            } else {
+                all_match = false;
+                break;
+            }
+        }
+
+        if all_match {
+            return;
+        }
+    }
 
     let conflicts = detect_conflicts(&keybinds);
     let broken = detect_broken(&keybinds);
@@ -198,5 +228,5 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         ));
     }
 
-    model.splice(0, 0, &new_objects);
+    model.splice(0, n_items, &new_objects);
 }

@@ -23,6 +23,27 @@ pub fn build_ui(app: &adw::Application) {
     let model = gio::ListStore::new::<KeybindObject>();
     reload_keybinds(&model);
 
+    // --- Config File Hot Reload (File Watcher + Polling) ---
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let model_ipc = model.clone();
+    let _watcher = crate::watcher::create_config_watcher(sender);
+
+    glib::timeout_add_local(std::time::Duration::from_millis(1000), move || {
+        let _ = &_watcher;
+
+        let mut reload = false;
+        while let Ok(_) = receiver.try_recv() {
+            reload = true;
+        }
+
+        if reload {
+            reload_keybinds(&model_ipc);
+        }
+
+        glib::ControlFlow::Continue
+    });
+    // ----------------------
+
     let filter = gtk::CustomFilter::new(|_obj| true);
     let filter_model = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
 

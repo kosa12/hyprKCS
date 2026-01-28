@@ -5,3 +5,4 @@ pub mod doctor;
 pub mod keybind_object;
 pub mod parser;
 pub mod ui;
+pub mod watcher;
