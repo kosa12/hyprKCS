@@ -26,7 +26,7 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
 
     let lic_row = adw::ActionRow::builder()
         .title("License")
-        .subtitle("MIT")
+        .subtitle("GPL-3.0")
         .build();
     let lic_img = gtk::Image::from_icon_name("dialog-information-symbolic");
     lic_row.add_prefix(&lic_img);

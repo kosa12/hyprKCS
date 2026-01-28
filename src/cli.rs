@@ -6,6 +6,7 @@ pub struct Args {
     pub print: bool,
     pub search: Option<String>,
     pub doctor: bool,
+    pub hud: bool,
 }
 
 impl Args {
@@ -22,6 +23,7 @@ impl Args {
         let mut print = false;
         let mut search = None;
         let mut doctor = false;
+        let mut hud = false;
 
         let mut args_iter = args.into_iter().skip(1);
         while let Some(arg) = args_iter.next() {
@@ -39,6 +41,7 @@ impl Args {
                     }
                 }
                 "--doctor" => doctor = true,
+                "--hud" => hud = true,
                 "-h" | "--help" => {
                     println!("hyprKCS - Hyprland Keybind Cheat Sheet");
                     println!("\nUsage: hyprkcs [OPTIONS]");
@@ -49,6 +52,7 @@ impl Args {
                         "  -s, --search <TERM>  Filter keybinds by a search term (implies --print)"
                     );
                     println!("  --doctor             Check system compatibility and report issues");
+                    println!("  --hud                Launch the Wallpaper HUD");
                     println!("  -h, --help           Print this help message");
                     std::process::exit(0);
                 }
@@ -65,6 +69,7 @@ impl Args {
             print,
             search,
             doctor,
+            hud,
         }
     }
 }

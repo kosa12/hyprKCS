@@ -15,6 +15,11 @@ fn main() -> glib::ExitCode {
         return glib::ExitCode::SUCCESS;
     }
 
+    if args.hud {
+        ui::hud::run_hud();
+        return glib::ExitCode::SUCCESS;
+    }
+
     if let Some(config_path) = args.config {
         std::env::set_var("HYPRKCS_CONFIG", config_path);
     }
