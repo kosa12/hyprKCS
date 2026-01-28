@@ -3,17 +3,31 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
 pub fn create_config_watcher(sender: Sender<()>) -> Option<RecommendedWatcher> {
-    let mut files = crate::parser::get_loaded_files().unwrap_or_default();
-    if files.is_empty() {
-        if let Ok(path) = crate::parser::get_config_path() {
-            files.push(path);
-        }
-    }
+    let files = match crate::parser::get_loaded_files() {
+        Ok(f) if !f.is_empty() => f,
+        _ => crate::parser::get_config_path()
+            .map(|p| vec![p])
+            .unwrap_or_default(),
+    };
 
     let mut dirs_to_watch: Vec<PathBuf> = files
         .iter()
-        .filter_map(|p| p.parent())
-        .map(|p| p.to_path_buf())
+        .filter_map(|p| {
+            let parent = p.parent();
+            match parent {
+                Some(path) if path.as_os_str().is_empty() => std::env::current_dir().ok(),
+                Some(path) => {
+                     if path.is_absolute() {
+                         Some(path.to_path_buf())
+                     } else {
+                         // Try to make absolute via CWD
+                         std::env::current_dir().map(|cwd| cwd.join(path)).ok()
+                     }
+                },
+                None => None,
+            }
+        })
+        .map(|p| p.canonicalize().unwrap_or(p)) // Best effort canonicalization
         .collect();
 
     dirs_to_watch.sort();
