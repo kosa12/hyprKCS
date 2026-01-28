@@ -20,12 +20,13 @@ exclude = [
 [dependencies]
 gtk4 = { version = "0.10.3", features = ["v4_12"] }
 libadwaita = "0.8.1"
-anyhow = "1.0.100"
+anyhow = { version = "1.0.100", default-features = false }
 dirs = "6.0.0"
 gtk4-layer-shell = "0.7.1"
 fuzzy-matcher = "0.3.7"
 chrono = { version = "0.4.43", default-features = false, features = ["clock"] }
-similar = { version = "2.7.0", features = ["inline"] }
+similar = "2.7.0"
+notify = { version = "8.2.0", default-features = false }
 
 [[bin]]
 name = "hyprkcs"
