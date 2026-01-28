@@ -5,8 +5,17 @@ use gtk4 as gtk;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 use std::cell::RefCell;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
+
+fn get_hud_pid_path() -> Option<PathBuf> {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::config_dir().map(|d| d.join(crate::config::constants::HYPRKCS_DIR)))
+        .map(|d| d.join(crate::config::constants::HUD_PID))
+}
 
 pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>) -> gtk::Widget {
     let main_box = gtk::Box::builder()
@@ -85,7 +94,18 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
             }
             toast_cb("HUD Enabled".into());
         } else {
-            let _ = Command::new("pkill").args(["-f", "hyprkcs --hud"]).status();
+            if let Some(pid_path) = get_hud_pid_path() {
+                if let Ok(pid_str) = fs::read_to_string(&pid_path) {
+                    if let Ok(pid) = pid_str.trim().parse::<i32>() {
+                        unsafe {
+                            if libc::kill(pid, libc::SIGTERM) != 0 {
+                                eprintln!("Failed to kill HUD process (PID: {})", pid);
+                            }
+                        }
+                    }
+                }
+                let _ = fs::remove_file(pid_path);
+            }
             toast_cb("HUD Disabled".into());
         }
         glib::Propagation::Proceed

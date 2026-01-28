@@ -147,5 +147,8 @@ pub fn save_hud_config(config: &HudConfig) -> std::io::Result<()> {
         content.push('\n');
     }
 
-    fs::write(path, content)
+    let mut tmp_path = path.clone();
+    tmp_path.set_extension("tmp");
+    fs::write(&tmp_path, content)?;
+    fs::rename(tmp_path, path)
 }

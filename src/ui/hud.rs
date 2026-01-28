@@ -6,7 +6,17 @@ use gtk::prelude::*;
 use gtk4 as gtk;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use libadwaita as adw;
+use libc;
+use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
+
+fn get_hud_pid_path() -> Option<PathBuf> {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::config_dir().map(|d| d.join(crate::config::constants::HYPRKCS_DIR)))
+        .map(|d| d.join(crate::config::constants::HUD_PID))
+}
 
 fn update_window_position(window: &gtk::ApplicationWindow, position: HudPosition) {
     // Reset anchors first
@@ -89,7 +99,7 @@ fn generate_hud_css(style: &StyleConfig) -> String {
 
             color: @accent_color;
 
-            font-family: "JetBrains Mono", "monospace";
+            font-family: monospace;
 
         }}
 
@@ -194,6 +204,26 @@ pub fn run_hud() {
 
     if !config.enabled {
         return;
+    }
+
+    // --- Single Instance Locking ---
+    if let Some(pid_path) = get_hud_pid_path() {
+        if let Ok(pid_str) = fs::read_to_string(&pid_path) {
+            if let Ok(pid) = pid_str.trim().parse::<i32>() {
+                // Check if process exists (signal 0)
+                unsafe {
+                    if libc::kill(pid, 0) == 0 {
+                        eprintln!("HUD is already running (PID: {})", pid);
+                        return;
+                    }
+                }
+            }
+        }
+        // Write current PID
+        if let Some(parent) = pid_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&pid_path, std::process::id().to_string());
     }
 
     glib::log_set_writer_func(|level, fields| {
@@ -382,6 +412,25 @@ pub fn run_hud() {
 
         window.set_child(Some(&container));
         window.present();
+    });
+
+    app.connect_shutdown(|_| {
+        if let Some(pid_path) = get_hud_pid_path() {
+            let _ = fs::remove_file(pid_path);
+        }
+    });
+
+    // Handle signals to exit cleanly
+    let app_clone = app.clone();
+    glib::unix_signal_add_local(libc::SIGTERM, move || {
+        app_clone.quit();
+        glib::ControlFlow::Break
+    });
+
+    let app_clone = app.clone();
+    glib::unix_signal_add_local(libc::SIGINT, move || {
+        app_clone.quit();
+        glib::ControlFlow::Break
     });
 
     app.run_with_args::<String>(&[]);
