@@ -116,12 +116,12 @@ pub fn reload_keybinds(model: &gio::ListStore) {
         for (i, kb) in keybinds.iter().enumerate() {
             if let Some(obj) = model.item(i as u32).and_downcast::<KeybindObject>() {
                 let matches = obj.with_data(|d| {
-                    d.mods.as_ref() == kb.mods.as_ref() &&
-                    d.key.as_ref() == kb.key.as_ref() &&
-                    d.dispatcher.as_ref() == kb.dispatcher.as_ref() &&
-                    d.args.as_deref().unwrap_or("") == kb.args.as_ref() &&
-                    d.submap.as_deref() == kb.submap.as_deref() &&
-                    d.description.as_deref() == kb.description.as_deref()
+                    d.mods.as_ref() == kb.mods.as_ref()
+                        && d.key.as_ref() == kb.key.as_ref()
+                        && d.dispatcher.as_ref() == kb.dispatcher.as_ref()
+                        && d.args.as_deref().unwrap_or("") == kb.args.as_ref()
+                        && d.submap.as_deref() == kb.submap.as_deref()
+                        && d.description.as_deref() == kb.description.as_deref()
                 });
                 if !matches {
                     all_match = false;
@@ -132,7 +132,7 @@ pub fn reload_keybinds(model: &gio::ListStore) {
                 break;
             }
         }
-        
+
         if all_match {
             return;
         }

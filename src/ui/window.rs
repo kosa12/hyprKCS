@@ -34,11 +34,11 @@ pub fn build_ui(app: &adw::Application) {
         while let Ok(_) = receiver.try_recv() {
             reload = true;
         }
-        
+
         if reload {
             reload_keybinds(&model_ipc);
         }
-        
+
         glib::ControlFlow::Continue
     });
     // ----------------------
