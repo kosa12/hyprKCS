@@ -402,7 +402,10 @@ pub fn load_css() {
         let reload = reload_all.clone();
         settings.connect_notify_local(None, move |_, pspec| {
             let name = pspec.name();
-            if matches!(&*name, "gtk-theme-name" | "gtk-color-scheme" | "gtk-application-prefer-dark-theme") {
+            if matches!(
+                &*name,
+                "gtk-theme-name" | "gtk-color-scheme" | "gtk-application-prefer-dark-theme"
+            ) {
                 reload();
             }
         });
@@ -423,13 +426,21 @@ pub fn load_css() {
 fn start_theme_monitor(app_provider: gtk::CssProvider, theme_provider: gtk::CssProvider) {
     if let Some(config_dir) = dirs::config_dir() {
         // Monitor gtk-4.0
-        monitor_dir(config_dir.join("gtk-4.0"), app_provider.clone(), theme_provider.clone());
+        monitor_dir(
+            config_dir.join("gtk-4.0"),
+            app_provider.clone(),
+            theme_provider.clone(),
+        );
         // Monitor gtk-3.0 (often used by theming tools like nwg-look/lxappearance)
         monitor_dir(config_dir.join("gtk-3.0"), app_provider, theme_provider);
     }
 }
 
-fn monitor_dir(path: std::path::PathBuf, app_provider: gtk::CssProvider, theme_provider: gtk::CssProvider) {
+fn monitor_dir(
+    path: std::path::PathBuf,
+    app_provider: gtk::CssProvider,
+    theme_provider: gtk::CssProvider,
+) {
     let dir_file = gio::File::for_path(&path);
     match dir_file.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE) {
         Ok(monitor) => {
@@ -438,14 +449,14 @@ fn monitor_dir(path: std::path::PathBuf, app_provider: gtk::CssProvider, theme_p
                 if let Some(path) = path {
                     if let Some(name) = path.file_name() {
                         if name == "gtk.css" || name == "settings.ini" {
-                             match event {
+                            match event {
                                 gio::FileMonitorEvent::ChangesDoneHint
                                 | gio::FileMonitorEvent::Changed
                                 | gio::FileMonitorEvent::Created
                                 | gio::FileMonitorEvent::AttributeChanged => {
                                     let theme_prov = theme_provider.clone();
                                     let app_prov = app_provider.clone();
-                                    
+
                                     // Always try to load gtk-4.0/gtk.css even if gtk-3.0 triggered the change
                                     // (As we only care about applying the GTK4 css, but the trigger might come from elsewhere)
                                     let config_dir = dirs::config_dir().unwrap();
