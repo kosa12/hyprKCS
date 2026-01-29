@@ -78,7 +78,7 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
 
     let config_ref = Rc::clone(&config);
     let toast_cb = Rc::clone(&on_show_toast);
-    enable_switch.connect_state_set(move |_, state| {
+    enable_switch.connect_state_set(move |switch, state| {
         config_ref.borrow_mut().enabled = state;
         let _ = save_hud_config(&config_ref.borrow());
 
@@ -93,9 +93,21 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
                         Ok(())
                     });
                 }
-                let _ = cmd.spawn();
+                match cmd.spawn() {
+                    Ok(_) => toast_cb("HUD Enabled".into()),
+                    Err(e) => {
+                        eprintln!("Failed to spawn HUD: {}", e);
+                        toast_cb(format!("Failed to start HUD: {}", e));
+
+                        // Revert config and UI
+                        config_ref.borrow_mut().enabled = false;
+                        let _ = save_hud_config(&config_ref.borrow());
+                        switch.set_active(false);
+                    }
+                }
+            } else {
+                toast_cb("Failed to locate executable".into());
             }
-            toast_cb("HUD Enabled".into());
         } else {
             if let Some(pid_path) = get_hud_pid_path() {
                 if let Ok(pid_str) = fs::read_to_string(&pid_path) {

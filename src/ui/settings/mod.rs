@@ -179,68 +179,75 @@ pub fn create_settings_view(
             return;
         };
 
-        match name.as_str() {
-            "variables" if !lazy_state.variables.get() => {
-                lazy_state.variables.set(true);
-                let page = variables::create_variables_page(&window_c, on_show_toast_c.clone());
-                replace_placeholder(stack, "variables", &page);
-            }
-            "window" if !lazy_state.window.get() => {
-                lazy_state.window.set(true);
-                let page = window::create_window_page(config_c.clone(), &window_c);
-                replace_placeholder(stack, "window", &page.upcast());
-            }
-            "appearance" if !lazy_state.appearance.get() => {
-                lazy_state.appearance.set(true);
-                let page = appearance::create_appearance_page(config_c.clone());
-                replace_placeholder(stack, "appearance", &page.upcast());
-            }
-            "hud" if !lazy_state.hud.get() => {
-                lazy_state.hud.set(true);
-                let page = hud::create_hud_page(&model_c, on_show_toast_c.clone());
-                replace_placeholder(stack, "hud", &page);
-            }
-            "input" | "gestures" => {
-                // Load input config once for both pages
-                ensure_input_config_loaded(&input_config_c, &gestures_config_c);
-
-                if name.as_str() == "input" && !lazy_state.input.get() {
-                    lazy_state.input.set(true);
-                    let ic = input_config_c.borrow().as_ref().unwrap().clone();
-                    let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
-                    let page = input::create_input_page(ic, gc, on_show_toast_c.clone());
-                    replace_placeholder(stack, "input", &page.upcast());
-                } else if name.as_str() == "gestures" && !lazy_state.gestures.get() {
-                    lazy_state.gestures.set(true);
-                    let ic = input_config_c.borrow().as_ref().unwrap().clone();
-                    let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
-                    let page = gestures::create_gestures_page(ic, gc, on_show_toast_c.clone());
-                    replace_placeholder(stack, "gestures", &page.upcast());
+        macro_rules! lazy_load {
+            ($field:ident, $page_name:literal, $create_expr:expr) => {
+                if name.as_str() == $page_name && !lazy_state.$field.get() {
+                    lazy_state.$field.set(true);
+                    let page = $create_expr;
+                    replace_placeholder(stack, $page_name, &page.upcast());
                 }
+            };
+        }
+
+        lazy_load!(
+            variables,
+            "variables",
+            variables::create_variables_page(&window_c, on_show_toast_c.clone())
+        );
+        lazy_load!(
+            window,
+            "window",
+            window::create_window_page(config_c.clone(), &window_c)
+        );
+        lazy_load!(
+            appearance,
+            "appearance",
+            appearance::create_appearance_page(config_c.clone())
+        );
+
+        // HUD uses a slightly different return type (Widget instead of PreferencesPage), but upcast works for both if Widget
+        if name.as_str() == "hud" && !lazy_state.hud.get() {
+            lazy_state.hud.set(true);
+            let page = hud::create_hud_page(&model_c, on_show_toast_c.clone());
+            replace_placeholder(stack, "hud", &page);
+        }
+
+        lazy_load!(
+            feedback,
+            "feedback",
+            feedback::create_feedback_page(&window_c)
+        );
+        lazy_load!(about, "about", about::create_about_page(&window_c));
+        lazy_load!(
+            ui_elements,
+            "ui",
+            ui_elements::create_ui_elements_page(
+                config_c.clone(),
+                on_desc_toggle_c.clone(),
+                on_fav_toggle_c.clone(),
+                on_args_toggle_c.clone(),
+                on_submap_toggle_c.clone(),
+                on_sort_change_c.clone(),
+            )
+        );
+
+        // Input and Gestures share config loading logic
+        if name.as_str() == "input" || name.as_str() == "gestures" {
+            ensure_input_config_loaded(&input_config_c, &gestures_config_c);
+
+            if name.as_str() == "input" && !lazy_state.input.get() {
+                lazy_state.input.set(true);
+                let ic = input_config_c.borrow().as_ref().unwrap().clone();
+                let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
+                let page = input::create_input_page(ic, gc, on_show_toast_c.clone());
+                replace_placeholder(stack, "input", &page.upcast());
+            } else if name.as_str() == "gestures" && !lazy_state.gestures.get() {
+                lazy_state.gestures.set(true);
+                let ic = input_config_c.borrow().as_ref().unwrap().clone();
+                let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
+                let page = gestures::create_gestures_page(ic, gc, on_show_toast_c.clone());
+                replace_placeholder(stack, "gestures", &page.upcast());
             }
-            "ui" if !lazy_state.ui_elements.get() => {
-                lazy_state.ui_elements.set(true);
-                let page = ui_elements::create_ui_elements_page(
-                    config_c.clone(),
-                    on_desc_toggle_c.clone(),
-                    on_fav_toggle_c.clone(),
-                    on_args_toggle_c.clone(),
-                    on_submap_toggle_c.clone(),
-                    on_sort_change_c.clone(),
-                );
-                replace_placeholder(stack, "ui", &page.upcast());
-            }
-            "feedback" if !lazy_state.feedback.get() => {
-                lazy_state.feedback.set(true);
-                let page = feedback::create_feedback_page(&window_c);
-                replace_placeholder(stack, "feedback", &page.upcast());
-            }
-            "about" if !lazy_state.about.get() => {
-                lazy_state.about.set(true);
-                let page = about::create_about_page(&window_c);
-                replace_placeholder(stack, "about", &page.upcast());
-            }
-            _ => {}
         }
     });
 

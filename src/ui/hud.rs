@@ -1,4 +1,4 @@
-use crate::config::hud::{get_hud_pid_path, load_hud_config, HudPosition};
+use crate::config::hud::{get_hud_pid_path, is_hud_running, load_hud_config, HudPosition};
 use crate::config::StyleConfig;
 use gtk::gio;
 use gtk::glib;
@@ -199,19 +199,13 @@ pub fn run_hud() {
     }
 
     // --- Single Instance Locking ---
+    if is_hud_running() {
+        eprintln!("HUD is already running");
+        return;
+    }
+
+    // Write current PID
     if let Some(pid_path) = get_hud_pid_path() {
-        if let Ok(pid_str) = fs::read_to_string(&pid_path) {
-            if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                // Check if process exists (signal 0)
-                unsafe {
-                    if libc::kill(pid, 0) == 0 {
-                        eprintln!("HUD is already running (PID: {})", pid);
-                        return;
-                    }
-                }
-            }
-        }
-        // Write current PID
         if let Some(parent) = pid_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
