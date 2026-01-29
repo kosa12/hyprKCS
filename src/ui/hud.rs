@@ -309,33 +309,57 @@ pub fn run_hud() {
         // --- Theme and Config Listeners ---
 
         let manager = adw::StyleManager::default();
-
         let app_prov_c = app_provider.clone();
-
         let theme_prov_c = theme_provider.clone();
 
         let reload_all = move || {
+            let Some(display) = gtk::gdk::Display::default() else {
+                return;
+            };
+
+            // Remove providers first to force a refresh
+            gtk::style_context_remove_provider_for_display(&display, &theme_prov_c);
+            gtk::style_context_remove_provider_for_display(&display, &app_prov_c);
+
             if let Some(config_dir) = dirs::config_dir() {
                 let gtk_css_path = config_dir.join("gtk-4.0/gtk.css");
-
                 if gtk_css_path.exists() {
                     theme_prov_c.load_from_file(&gio::File::for_path(&gtk_css_path));
+                } else {
+                    theme_prov_c.load_from_string("");
                 }
             }
 
             let style = StyleConfig::load();
-
             app_prov_c.load_from_string(&generate_hud_css(&style));
+
+            // Re-add providers
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &theme_prov_c,
+                gtk::STYLE_PROVIDER_PRIORITY_USER,
+            );
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &app_prov_c,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
         };
 
-        let reload_dark = reload_all.clone();
-
-        manager.connect_dark_notify(move |_| reload_dark());
+        let reload = reload_all.clone();
+        manager.connect_notify_local(None, move |_, pspec| {
+            if matches!(pspec.name(), "dark" | "accent-color" | "color-scheme") {
+                reload();
+            }
+        });
 
         if let Some(settings) = gtk::Settings::default() {
-            let reload_theme = reload_all.clone();
-
-            settings.connect_gtk_theme_name_notify(move |_| reload_theme());
+            let reload = reload_all;
+            settings.connect_notify_local(None, move |_, pspec| {
+                if matches!(pspec.name(), "gtk-theme-name" | "gtk-color-scheme") {
+                    reload();
+                }
+            });
         }
 
         // Listen for config changes
