@@ -1,3 +1,4 @@
+pub mod hud;
 pub mod settings;
 pub mod style;
 pub mod utils;

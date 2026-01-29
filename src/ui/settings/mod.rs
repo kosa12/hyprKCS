@@ -3,6 +3,7 @@ pub mod appearance;
 pub mod feedback;
 pub mod general;
 pub mod gestures;
+pub mod hud;
 pub mod input;
 pub mod ui_elements;
 pub mod variables;
@@ -15,8 +16,37 @@ use gtk::gio;
 use gtk4 as gtk;
 use libadwaita as adw;
 use libadwaita::prelude::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+
+/// Tracks which pages have been initialized for lazy loading
+struct LazyPageState {
+    variables: Cell<bool>,
+    window: Cell<bool>,
+    appearance: Cell<bool>,
+    hud: Cell<bool>,
+    input: Cell<bool>,
+    gestures: Cell<bool>,
+    ui_elements: Cell<bool>,
+    feedback: Cell<bool>,
+    about: Cell<bool>,
+}
+
+impl Default for LazyPageState {
+    fn default() -> Self {
+        Self {
+            variables: Cell::new(false),
+            window: Cell::new(false),
+            appearance: Cell::new(false),
+            hud: Cell::new(false),
+            input: Cell::new(false),
+            gestures: Cell::new(false),
+            ui_elements: Cell::new(false),
+            feedback: Cell::new(false),
+            about: Cell::new(false),
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_settings_view(
@@ -32,18 +62,13 @@ pub fn create_settings_view(
     on_restore_clicked: Rc<dyn Fn()>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
+    let lazy_state = Rc::new(LazyPageState::default());
 
-    // Load input config early to share between input and gestures pages
-    let (input_config, gestures_config) = match load_input_config() {
-        Ok((i, g)) => (Rc::new(RefCell::new(i)), Rc::new(RefCell::new(g))),
-        Err(e) => {
-            eprintln!("Failed to load input/gestures config: {}", e);
-            (
-                Rc::new(RefCell::new(crate::parser::input::InputConfig::default())),
-                Rc::new(RefCell::new(crate::parser::input::GesturesConfig::default())),
-            )
-        }
-    };
+    // Lazy-load input config only when needed
+    let input_config: Rc<RefCell<Option<Rc<RefCell<crate::parser::input::InputConfig>>>>> =
+        Rc::new(RefCell::new(None));
+    let gestures_config: Rc<RefCell<Option<Rc<RefCell<crate::parser::input::GesturesConfig>>>>> =
+        Rc::new(RefCell::new(None));
 
     let main_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -82,7 +107,7 @@ pub fn create_settings_view(
     let sidebar = gtk::StackSidebar::builder()
         .stack(&settings_stack)
         .vexpand(true)
-        .width_request(200) // Sidebar width
+        .width_request(200)
         .build();
 
     let sidebar_scroll = gtk::ScrolledWindow::builder()
@@ -96,7 +121,7 @@ pub fn create_settings_view(
 
     main_box.append(&sidebar_box);
 
-    // ================== PAGE 1: GENERAL ==================
+    // ================== PAGE 1: GENERAL (loaded immediately - it's the default) ==================
     let page_general = general::create_general_page(
         config.clone(),
         window,
@@ -106,52 +131,158 @@ pub fn create_settings_view(
     );
     settings_stack.add_titled(&page_general, Some("general"), "General");
 
-    // ================== PAGE 1.5: VARIABLES ==================
-    let page_vars = variables::create_variables_page(window, on_show_toast.clone());
-    settings_stack.add_titled(&page_vars, Some("variables"), "Variables");
+    // ================== PLACEHOLDER PAGES (lazy loaded) ==================
+    // Create lightweight placeholder boxes that will be replaced on first visit
 
-    // ================== PAGE 2: WINDOW ==================
-    let page_window = window::create_window_page(config.clone(), window);
-    settings_stack.add_titled(&page_window, Some("window"), "Window");
+    let placeholder_vars = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_vars, Some("variables"), "Variables");
 
-    // ================== PAGE 2.5: APPEARANCE ==================
-    let page_appearance = appearance::create_appearance_page(config.clone());
-    settings_stack.add_titled(&page_appearance, Some("appearance"), "Appearance");
+    let placeholder_window = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_window, Some("window"), "Window");
 
-    // ================== PAGE 2.6: INPUT ==================
-    let page_input = input::create_input_page(
-        input_config.clone(),
-        gestures_config.clone(),
-        on_show_toast.clone(),
-    );
-    settings_stack.add_titled(&page_input, Some("input"), "Input");
+    let placeholder_appearance = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_appearance, Some("appearance"), "Appearance");
 
-    // ================== PAGE 2.7: GESTURES ==================
-    let page_gestures = gestures::create_gestures_page(
-        input_config.clone(),
-        gestures_config.clone(),
-        on_show_toast.clone(),
-    );
-    settings_stack.add_titled(&page_gestures, Some("gestures"), "Gestures");
+    let placeholder_hud = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_hud, Some("hud"), "Wallpaper HUD");
 
-    // ================== PAGE 3: UI ELEMENTS ==================
-    let page_ui = ui_elements::create_ui_elements_page(
-        config.clone(),
-        on_desc_toggle,
-        on_fav_toggle,
-        on_args_toggle,
-        on_submap_toggle,
-        on_sort_change,
-    );
-    settings_stack.add_titled(&page_ui, Some("ui"), "UI Elements");
+    let placeholder_input = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_input, Some("input"), "Input");
 
-    // ================== PAGE 4: FEEDBACK ==================
-    let page_feedback = feedback::create_feedback_page(window);
-    settings_stack.add_titled(&page_feedback, Some("feedback"), "Feedback");
+    let placeholder_gestures = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_gestures, Some("gestures"), "Gestures");
 
-    // ================== PAGE 5: ABOUT ==================
-    let page_about = about::create_about_page(window);
-    settings_stack.add_titled(&page_about, Some("about"), "About");
+    let placeholder_ui = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_ui, Some("ui"), "UI Elements");
+
+    let placeholder_feedback = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_feedback, Some("feedback"), "Feedback");
+
+    let placeholder_about = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_about, Some("about"), "About");
+
+    // ================== LAZY LOADING LOGIC ==================
+    let config_c = config.clone();
+    let window_c = window.clone();
+    let model_c = model.clone();
+    let on_show_toast_c = on_show_toast.clone();
+    let on_desc_toggle_c = on_desc_toggle;
+    let on_fav_toggle_c = on_fav_toggle;
+    let on_args_toggle_c = on_args_toggle;
+    let on_submap_toggle_c = on_submap_toggle;
+    let on_sort_change_c = on_sort_change;
+    let input_config_c = input_config;
+    let gestures_config_c = gestures_config;
+
+    settings_stack.connect_visible_child_name_notify(move |stack| {
+        let Some(name) = stack.visible_child_name() else {
+            return;
+        };
+
+        macro_rules! lazy_load {
+            ($field:ident, $page_name:literal, $create_expr:expr) => {
+                if name.as_str() == $page_name && !lazy_state.$field.get() {
+                    lazy_state.$field.set(true);
+                    let page = $create_expr;
+                    replace_placeholder(stack, $page_name, &page.upcast());
+                }
+            };
+        }
+
+        lazy_load!(
+            variables,
+            "variables",
+            variables::create_variables_page(&window_c, on_show_toast_c.clone())
+        );
+        lazy_load!(
+            window,
+            "window",
+            window::create_window_page(config_c.clone(), &window_c)
+        );
+        lazy_load!(
+            appearance,
+            "appearance",
+            appearance::create_appearance_page(config_c.clone())
+        );
+
+        // HUD uses a slightly different return type (Widget instead of PreferencesPage), but upcast works for both if Widget
+        if name.as_str() == "hud" && !lazy_state.hud.get() {
+            lazy_state.hud.set(true);
+            let page = hud::create_hud_page(&model_c, on_show_toast_c.clone());
+            replace_placeholder(stack, "hud", &page);
+        }
+
+        lazy_load!(
+            feedback,
+            "feedback",
+            feedback::create_feedback_page(&window_c)
+        );
+        lazy_load!(about, "about", about::create_about_page(&window_c));
+        lazy_load!(
+            ui_elements,
+            "ui",
+            ui_elements::create_ui_elements_page(
+                config_c.clone(),
+                on_desc_toggle_c.clone(),
+                on_fav_toggle_c.clone(),
+                on_args_toggle_c.clone(),
+                on_submap_toggle_c.clone(),
+                on_sort_change_c.clone(),
+            )
+        );
+
+        // Input and Gestures share config loading logic
+        if name.as_str() == "input" || name.as_str() == "gestures" {
+            ensure_input_config_loaded(&input_config_c, &gestures_config_c);
+
+            if name.as_str() == "input" && !lazy_state.input.get() {
+                lazy_state.input.set(true);
+                let ic = input_config_c.borrow().as_ref().unwrap().clone();
+                let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
+                let page = input::create_input_page(ic, gc, on_show_toast_c.clone());
+                replace_placeholder(stack, "input", &page.upcast());
+            } else if name.as_str() == "gestures" && !lazy_state.gestures.get() {
+                lazy_state.gestures.set(true);
+                let ic = input_config_c.borrow().as_ref().unwrap().clone();
+                let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
+                let page = gestures::create_gestures_page(ic, gc, on_show_toast_c.clone());
+                replace_placeholder(stack, "gestures", &page.upcast());
+            }
+        }
+    });
 
     main_box.upcast::<gtk::Widget>()
+}
+
+/// Populate a placeholder box with the actual page content
+fn replace_placeholder(stack: &gtk::Stack, name: &str, new_page: &gtk::Widget) {
+    if let Some(placeholder) = stack.child_by_name(name) {
+        if let Some(container) = placeholder.downcast_ref::<gtk::Box>() {
+            // Clear placeholder and add actual content
+            container.append(new_page);
+            new_page.set_vexpand(true);
+            new_page.set_hexpand(true);
+        }
+    }
+}
+
+/// Ensure input/gestures configs are loaded (shared between input and gestures pages)
+fn ensure_input_config_loaded(
+    input_config: &Rc<RefCell<Option<Rc<RefCell<crate::parser::input::InputConfig>>>>>,
+    gestures_config: &Rc<RefCell<Option<Rc<RefCell<crate::parser::input::GesturesConfig>>>>>,
+) {
+    if input_config.borrow().is_none() {
+        let (ic, gc) = match load_input_config() {
+            Ok((i, g)) => (i, g),
+            Err(e) => {
+                eprintln!("Failed to load input/gestures config: {}", e);
+                (
+                    crate::parser::input::InputConfig::default(),
+                    crate::parser::input::GesturesConfig::default(),
+                )
+            }
+        };
+        *input_config.borrow_mut() = Some(Rc::new(RefCell::new(ic)));
+        *gestures_config.borrow_mut() = Some(Rc::new(RefCell::new(gc)));
+    }
 }

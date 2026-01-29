@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod favorites;
+pub mod hud;
 
 use std::collections::HashMap;
 use std::fs;

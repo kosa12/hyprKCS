@@ -1,6 +1,6 @@
 # hyprKCS
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=flat)](https://www.gnu.org/licenses/gpl-3.0)
 [![AUR version](https://img.shields.io/aur/version/hyprkcs-git?style=flat)](https://aur.archlinux.org/packages/hyprkcs-git)
 [![Crates.io Version](https://img.shields.io/crates/v/hyprKCS?style=flat)](https://crates.io/crates/hyprKCS)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat)](https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml)
@@ -48,6 +48,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Bulk Replace**: Find and replace modifiers, keys, or commands across multiple keybinds at once, with a live case-insensitive preview.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Macro Builder (Chain Actions)**: Visually create complex keybinds that execute multiple dispatchers in sequence (e.g., move window AND switch workspace).
+- **hyprKCS HUD (Wallpaper Overlay)**: A lightweight, unmovable, and transparent overlay that displays your selected keybinds directly on your wallpaper. It runs as a separate process and stays active even when the main application is closed.
 - **Favorites**: Pin frequently used keybinds for quick access.
 - **Input Device Configuration**: Manage your `input { ... }` block (layout, sensitivity, repeat rate) directly from the settings.
 - **Settings Editor**: Configure UI, backup behavior, and appearance directly within the app.
@@ -218,6 +219,18 @@ Create complex multi-step actions without writing scripts.
 3. Use the visual builder to add steps (e.g., Step 1: `exec` -> `grim`, Step 2: `exec` -> `notify-send "Screenshot taken"`).
 4. hyprKCS automatically formats this into a Hyprland-compatible macro command using `bash` and `hyprctl` (e.g., `bind = ..., exec, bash -c "hyprctl dispatch exec grim; hyprctl dispatch exec 'notify-send \"Screenshot taken\"'"`).
 
+**hyprKCS HUD (Wallpaper Overlay)**
+Keep your most important keybinds always in sight without opening the app.
+- **Dedicated Overlay**: The HUD is a minimalist, transparent widget that sits on your wallpaper (Layer Background).
+- **Persistent**: Since it runs as a separate process (`hyprkcs --hud`), it stays on your screen even after you close the main manager.
+- **Easy Selection**: In **Settings > Wallpaper HUD**, you can search and toggle exactly which keybinds should appear on the overlay.
+- **Non-Intrusive**: It is unmovable (but you can set it to be in top-right, top-left, bottom-right, or bottom-left positions) and doesn't catch input, ensuring it never interferes with your workflow. 
+
+<p align="center">
+    <img src="./assets/image_6.png" width="80%" />
+</p>
+
+
 **Bulk Replace**
 Quickly update multiple keybinds at once (e.g., swapping `SUPER` for `ALT` or changing your terminal emulator).
 1. Click the "Bulk Replace" icon in the top toolbar.
@@ -255,6 +268,10 @@ hyprKCS also includes a CLI for quick lookups and scripting.
   ```bash
   hyprkcs --config ~/.config/hypr/custom.conf
   # Short: hyprkcs -c ~/.config/hypr/custom.conf
+  ```
+- **Launch the Wallpaper HUD:**
+  ```bash
+  hyprkcs --hud
   ```
 - **System Check:**
   Check your system environment for compatibility issues:
@@ -302,4 +319,6 @@ Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
