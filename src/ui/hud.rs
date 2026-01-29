@@ -313,14 +313,6 @@ pub fn run_hud() {
         let theme_prov_c = theme_provider.clone();
 
         let reload_all = move || {
-            let Some(display) = gtk::gdk::Display::default() else {
-                return;
-            };
-
-            // Remove providers first to force a refresh
-            gtk::style_context_remove_provider_for_display(&display, &theme_prov_c);
-            gtk::style_context_remove_provider_for_display(&display, &app_prov_c);
-
             if let Some(config_dir) = dirs::config_dir() {
                 let gtk_css_path = config_dir.join("gtk-4.0/gtk.css");
                 if gtk_css_path.exists() {
@@ -332,37 +324,27 @@ pub fn run_hud() {
 
             let style = StyleConfig::load();
             app_prov_c.load_from_string(&generate_hud_css(&style));
-
-            // Re-add providers
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &theme_prov_c,
-                gtk::STYLE_PROVIDER_PRIORITY_USER,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &app_prov_c,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
         };
 
         let reload = reload_all.clone();
         manager.connect_notify_local(None, move |_, pspec| {
-            if matches!(pspec.name(), "dark" | "accent-color" | "color-scheme") {
+            let name = pspec.name();
+            if matches!(&*name, "dark" | "accent-color" | "color-scheme") {
                 reload();
             }
         });
 
         if let Some(settings) = gtk::Settings::default() {
-            let reload = reload_all;
+            let reload = reload_all.clone();
             settings.connect_notify_local(None, move |_, pspec| {
-                if matches!(pspec.name(), "gtk-theme-name" | "gtk-color-scheme") {
+                let name = pspec.name();
+                if matches!(&*name, "gtk-theme-name" | "gtk-color-scheme" | "gtk-application-prefer-dark-theme") {
                     reload();
                 }
             });
         }
 
-        // Listen for config changes
+        // Listen for config changes and THEME changes (file system)
 
         if let Some(config_dir) = dirs::config_dir() {
             let config_path = config_dir
@@ -373,8 +355,62 @@ pub fn run_hud() {
                 .join(crate::config::constants::HYPRKCS_DIR)
                 .join(crate::config::constants::HUD_CONF);
 
-            let app_prov_f = app_provider.clone();
+            // --- Theme Monitoring (File System) ---
+            let dirs_to_monitor = vec![
+                config_dir.join("gtk-4.0"),
+                config_dir.join("gtk-3.0"),
+            ];
 
+            for (i, dir_path) in dirs_to_monitor.iter().enumerate() {
+                let dir_file = gio::File::for_path(dir_path);
+                if let Ok(monitor) = dir_file.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE) {
+                    let theme_prov_f = theme_provider.clone();
+                    let app_prov_f = app_provider.clone();
+
+                    monitor.connect_changed(move |_, file, _, event| {
+                         if let Some(path) = file.path() {
+                            if let Some(name) = path.file_name() {
+                                if name == "gtk.css" || name == "settings.ini" {
+                                    match event {
+                                        gio::FileMonitorEvent::ChangesDoneHint |
+                                        gio::FileMonitorEvent::Changed |
+                                        gio::FileMonitorEvent::Created |
+                                        gio::FileMonitorEvent::AttributeChanged => {
+                                             let tp = theme_prov_f.clone();
+                                             let ap = app_prov_f.clone();
+                                             let config_dir = dirs::config_dir().unwrap();
+                                             let css_path = config_dir.join("gtk-4.0/gtk.css");
+                                             let f = gio::File::for_path(&css_path);
+
+                                                                                          glib::timeout_add_local(
+                                                                                             std::time::Duration::from_millis(200), 
+                                                                                             move || {
+                                                                                                 // Force reload theme
+                                                                                                 if css_path.exists() {
+                                                                                                     tp.load_from_file(&f);
+                                                                                                 } else {
+                                                                                                     tp.load_from_string("");
+                                                                                                 }
+                                                                                                 let style = StyleConfig::load();
+                                                                                                 ap.load_from_string(&generate_hud_css(&style));
+                                                                                                 glib::ControlFlow::Break
+                                                                                             }
+                                                                                          );                                        },
+                                        _ => {}
+                                    }
+                                }
+                            }
+                         }
+                    });
+
+                    unsafe {
+                        window.set_data(&format!("theme-monitor-{}", i), Rc::new(monitor));
+                    }
+                }
+            }
+
+
+            let app_prov_f = app_provider.clone();
             let container_f = container.clone();
 
             // Monitor hyprkcs.conf (style)
