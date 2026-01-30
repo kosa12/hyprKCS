@@ -32,7 +32,7 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
     lic_row.add_prefix(&lic_img);
     group_about.add(&lic_row);
 
-    let group_links = adw::PreferencesGroup::builder().title("Links").build();
+    let group_docs = adw::PreferencesGroup::builder().title("Documentation").build();
 
     let create_link = |title: &str, subtitle: &str, icon: &str, url: &str| {
         let row = adw::ActionRow::builder()
@@ -60,21 +60,43 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
         row
     };
 
-    group_links.add(&create_link(
-        "Source Code",
-        "View on GitHub",
-        "document-properties-symbolic",
-        "https://github.com/kosa12/hyprKCS",
-    ));
-    group_links.add(&create_link(
+    group_docs.add(&create_link(
         "Wiki",
         "Documentation and Guides",
         "system-help-symbolic",
         "https://github.com/kosa12/hyprKCS/wiki",
     ));
 
+    let group_community = adw::PreferencesGroup::builder().title("Community").build();
+
+    group_community.add(&create_link(
+        "GitHub Repository",
+        "Star the project on GitHub!",
+        "starred-symbolic",
+        "https://github.com/kosa12/hyprKCS",
+    ));
+    group_community.add(&create_link(
+        "Report a Bug or Suggest a Feature",
+        "Found an issue? Have a suggestion? Let me know.",
+        "dialog-warning-symbolic",
+        "https://github.com/kosa12/hyprKCS/issues",
+    ));
+    group_community.add(&create_link(
+        "Donate",
+        "Support the project on Ko-fi",
+        "emblem-favorite-symbolic",
+        "https://ko-fi.com/kosa12",
+    ));
+    group_community.add(&create_link(
+        "Donate",
+        "Support the project on Github Sponsors",
+        "emblem-favorite-symbolic",
+        "https://github.com/sponsors/kosa12",
+    ));
+
     page_about.add(&group_about);
-    page_about.add(&group_links);
+    page_about.add(&group_docs);
+    page_about.add(&group_community);
 
     page_about
 }

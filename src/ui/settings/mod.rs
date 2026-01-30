@@ -1,6 +1,5 @@
 pub mod about;
 pub mod appearance;
-pub mod feedback;
 pub mod general;
 pub mod gestures;
 pub mod hud;
@@ -28,7 +27,6 @@ struct LazyPageState {
     input: Cell<bool>,
     gestures: Cell<bool>,
     ui_elements: Cell<bool>,
-    feedback: Cell<bool>,
     about: Cell<bool>,
 }
 
@@ -42,7 +40,6 @@ impl Default for LazyPageState {
             input: Cell::new(false),
             gestures: Cell::new(false),
             ui_elements: Cell::new(false),
-            feedback: Cell::new(false),
             about: Cell::new(false),
         }
     }
@@ -155,9 +152,6 @@ pub fn create_settings_view(
     let placeholder_ui = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_ui, Some("ui"), "UI Elements");
 
-    let placeholder_feedback = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    settings_stack.add_titled(&placeholder_feedback, Some("feedback"), "Feedback");
-
     let placeholder_about = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_about, Some("about"), "About");
 
@@ -212,11 +206,6 @@ pub fn create_settings_view(
             replace_placeholder(stack, "hud", &page);
         }
 
-        lazy_load!(
-            feedback,
-            "feedback",
-            feedback::create_feedback_page(&window_c)
-        );
         lazy_load!(about, "about", about::create_about_page(&window_c));
         lazy_load!(
             ui_elements,
