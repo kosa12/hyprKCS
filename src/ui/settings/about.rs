@@ -3,53 +3,107 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPage {
-    let page_about = adw::PreferencesPage::builder().build();
-    let group_about = adw::PreferencesGroup::builder()
-        .title("Application Information")
+    let page = adw::PreferencesPage::builder().build();
+
+    let main_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(24)
+        .margin_top(24)
+        .margin_bottom(24)
+        .margin_start(12)
+        .margin_end(12)
         .build();
 
-    let ver_row = adw::ActionRow::builder()
-        .title("Version")
-        .subtitle(env!("CARGO_PKG_VERSION"))
+    // --- Header ---
+    let header_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(8)
+        .halign(gtk::Align::Center)
         .build();
-    let ver_img = gtk::Image::from_icon_name("help-about-symbolic");
-    ver_row.add_prefix(&ver_img);
-    group_about.add(&ver_row);
 
-    let dev_row = adw::ActionRow::builder()
-        .title("Developer")
-        .subtitle("kosa12")
+    let icon = gtk::Image::builder()
+        .icon_name("hyprkcs")
+        .pixel_size(96)
         .build();
-    let dev_img = gtk::Image::from_icon_name("avatar-default-symbolic");
-    dev_row.add_prefix(&dev_img);
-    group_about.add(&dev_row);
+    if icon.icon_name().is_none() {
+        icon.set_icon_name(Some("help-about-symbolic"));
+    }
 
-    let lic_row = adw::ActionRow::builder()
-        .title("License")
-        .subtitle("GPL-3.0")
+    let title = gtk::Label::builder()
+        .label("hyprKCS")
+        .css_classes(["title-1"])
         .build();
-    let lic_img = gtk::Image::from_icon_name("dialog-information-symbolic");
-    lic_row.add_prefix(&lic_img);
-    group_about.add(&lic_row);
 
-    let group_docs = adw::PreferencesGroup::builder().title("Documentation").build();
+    header_box.append(&icon);
+    header_box.append(&title);
+    main_box.append(&header_box);
 
-    let create_link = |title: &str, subtitle: &str, icon: &str, url: &str| {
-        let row = adw::ActionRow::builder()
-            .title(title)
-            .subtitle(subtitle)
-            .activatable(true)
+    // --- Row 1: Info (Version - Dev - License) ---
+    let info_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .halign(gtk::Align::Center)
+        .css_classes(["card"]) // Optional: card look
+        .build();
+
+    // Helper for info badges
+    let create_badge = |text: &str, css: &str| {
+        gtk::Label::builder()
+            .label(text)
+            .css_classes(["body", css])
+            .margin_top(8)
+            .margin_bottom(8)
+            .margin_start(12)
+            .margin_end(12)
+            .build()
+    };
+
+    info_box.append(&create_badge(
+        &format!("v{}", env!("CARGO_PKG_VERSION")),
+        "accent",
+    ));
+    info_box.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+    info_box.append(&create_badge("Dev: kosa12", "dim-label"));
+    info_box.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+    info_box.append(&create_badge("License: GPL-3.0", "dim-label"));
+
+    main_box.append(&info_box);
+
+    // --- Helper for Buttons ---
+    let create_button = |label: &str, subtitle: &str, icon_name: &str, url: &str, css: &[&str]| {
+        let btn = gtk::Button::builder()
+            .css_classes(css)
+            .hexpand(true)
             .build();
-
-        let img = gtk::Image::from_icon_name(icon);
-        row.add_prefix(&img);
-
-        let suffix = gtk::Image::from_icon_name("external-link-symbolic");
-        row.add_suffix(&suffix);
+        
+        // Custom content for button: Icon + Text Stack
+        let content_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(8)
+            .halign(gtk::Align::Center)
+            .build();
+        
+        let img = gtk::Image::from_icon_name(icon_name);
+        
+        let text_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .valign(gtk::Align::Center)
+            .build();
+            
+        let l_title = gtk::Label::builder().label(label).css_classes(["heading"]).halign(gtk::Align::Start).build();
+        let l_sub = gtk::Label::builder().label(subtitle).css_classes(["caption-heading"]).halign(gtk::Align::Start).build();
+        
+        text_box.append(&l_title);
+        text_box.append(&l_sub);
+        
+        content_box.append(&img);
+        content_box.append(&text_box);
+        
+        btn.set_child(Some(&content_box));
 
         let u = url.to_string();
         let w = window.clone();
-        row.connect_activated(move |_| {
+        btn.connect_clicked(move |_| {
             let launcher = gtk::UriLauncher::new(&u);
             launcher.launch(Some(&w), None::<&gtk::gio::Cancellable>, |res| {
                 if let Err(e) = res {
@@ -57,46 +111,66 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
                 }
             });
         });
-        row
+        btn
     };
 
-    group_docs.add(&create_link(
-        "Wiki",
-        "Documentation and Guides",
-        "system-help-symbolic",
-        "https://github.com/kosa12/hyprKCS/wiki",
-    ));
+    // --- Row 2: GitHub & Issues ---
+    let row2 = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .homogeneous(true)
+        .build();
 
-    let group_community = adw::PreferencesGroup::builder().title("Community").build();
-
-    group_community.add(&create_link(
-        "GitHub Repository",
-        "Star the project on GitHub!",
+    row2.append(&create_button(
+        "Star on GitHub",
+        "View Source",
         "starred-symbolic",
         "https://github.com/kosa12/hyprKCS",
+        &["flat", "card"],
     ));
-    group_community.add(&create_link(
-        "Report a Bug or Suggest a Feature",
-        "Found an issue? Have a suggestion? Let me know.",
+    row2.append(&create_button(
+        "Report Issue",
+        "Bug or Feature?",
         "dialog-warning-symbolic",
         "https://github.com/kosa12/hyprKCS/issues",
+        &["flat", "card"],
     ));
-    group_community.add(&create_link(
+
+    main_box.append(&row2);
+
+    // --- Row 3: Donate ---
+    let row3 = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .homogeneous(true)
+        .build();
+
+    row3.append(&create_button(
         "Donate",
-        "Support the project on Ko-fi",
+        "on Ko-fi",
         "emblem-favorite-symbolic",
         "https://ko-fi.com/kosa12",
+        &["suggested-action", "pill"],
     ));
-    group_community.add(&create_link(
-        "Donate",
-        "Support the project on Github Sponsors",
+    row3.append(&create_button(
+        "Sponsor",
+        "on GitHub",
         "emblem-favorite-symbolic",
         "https://github.com/sponsors/kosa12",
+        &["suggested-action", "pill"],
     ));
 
-    page_about.add(&group_about);
-    page_about.add(&group_docs);
-    page_about.add(&group_community);
+    main_box.append(&row3);
 
-    page_about
+    // Wrapper Group & Clamp
+    let group = adw::PreferencesGroup::builder().build();
+    let clamp = adw::Clamp::builder()
+        .maximum_size(650)
+        .child(&main_box)
+        .build();
+    
+    group.add(&clamp);
+    page.add(&group);
+
+    page
 }
