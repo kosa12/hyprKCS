@@ -21,20 +21,11 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
         .halign(gtk::Align::Center)
         .build();
 
-    let icon = gtk::Image::builder()
-        .icon_name("hyprkcs")
-        .pixel_size(96)
-        .build();
-    if icon.icon_name().is_none() {
-        icon.set_icon_name(Some("help-about-symbolic"));
-    }
-
     let title = gtk::Label::builder()
         .label("hyprKCS")
         .css_classes(["title-1"])
         .build();
 
-    header_box.append(&icon);
     header_box.append(&title);
     main_box.append(&header_box);
 
@@ -150,14 +141,14 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
         "on Ko-fi",
         "emblem-favorite-symbolic",
         "https://ko-fi.com/kosa12",
-        &["suggested-action", "pill"],
+        &["suggested-action"],
     ));
     row3.append(&create_button(
         "Sponsor",
         "on GitHub",
         "emblem-favorite-symbolic",
         "https://github.com/sponsors/kosa12",
-        &["suggested-action", "pill"],
+        &["suggested-action"],
     ));
 
     main_box.append(&row3);
