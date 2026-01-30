@@ -66,30 +66,38 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
             .css_classes(css)
             .hexpand(true)
             .build();
-        
+
         // Custom content for button: Icon + Text Stack
         let content_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
             .spacing(8)
             .halign(gtk::Align::Center)
             .build();
-        
+
         let img = gtk::Image::from_icon_name(icon_name);
-        
+
         let text_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .valign(gtk::Align::Center)
             .build();
-            
-        let l_title = gtk::Label::builder().label(label).css_classes(["heading"]).halign(gtk::Align::Start).build();
-        let l_sub = gtk::Label::builder().label(subtitle).css_classes(["caption-heading"]).halign(gtk::Align::Start).build();
-        
+
+        let l_title = gtk::Label::builder()
+            .label(label)
+            .css_classes(["heading"])
+            .halign(gtk::Align::Start)
+            .build();
+        let l_sub = gtk::Label::builder()
+            .label(subtitle)
+            .css_classes(["caption-heading"])
+            .halign(gtk::Align::Start)
+            .build();
+
         text_box.append(&l_title);
         text_box.append(&l_sub);
-        
+
         content_box.append(&img);
         content_box.append(&text_box);
-        
+
         btn.set_child(Some(&content_box));
 
         let u = url.to_string();
@@ -159,7 +167,7 @@ pub fn create_about_page(window: &adw::ApplicationWindow) -> adw::PreferencesPag
         .maximum_size(650)
         .child(&main_box)
         .build();
-    
+
     group.add(&clamp);
     page.add(&group);
 
