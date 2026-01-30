@@ -757,6 +757,8 @@ pub fn build_ui(app: &adw::Application) {
     let status_page_weak = status_page.downgrade();
     let list_stack_weak = list_stack.downgrade();
     let scrolled_weak = scrolled_window.downgrade();
+    let selection_model_weak_filter = selection_model.downgrade();
+    let column_view_weak_filter = column_view.downgrade();
 
     // Use a signal handler id to allow disconnection if needed
     let _filter_items_changed_id = filter_model.connect_items_changed(move |m, _, _, _| {
@@ -772,12 +774,27 @@ pub fn build_ui(app: &adw::Application) {
             Some(w) => w,
             None => return,
         };
+        let selection_model = match selection_model_weak_filter.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
+        let column_view = match column_view_weak_filter.upgrade() {
+            Some(w) => w,
+            None => return,
+        };
 
         let has_items = m.n_items() > 0;
         status_page.set_visible(!has_items);
         scrolled.set_visible(has_items);
         if has_items {
             list_stack.set_visible_child(&scrolled);
+            selection_model.set_selected(0);
+            column_view.scroll_to(
+                0,
+                None::<&gtk::ColumnViewColumn>,
+                gtk::ListScrollFlags::empty(),
+                None::<gtk::ScrollInfo>,
+            );
         } else {
             list_stack.set_visible_child(&status_page);
         }
