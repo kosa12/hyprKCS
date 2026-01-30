@@ -1,20 +1,31 @@
-# hyprKCS
-
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=flat)](https://www.gnu.org/licenses/gpl-3.0)
-[![AUR version](https://img.shields.io/aur/version/hyprkcs-git?style=flat)](https://aur.archlinux.org/packages/hyprkcs-git)
-[![Crates.io Version](https://img.shields.io/crates/v/hyprKCS?style=flat)](https://crates.io/crates/hyprKCS)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat)](https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml)
-[![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-![Crates.io Total Downloads](https://img.shields.io/crates/d/hyprKCS?style=flat)
-
-
-A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
+<h1 align="center">hyprKCS</h1>
 
 <p align="center">
-  <img src="./assets/image_1.png" width="32%" />
-  <img src="./assets/image_2.png" width="32%" />
-  <img src="./assets/image_3.png" width="32%" />
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPL--3.0-d79921?style=flat" /></a>
+  <a href="https://aur.archlinux.org/packages/hyprkcs-git"><img src="https://img.shields.io/aur/version/hyprkcs-git?color=458588&label=AUR&style=flat" /></a>
+  <a href="https://crates.io/crates/hyprKCS"><img src="https://img.shields.io/crates/v/hyprKCS?color=d65d0e&label=Crates.io&style=flat" /></a>
+  <a href="https://github.com/kosa12/hyprKCS/actions/workflows/cargo-build.yml"><img src="https://img.shields.io/github/actions/workflow/status/kosa12/hyprKCS/cargo-build.yml?branch=master&style=flat&color=98971a" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Made%20with-Rust-d65d0e?style=flat&logo=rust&logoColor=white" /></a>
+  <a href="https://crates.io/crates/hyprKCS"><img src="https://img.shields.io/crates/d/hyprKCS?style=flat&color=689d6a" /></a>
 </p>
+
+<p align="center">
+  A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust and GTK4.
+</p>
+
+<p align="center">
+  <img src="./assets/image_1.png" width="32%" /><img src="./assets/image_2.png" width="32%" /><img src="./assets/image_3.png" width="32%" />
+</p>
+
+<p align="center">
+  <a href="#installation"><img src="https://img.shields.io/badge/Installation-98971a?style=for-the-badge&logo=linux&logoColor=ffffff" height="30" /></a>
+  <a href="#usage"><img src="https://img.shields.io/badge/Usage-458588?style=for-the-badge&logo=bookstack&logoColor=ffffff" height="30" /></a>
+  <a href="#troubleshooting"><img src="https://img.shields.io/badge/Troubleshoot-cc241d?style=for-the-badge&logo=helpdesk&logoColor=ffffff" height="30" /></a>
+</p>
+
+## Overview
+
+hyprKCS provides a simple and intuitive interface to view, edit, and manage your Hyprland keybinds. It automatically parses your `hyprland.conf` (and any sourced files), detects conflicts, and allows you to make changes safely.
 
 <details>
   <summary align="center">View a Live Demo</summary>
@@ -22,10 +33,6 @@ A fast, lightweight, and graphical keybind manager for Hyprland, built with Rust
     <img src="./assets/livedemo_2.gif" width="100%" />
   </p>
 </details>
-
-## Overview
-
-hyprKCS provides a simple and intuitive interface to view, edit, and manage your Hyprland keybinds. It automatically parses your `hyprland.conf` (and any sourced files), detects conflicts, and allows you to make changes safely.
 
 ## Features
 
@@ -38,7 +45,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Broken Bind Detection**: Automatically validates `exec` and `execr` commands, flagging keybinds that point to missing executables or scripts with a red exclamation mark.
 - **Bind Flags Support**: Full support for Hyprland's specialized bind flags like `binde` (repeat), `bindl` (locked), `bindr` (release), and more, selectable via a dropdown in the editor.
 - **Bindd (Descriptions) Support for Omarchy Users**: Full support for the `bindd` format (`bindd = MODS, KEY, DESC, DISPATCHER, ARGS`). This allows you to store human-readable descriptions directly in the keybind line, making them compatible with interactive viewers like **Omarchy**.
-- **Mouse Button & Scroll Support**: Easily bind actions to mouse buttons (Left/Right/Middle/Side), scroll wheel events, and dragging actions (`bindm`) using a dedicated UI mode.
+- **Mouse Button & Scroll Support**: Effortlessly bind actions to any mouse button, including Side and Extra buttons (8/9). hyprKCS automatically handles Hyprland submaps during recording to ensure global binds don't interfere with your selection.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Variable Management**: Define and manage Hyprland variables (e.g., `$mainMod`). Supports creating, editing, and deleting variables with smart reference handling and automatic refactoring.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
@@ -57,7 +64,17 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Gesture Configuration (Hyprland v0.51+)**: Dedicated interface to configure workspace swipe gestures using the new `gesture = ...` syntax, replacing the deprecated `gestures { ... }` block.
 - **Keybind Exporting**: Export your keybinds to a simple markdown file for easy sharing or documentation.
 
+## Compatibility
+
+- **Hyprland**: Version v0.40.0 or newer is required for most features.
+  - *Note*: **Gesture Configuration** requires v0.51.0+ due to the configuration syntax changes.
+- **GTK**: Version 4.10+ is recommended for the best experience and performance.
+- **Libadwaita**: Version 1.4+ is required for advanced UI elements.
+
 ## Installation
+
+> [!NOTE]
+> You need a functioning Hyprland installation.
 
 ### From AUR (Arch Linux)
 ```bash
@@ -75,7 +92,7 @@ nix run github:kosa12/hyprKCS
 ```
 
 ### From Source
-Ensure you have `rust`, `cargo`, and `gtk4` development headers installed.
+> Ensure you have `rust`, `cargo`, and `gtk4` development headers installed.
 
 **Using Make (Recommended):**
 ```bash
@@ -92,66 +109,6 @@ cd hyprKCS
 cargo build --release
 # The binary will be at ./target/release/hyprkcs
 ```
-
-## Configuration
-
-You can customize the appearance and behavior of hyprKCS by creating a configuration file at `~/.config/hyprkcs/hyprkcs.conf`. If a value is invalid or omitted, a default will be used.
-
-| Option | Description | Default |
-| --- | --- | --- |
-| `width` | Window width (in pixels) | `700` |
-| `height` | Window height (in pixels) | `500` |
-| `opacity` | Window background opacity (0.0 to 1.0) | `1.0` |
-| `fontSize` | Global font size (e.g., `10pt`, `1rem`) | `0.9rem` |
-| `borderSize` | Global border thickness | `1px` |
-| `borderRadius` | Main window corner radius | `12px` |
-| `showSubmaps` | Toggles visibility of the "Submap" column | `false` |
-| `showArgs` | Toggles visibility of the "Arguments" column | `true` |
-| `showFavorites` | Toggles visibility of the "Favorites" column and category | `true` |
-| `alternatingRowColors` | Toggles striped rows for the list view | `true` |
-| `defaultSort` | Initial sort column (`key`, `dispatcher`, `mods`, etc.) | `key` |
-| `keyboardLayout` | Physical keyboard layout for the visualizer (`ANSI`, `ISO`, `JIS`, `ABNT2`, `HU`) | `ANSI` |
-| `shadowSize` | CSS box-shadow property for the window (`none` to disable) | `0 4px 24px rgba(0,0,0,0.4)` |
-| `monitorMargin` | Margin around the window (in pixels) | `12` |
-| `rowPadding` | Vertical padding between list rows (in pixels) | `2` |
-| `autoBackup` | Automatically backup config on save | `true` |
-| `maxBackupsEnabled` | Enable limiting the number of backups | `false` |
-| `maxBackupsCount` | Maximum number of backups to keep | `10` |
-| `showDescription` | Toggles visibility of the "Description" column (parsed comments from config files) | `false` |
-<details>
-<summary>Example Configuration</summary>
-
-```ini
-# Window dimensions
-width = 1000px
-height = 800px
-
-# Appearance
-opacity = 0.95
-fontSize = 10pt
-borderSize = 2px
-borderRadius = 10px
-alternatingRowColors = true
-shadowSize = 0 4px 24px rgba(0,0,0,0.4)
-
-# UI Elements
-showSubmaps = false
-showArgs = true
-showFavorites = true
-defaultSort = mods
-keyboardLayout = ANSI
-showDescription = true
-
-# Behavior
-autoBackup = true
-maxBackupsEnabled = true
-maxBackupsCount = 20
-
-# Spacing
-monitorMargin = 20px
-rowPadding = 5px
-```
-</details>
 
 ## Usage
 
@@ -175,7 +132,7 @@ The search bar supports specific tags to filter results:
 - `arg:<value>`: Filter by arguments (e.g., `arg:volume`).
 - `desc:<value>`: Filter by description (e.g., `desc:screenshot`).
 
-*Example:* `mod:super action:exec firefox` finds all Super-bound execution commands for Firefox.
+> *Example:* `mod:super action:exec firefox` finds all Super-bound execution commands for Firefox.
 
 **Bindd (Omarchy Support)**
 Hyprland supports the `bindd` format which includes a human-readable description directly in the keybinding declaration. This is highly recommended for users of **Omarchy** or other interactive keybinding viewers.
@@ -286,12 +243,20 @@ If the application fails to start or keybinds aren't saving, run the doctor comm
 ```bash
 hyprkcs --doctor
 ```
-This tool verifies:
-- **Config Access**: Checks if `hyprland.conf` is found and writable.
-- **Dependencies**: Confirms GTK4/Libadwaita runtime versions.
-- **Hyprland IPC**: Ensures `hyprctl` can communicate with the compositor.
-- **Input Devices**: Lists detected keyboards and guesses physical layout (ANSI/ISO).
-- **Backups**: Verifies backup directory permissions.
+This tool verifies your Hyprland instance, config permissions, dependencies, and input device detection.
+
+### Configuration Access Issues
+*   **Config Not Found**: hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag or set the path in **Settings > General**.
+*   **Permission Denied**: Ensure your config files are writable. If you use a symbolic link (e.g., from a dotfiles repo), ensure the target file is also writable.
+*   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
+
+### HUD (Wallpaper Overlay) Issues
+*   **HUD Not Visible**: The HUD uses the `top` or `background` layer. If it's hidden, ensure no other "layer-shell" applications (like `swww` or `hyprpaper`) are covering it. Try toggling the "Layer" setting in **Settings > Wallpaper HUD**.
+*   **HUD Doesn't Update**: The HUD runs as a separate process. Close and restart it (`killall hyprkcs && hyprkcs --hud`) to force a refresh of the keybind list.
+
+### Appearance & Theming
+*   **Broken Icons/Styles**: hyprKCS depends on GTK4 and Libadwaita. If icons are missing, install a standard icon theme (like `adwaita-icon-theme`).
+*   **Scaling Issues**: If the UI looks too small on High-DPI screens, ensure your Hyprland monitor scaling is set correctly, or use the `GDK_SCALE` environment variable.
 
 ### AUR Installation Issues (yay)
 If you encounter errors during installation via `yay` (such as "cannot stat" or build failures after a package update), it may be due to a stale cache. Try clearing the cache and installing again:
@@ -300,17 +265,12 @@ rm -rf ~/.cache/yay/hyprkcs-git
 yay -S hyprkcs-git
 ```
 
-### GPG Key Import Issues
-If you encounter errors like `gpg: keyserver receive failed` when installing from the AUR, you may need to import the required PGP key manually.
+## Development
 
-Try importing from the Ubuntu keyserver:
+### Running Tests
+To ensure stability, run the test suite before submitting a Pull Request:
 ```bash
-gpg --keyserver keyserver.ubuntu.com --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
-```
-
-Or from OpenPGP:
-```bash
-gpg --keyserver keys.openpgp.org --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA67892
+cargo test
 ```
 
 ## Contributing
@@ -318,7 +278,5 @@ gpg --keyserver keys.openpgp.org --recv-keys D2059131FDE2EECC7C90A549F2CB939C8AA
 Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
-
-
 
 This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
