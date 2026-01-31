@@ -109,6 +109,7 @@ pub fn create_general_page(
     config_path_row.add_suffix(&browse_btn);
     config_path_row.add_suffix(&clear_btn);
     group_config.add(&config_path_row);
+
     page_general.add(&group_config);
 
     let group_backup = adw::PreferencesGroup::builder()

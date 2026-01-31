@@ -1,5 +1,60 @@
+use crate::keybind_object::KeybindObject;
+use gtk::gio;
 use gtk::prelude::*;
 use gtk4 as gtk;
+use std::collections::HashSet;
+
+pub fn collect_submaps(model: &gio::ListStore) -> Vec<String> {
+    let mut submaps = HashSet::new();
+    for obj in model.snapshot() {
+        if let Some(obj) = obj.downcast_ref::<KeybindObject>() {
+            if let Some(s) = obj.with_data(|d| d.submap.as_ref().map(|r| r.to_string())) {
+                if !s.is_empty() {
+                    submaps.insert(s);
+                }
+            }
+        }
+    }
+    let mut sorted: Vec<String> = submaps.into_iter().collect();
+    sorted.sort();
+    sorted
+}
+
+#[allow(deprecated)]
+pub fn create_submap_combo(
+    model: &gio::ListStore,
+    current_submap: Option<&str>,
+) -> gtk::ComboBoxText {
+    let combo = gtk::ComboBoxText::with_entry();
+
+    // Add "Global" option (empty string)
+    combo.append(Some(""), "Global (Default)");
+
+    let submaps = collect_submaps(model);
+    for sub in submaps {
+        combo.append(Some(&sub), &sub);
+    }
+
+    // Set active
+    if let Some(s) = current_submap {
+        if s.is_empty() {
+            combo.set_active_id(Some(""));
+        } else {
+            // Check if it exists in list, if not, we must set text manually in entry
+            // But ComboBoxText with entry allows custom text.
+            // set_active_id only works if it matches an appended ID.
+            if !combo.set_active_id(Some(s)) {
+                if let Some(entry) = combo.child().and_downcast::<gtk::Entry>() {
+                    entry.set_text(s);
+                }
+            }
+        }
+    } else {
+        combo.set_active_id(Some(""));
+    }
+
+    combo
+}
 
 pub fn create_back_button(tooltip: &str) -> gtk::Button {
     gtk::Button::builder()

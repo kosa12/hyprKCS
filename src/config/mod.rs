@@ -30,6 +30,7 @@ pub struct StyleConfig {
     pub max_backups_enabled: bool,
     pub max_backups_count: i32,
     pub alternative_config_path: Option<String>,
+    pub default_submap: Option<String>,
 
     pub errors: Vec<String>,
 }
@@ -58,6 +59,7 @@ impl Default for StyleConfig {
             max_backups_enabled: false,
             max_backups_count: 10,
             alternative_config_path: None,
+            default_submap: None,
 
             errors: Vec::new(),
         }
@@ -104,6 +106,7 @@ autoBackup = true
 maxBackupsEnabled = false
 maxBackupsCount = 10
 alternativeConfigPath = 
+defaultSubmap = 
 
 # Spacing
 monitorMargin = 12px
@@ -248,6 +251,11 @@ rowPadding = 2px
                             config.alternative_config_path = Some(val.clone());
                         }
                     }
+                    if let Some(val) = vars.get("defaultSubmap") {
+                        if !val.is_empty() {
+                            config.default_submap = Some(val.clone());
+                        }
+                    }
                 }
             }
         }
@@ -288,6 +296,7 @@ autoBackup = {}
 maxBackupsEnabled = {}
 maxBackupsCount = {}
 alternativeConfigPath = {}
+defaultSubmap = {}
 
 # Spacing
 monitorMargin = {}px
@@ -311,6 +320,7 @@ rowPadding = {}px
                 self.max_backups_enabled,
                 self.max_backups_count,
                 self.alternative_config_path.as_deref().unwrap_or(""),
+                self.default_submap.as_deref().unwrap_or(""),
                 self.monitor_margin,
                 self.row_padding
             );

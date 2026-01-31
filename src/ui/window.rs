@@ -341,13 +341,6 @@ pub fn build_ui(app: &adw::Application) {
     let settings_button = create_flat_button("emblem-system-symbolic", "Settings");
     let keyboard_button = create_flat_button("input-keyboard-symbolic", "Visual Keyboard");
 
-    let conflict_button = gtk::Button::builder()
-        .icon_name("dialog-warning-symbolic")
-        .label("Resolve Conflicts")
-        .css_classes(["destructive-action"])
-        .visible(false)
-        .build();
-
     let mut cat_list = vec!["All", "Workspace", "Window", "Media", "Custom", "Mouse"];
     if config.show_favorites {
         cat_list.push("Favorites");
@@ -359,18 +352,56 @@ pub fn build_ui(app: &adw::Application) {
         .tooltip_text("Filter by Category")
         .build();
 
+    // --- Submap Dropdown & Helper ---
+    let submap_model = gtk::StringList::new(&["All Submaps"]);
+    let submap_dropdown = gtk::DropDown::builder()
+        .model(&submap_model)
+        .selected(0)
+        .tooltip_text("Filter by Submap")
+        .build();
+
+    let collect_submaps = |model: &gio::ListStore| -> Vec<String> {
+        let mut submaps = std::collections::HashSet::new();
+        for obj in model.snapshot() {
+            if let Some(obj) = obj.downcast_ref::<KeybindObject>() {
+                if let Some(s) = obj.with_data(|d| d.submap.as_ref().map(|r| r.to_string())) {
+                    submaps.insert(s);
+                }
+            }
+        }
+        let mut sorted: Vec<String> = submaps.into_iter().collect();
+        sorted.sort();
+        let mut result = vec!["All Submaps".to_string()];
+        result.extend(sorted);
+        result
+    };
+
+    // Single-Line Header Layout
     let top_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .spacing(8)
+        .spacing(6)
         .margin_top(8)
         .margin_bottom(8)
         .margin_start(8)
         .margin_end(8)
         .build();
 
+    // 1. Filters (Left)
+    top_box.append(&submap_dropdown);
     top_box.append(&category_dropdown);
+
+    // 2. Search (Center - Expands)
     top_box.append(&search_entry);
+
+    // 3. Actions (Right)
+    // Conflict Button (Compact, Icon-Only)
+    let conflict_button = gtk::Button::builder()
+        .icon_name("dialog-warning-symbolic")
+        .css_classes(["destructive-action", "circular", "small"]) // Circular for compact look
+        .visible(false)
+        .build();
     top_box.append(&conflict_button);
+
     top_box.append(&add_button);
     top_box.append(&bulk_button);
     top_box.append(&backup_button);
@@ -676,40 +707,88 @@ pub fn build_ui(app: &adw::Application) {
         }
     });
 
-    // Logic to update conflict button visibility
-    let update_conflict_btn = {
+    // Logic to update conflict button visibility AND submap dropdown
+    let update_ui_state = {
         let conflict_button_weak = conflict_button.downgrade();
+        let submap_dropdown_weak = submap_dropdown.downgrade();
+
         move |model: &gio::ListStore| {
-            let conflict_button = match conflict_button_weak.upgrade() {
-                Some(btn) => btn,
-                None => return,
-            };
-            let mut conflict_count = 0;
-            for obj in model.snapshot() {
-                if let Some(obj) = obj.downcast_ref::<KeybindObject>() {
-                    if obj.with_data(|d| d.is_conflicted) {
-                        conflict_count += 1;
+            // Update Conflict Button
+            if let Some(btn) = conflict_button_weak.upgrade() {
+                let mut conflict_count = 0;
+                for obj in model.snapshot() {
+                    if let Some(obj) = obj.downcast_ref::<KeybindObject>() {
+                        if obj.with_data(|d| d.is_conflicted) {
+                            conflict_count += 1;
+                        }
                     }
+                }
+                btn.set_visible(conflict_count > 0);
+                if conflict_count > 0 {
+                    btn.set_tooltip_text(Some(&format!(
+                        "Resolve Conflicts ({} found)",
+                        conflict_count
+                    )));
                 }
             }
 
-            conflict_button.set_visible(conflict_count > 0);
-            if conflict_count > 0 {
-                conflict_button.set_label(&format!("Resolve Conflicts ({})", conflict_count));
+            // Update Submap Dropdown
+            // Note: Re-creating the model resets selection. We should try to preserve it.
+            if let Some(dropdown) = submap_dropdown_weak.upgrade() {
+                let current_selected_idx = dropdown.selected();
+                let current_selected_str = if let Some(m) = dropdown.model() {
+                    if let Some(s) = m
+                        .item(current_selected_idx)
+                        .and_downcast::<gtk::StringObject>()
+                    {
+                        s.string().to_string()
+                    } else {
+                        "All Submaps".to_string()
+                    }
+                } else {
+                    "All Submaps".to_string()
+                };
+
+                let items = collect_submaps(model);
+                let new_model =
+                    gtk::StringList::new(&items.iter().map(|s| s.as_str()).collect::<Vec<&str>>());
+                dropdown.set_model(Some(&new_model));
+
+                // Restore selection
+                let mut found = false;
+                for (i, item) in items.iter().enumerate() {
+                    if *item == current_selected_str {
+                        dropdown.set_selected(i as u32);
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    dropdown.set_selected(0);
+                }
             }
         }
     };
 
     // Initial check
-    update_conflict_btn(&model);
+    update_ui_state(&model);
 
-    let update_conflict_btn_c = update_conflict_btn.clone();
+    // Set default submap from config (one-time setup)
+    if let Some(default_sub) = &config.default_submap {
+        let items = collect_submaps(&model);
+        for (i, item) in items.iter().enumerate() {
+            if item == default_sub {
+                submap_dropdown.set_selected(i as u32);
+                break;
+            }
+        }
+    }
 
-    // HACK: ListStore doesn't expose "on content changed" easily for deep property changes unless we bind to them.
-    // However, we reload the whole model on add/edit/delete, triggering `items-changed`.
-    // We can hook into that.
+    let update_ui_state_c = update_ui_state.clone();
+
+    // Hook into model changes
     model.connect_items_changed(move |m, _, _, _| {
-        update_conflict_btn_c(m);
+        update_ui_state_c(m);
     });
 
     let model_wizard = model.clone();
@@ -802,12 +881,28 @@ pub fn build_ui(app: &adw::Application) {
 
     let matcher = Rc::new(SkimMatcherV2::default());
 
-    let filter_func = move |text: String, category: u32| {
+    let filter_func = move |text: String, category: u32, submap_filter: Option<String>| {
         let query = SearchQuery::parse(&text);
         let m = Rc::clone(&matcher);
 
         filter.set_filter_func(move |obj| {
             let kb = obj.downcast_ref::<KeybindObject>().unwrap();
+
+            // Submap Filter
+            if let Some(target_submap) = &submap_filter {
+                let kb_submap = kb.with_data(|d| d.submap.as_ref().map(|s| s.to_string()));
+                match kb_submap {
+                    Some(s) => {
+                        if &s != target_submap {
+                            return false;
+                        }
+                    }
+                    None => return false, // If filtering by submap, exclude globals (unless empty string logic is used)
+                }
+            } else {
+                // "All Submaps" selected: Show everything
+            }
+
             kb.matches_query(&query, category, &*m)
         });
     };
@@ -815,17 +910,39 @@ pub fn build_ui(app: &adw::Application) {
     let filter_func_1 = std::rc::Rc::new(filter_func);
     let filter_func_2 = filter_func_1.clone();
     let filter_func_3 = filter_func_1.clone();
+    let filter_func_4 = filter_func_1.clone();
+    let filter_func_5 = filter_func_1.clone();
 
     // Populate the shared refresh callback
     let search_entry_refresh = search_entry.clone();
     let dropdown_refresh = category_dropdown.clone();
+    let submap_refresh = submap_dropdown.clone();
+
     *refresh_filter_callback.borrow_mut() = Some(Box::new(move || {
         let text = search_entry_refresh.text().to_string();
         let cat = dropdown_refresh.selected();
-        filter_func_3(text, cat);
+
+        let sub_idx = submap_refresh.selected();
+        let sub_val = if let Some(m) = submap_refresh.model() {
+            if let Some(s) = m.item(sub_idx).and_downcast::<gtk::StringObject>() {
+                let s_str = s.string().to_string();
+                if s_str == "All Submaps" {
+                    None
+                } else {
+                    Some(s_str)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        filter_func_3(text, cat, sub_val);
     }));
 
     let dropdown_ref = category_dropdown.clone();
+    let submap_ref = submap_dropdown.clone();
     let timeout_handle: std::rc::Rc<std::cell::RefCell<Option<glib::SourceId>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
 
@@ -836,11 +953,28 @@ pub fn build_ui(app: &adw::Application) {
 
         let text = entry.text().to_string();
         let cat = dropdown_ref.selected();
+
+        let sub_idx = submap_ref.selected();
+        let sub_val = if let Some(m) = submap_ref.model() {
+            if let Some(s) = m.item(sub_idx).and_downcast::<gtk::StringObject>() {
+                let s_str = s.string().to_string();
+                if s_str == "All Submaps" {
+                    None
+                } else {
+                    Some(s_str)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let filter_func = filter_func_1.clone();
         let timeout_handle_clone = timeout_handle.clone();
 
         let source = glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
-            filter_func(text.clone(), cat);
+            filter_func(text.clone(), cat, sub_val.clone());
             *timeout_handle_clone.borrow_mut() = None;
             glib::ControlFlow::Break
         });
@@ -848,10 +982,55 @@ pub fn build_ui(app: &adw::Application) {
     });
 
     let search_entry_ref = search_entry.clone();
+    let submap_ref_2 = submap_dropdown.clone();
     category_dropdown.connect_selected_notify(move |dropdown| {
         let text = search_entry_ref.text().to_string();
         let cat = dropdown.selected();
-        filter_func_2(text, cat);
+
+        let sub_idx = submap_ref_2.selected();
+        let sub_val = if let Some(m) = submap_ref_2.model() {
+            if let Some(s) = m.item(sub_idx).and_downcast::<gtk::StringObject>() {
+                let s_str = s.string().to_string();
+                if s_str == "All Submaps" {
+                    None
+                } else {
+                    Some(s_str)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        filter_func_2(text, cat, sub_val);
+    });
+
+    // Connect Submap Dropdown
+    let search_entry_ref_3 = search_entry.clone();
+    let category_ref_3 = category_dropdown.clone();
+
+    submap_dropdown.connect_selected_notify(move |dropdown| {
+        let text = search_entry_ref_3.text().to_string();
+        let cat = category_ref_3.selected();
+
+        let sub_idx = dropdown.selected();
+        let sub_val = if let Some(m) = dropdown.model() {
+            if let Some(s) = m.item(sub_idx).and_downcast::<gtk::StringObject>() {
+                let s_str = s.string().to_string();
+                if s_str == "All Submaps" {
+                    None
+                } else {
+                    Some(s_str)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        filter_func_4(text, cat, sub_val);
     });
 
     let stack_weak = root_stack.downgrade();
@@ -869,12 +1048,14 @@ pub fn build_ui(app: &adw::Application) {
     let toast_overlay_weak = toast_overlay.downgrade();
     let restore_container_weak = restore_page_container.downgrade();
     let dropdown_weak = category_dropdown.downgrade();
+    let submap_dropdown_weak = submap_dropdown.downgrade(); // Capture for focus callback
 
     settings_button.connect_clicked(move |_| {
         let stack = match stack_weak.upgrade() {
             Some(w) => w,
             None => return,
         };
+        // ... (container and window upgrades) ...
         let container = match container_weak.upgrade() {
             Some(w) => w,
             None => return,
@@ -906,9 +1087,32 @@ pub fn build_ui(app: &adw::Application) {
         let stack_w = stack_weak.clone();
         let restore_container_w = restore_container_weak.clone();
         let dropdown_w = dropdown_weak.clone();
+        let submap_dropdown_w = submap_dropdown_weak.clone();
 
         let toast_w_1 = toast_w.clone();
         let toast_w_2 = toast_w.clone();
+
+        // Callback for focusing a submap from settings
+        let stack_w_focus = stack_w.clone();
+        let on_focus_submap = Rc::new(move |submap_name: Option<String>| {
+            if let Some(stack) = stack_w_focus.upgrade() {
+                stack.set_visible_child_name("home");
+            }
+            if let Some(dropdown) = submap_dropdown_w.upgrade() {
+                let target = submap_name.unwrap_or_else(|| "All Submaps".to_string());
+                // Find index
+                if let Some(model) = dropdown.model() {
+                    for i in 0..model.n_items() {
+                        if let Some(item) = model.item(i).and_downcast::<gtk::StringObject>() {
+                            if item.string() == target {
+                                dropdown.set_selected(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
         let view = crate::ui::settings::create_settings_view(
             &window,
@@ -998,6 +1202,7 @@ pub fn build_ui(app: &adw::Application) {
                     toast_overlay.add_toast(toast);
                 }
             }),
+            on_focus_submap, // Pass the new callback
             std::rc::Rc::new(move || {
                 let stack = match stack_w.upgrade() {
                     Some(s) => s,
@@ -1049,6 +1254,27 @@ pub fn build_ui(app: &adw::Application) {
         container.append(&view);
         stack.set_visible_child_name("keyboard");
     });
+
+    // Force filter update on startup (delayed until here to ensure filter_func is defined)
+    let startup_text = search_entry.text().to_string();
+    let startup_cat = category_dropdown.selected();
+    let startup_sub_idx = submap_dropdown.selected();
+    let startup_sub_val = if let Some(m) = submap_dropdown.model() {
+        if let Some(s) = m.item(startup_sub_idx).and_downcast::<gtk::StringObject>() {
+            let s_str = s.string().to_string();
+            if s_str == "All Submaps" {
+                None
+            } else {
+                Some(s_str)
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    filter_func_5(startup_text, startup_cat, startup_sub_val);
 
     window.present();
     search_entry.grab_focus();

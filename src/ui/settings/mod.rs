@@ -4,6 +4,7 @@ pub mod general;
 pub mod gestures;
 pub mod hud;
 pub mod input;
+pub mod submaps;
 pub mod ui_elements;
 pub mod variables;
 pub mod window;
@@ -26,6 +27,7 @@ struct LazyPageState {
     hud: Cell<bool>,
     input: Cell<bool>,
     gestures: Cell<bool>,
+    submaps: Cell<bool>,
     ui_elements: Cell<bool>,
     about: Cell<bool>,
 }
@@ -39,6 +41,7 @@ impl Default for LazyPageState {
             hud: Cell::new(false),
             input: Cell::new(false),
             gestures: Cell::new(false),
+            submaps: Cell::new(false),
             ui_elements: Cell::new(false),
             about: Cell::new(false),
         }
@@ -56,6 +59,7 @@ pub fn create_settings_view(
     on_submap_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
     on_show_toast: Rc<dyn Fn(String)>,
+    on_focus_submap: Rc<dyn Fn(Option<String>)>,
     on_restore_clicked: Rc<dyn Fn()>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
@@ -149,6 +153,9 @@ pub fn create_settings_view(
     let placeholder_gestures = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_gestures, Some("gestures"), "Gestures");
 
+    let placeholder_submaps = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_submaps, Some("submaps"), "Submaps");
+
     let placeholder_ui = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_ui, Some("ui"), "UI Elements");
 
@@ -165,6 +172,7 @@ pub fn create_settings_view(
     let on_args_toggle_c = on_args_toggle;
     let on_submap_toggle_c = on_submap_toggle;
     let on_sort_change_c = on_sort_change;
+    let on_focus_submap_c = on_focus_submap;
     let input_config_c = input_config;
     let gestures_config_c = gestures_config;
 
@@ -206,7 +214,15 @@ pub fn create_settings_view(
             replace_placeholder(stack, "hud", &page);
         }
 
+        if name.as_str() == "submaps" && !lazy_state.submaps.get() {
+            lazy_state.submaps.set(true);
+            let page =
+                submaps::create_submaps_page(&model_c, config_c.clone(), on_focus_submap_c.clone());
+            replace_placeholder(stack, "submaps", &page.upcast());
+        }
+
         lazy_load!(about, "about", about::create_about_page(&window_c));
+
         lazy_load!(
             ui_elements,
             "ui",

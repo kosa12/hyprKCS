@@ -254,6 +254,18 @@ pub fn create_edit_view(
         glib::Propagation::Proceed
     });
 
+    // Submap Combo
+    let current_submap_prop = obj.property::<String>("submap");
+    let current_submap = if current_submap_prop.is_empty() {
+        None
+    } else {
+        Some(current_submap_prop.clone())
+    };
+
+    let entry_submap =
+        crate::ui::utils::components::create_submap_combo(model, current_submap.as_deref());
+    form_box.append(&create_form_group("Submap (Optional):", &entry_submap));
+
     let entry_desc = gtk::Entry::builder()
         .text(obj.property::<String>("description"))
         .placeholder_text("Comment appended to the config line")
@@ -387,6 +399,7 @@ pub fn create_edit_view(
     // Core Save Logic
     let selection_model_c = selection_model.clone();
     let column_view_c = column_view.clone();
+    let original_submap = current_submap.clone();
 
     let do_save = {
         let file_path = file_path.clone();
@@ -398,6 +411,7 @@ pub fn create_edit_view(
         let entry_dispatcher = entry_dispatcher.clone();
         let entry_args = entry_args.clone();
         let entry_desc = entry_desc.clone();
+        let entry_submap = entry_submap.clone();
         let macro_switch_c = macro_switch.clone();
         let macro_list_c = macro_list.clone();
         let flags_dropdown_c = flags_dropdown.clone();
@@ -405,11 +419,12 @@ pub fn create_edit_view(
         let mouse_dropdown_c = mouse_dropdown.clone();
         let selection_model_c = selection_model_c.clone();
         let column_view_c = column_view_c.clone();
+        let original_submap = original_submap.clone();
 
         Rc::new(move || {
             let input_mods = entry_mods.text().to_string();
             let new_mods = if mods_had_prefix {
-                format!("${}", input_mods) // Corrected: escaped '$'
+                format!("${}", input_mods)
             } else {
                 input_mods
             };
@@ -422,6 +437,29 @@ pub fn create_edit_view(
 
             let desc = entry_desc.text().to_string();
             let new_flag = get_flag_from_index(flags_dropdown_c.selected());
+
+            // Get new submap
+            #[allow(deprecated)]
+            let submap_id = entry_submap.active_id();
+            let new_submap = if let Some(id) = submap_id {
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(id.to_string())
+                }
+            } else {
+                #[allow(deprecated)]
+                if let Some(text) = entry_submap.active_text() {
+                    let t = text.as_str().trim();
+                    if t.is_empty() {
+                        None
+                    } else {
+                        Some(t.to_string())
+                    }
+                } else {
+                    None
+                }
+            };
 
             // Resolve Dispatcher/Args
             let (new_dispatcher, new_args) = if macro_switch_c.is_active() {
@@ -440,23 +478,46 @@ pub fn create_edit_view(
                 let d = entry_dispatcher.text().to_string();
                 let input_args = entry_args.text().to_string();
                 let a = if args_had_prefix {
-                    format!("${}", input_args) // Corrected: escaped '$'
+                    format!("${}", input_args)
                 } else {
                     input_args
                 };
                 (d, a)
             };
 
-            match parser::update_line(
-                file_path.clone(),
-                line_number,
-                &new_mods,
-                &new_key,
-                &new_dispatcher,
-                &new_args,
-                if desc.is_empty() { None } else { Some(desc) },
-                Some(new_flag),
-            ) {
+            // Check if submap changed
+            let submap_changed = new_submap != original_submap;
+            let result = if submap_changed {
+                // Delete then Add
+                match parser::delete_keybind(file_path.clone(), line_number) {
+                    Ok(_) => parser::add_keybind(
+                        file_path.clone(),
+                        &new_mods,
+                        &new_key,
+                        &new_dispatcher,
+                        &new_args,
+                        new_submap.clone(),
+                        if desc.is_empty() { None } else { Some(desc) },
+                        new_flag,
+                    )
+                    .map(|_| ()), // map usize to ()
+                    Err(e) => Err(e),
+                }
+            } else {
+                // Update in place
+                parser::update_line(
+                    file_path.clone(),
+                    line_number,
+                    &new_mods,
+                    &new_key,
+                    &new_dispatcher,
+                    &new_args,
+                    if desc.is_empty() { None } else { Some(desc) },
+                    Some(new_flag),
+                )
+            };
+
+            match result {
                 Ok(_) => {
                     reload_keybinds(&model_clone);
 
@@ -464,34 +525,39 @@ pub fn create_edit_view(
                         eprintln!("Auto-backup failed: {}", e);
                     }
 
-                    // Restore Selection
-                    // We iterate the SELECTION MODEL (sorted view) to find matching item
-                    let mut found_idx = None;
-                    for i in 0..selection_model_c.n_items() {
-                        if let Some(item) =
-                            selection_model_c.item(i).and_downcast::<KeybindObject>()
-                        {
-                            let f = item.property::<String>("file-path");
-                            let l = item.property::<u64>("line-number") as usize;
-                            if f == file_path.to_string_lossy() && l == line_number {
-                                found_idx = Some(i);
-                                break;
+                    if !submap_changed {
+                        // Restore Selection (Only if not moved)
+                        let mut found_idx = None;
+                        for i in 0..selection_model_c.n_items() {
+                            if let Some(item) =
+                                selection_model_c.item(i).and_downcast::<KeybindObject>()
+                            {
+                                let f = item.property::<String>("file-path");
+                                let l = item.property::<u64>("line-number") as usize;
+                                if f == file_path.to_string_lossy() && l == line_number {
+                                    found_idx = Some(i);
+                                    break;
+                                }
                             }
+                        }
+
+                        if let Some(idx) = found_idx {
+                            selection_model_c.set_selected(idx);
+                            column_view_c.scroll_to(
+                                idx,
+                                None::<&gtk::ColumnViewColumn>,
+                                gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
+                                None::<gtk::ScrollInfo>,
+                            );
                         }
                     }
 
-                    if let Some(idx) = found_idx {
-                        selection_model_c.set_selected(idx);
-                        column_view_c.scroll_to(
-                            idx,
-                            None::<&gtk::ColumnViewColumn>,
-                            gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
-                            None::<gtk::ScrollInfo>,
-                        );
-                    }
-
                     let toast = adw::Toast::builder()
-                        .title("Keybind saved")
+                        .title(if submap_changed {
+                            "Keybind moved and saved"
+                        } else {
+                            "Keybind saved"
+                        })
                         .timeout(crate::config::constants::TOAST_TIMEOUT)
                         .build();
                     toast_overlay_clone.add_toast(toast);
@@ -527,19 +593,11 @@ pub fn create_edit_view(
     let entry_mods_c = entry_mods.clone();
     let entry_key_c = entry_key.clone();
     let entry_args_c = entry_args.clone();
+    let entry_submap_c = entry_submap.clone();
     let macro_switch_c = macro_switch.clone();
     let macro_list_c = macro_list.clone();
     let mouse_switch_c = mouse_switch.clone();
     let mouse_dropdown_c = mouse_dropdown.clone();
-
-    // Retrieve submap property to check against correct scope
-    let current_submap_prop = obj.property::<String>("submap");
-    let current_submap = if current_submap_prop.is_empty() {
-        None
-    } else {
-        Some(current_submap_prop)
-    };
-    let current_submap_clone = current_submap.clone();
 
     // Clone conflict UI elements
     let conflict_target_label_c = conflict_panel.target_label.clone();
@@ -560,6 +618,21 @@ pub fn create_edit_view(
         } else {
             input_mods
         };
+
+        #[allow(deprecated)]
+        let submap_id = entry_submap_c.active_id();
+        let new_submap = if let Some(id) = submap_id {
+            if id.is_empty() { None } else { Some(id.to_string()) }
+        } else {
+             #[allow(deprecated)]
+             if let Some(text) = entry_submap_c.active_text() {
+                let t = text.as_str().trim();
+                if t.is_empty() { None } else { Some(t.to_string()) }
+            } else {
+                None
+            }
+        };
+        let submap_check = new_submap.as_deref();
 
         if !mouse_switch_c.is_active() && new_key.trim().is_empty() {
              let toast = adw::Toast::builder()
@@ -614,7 +687,6 @@ pub fn create_edit_view(
 
         // Conflict Checking
         // We pass Some(line_number) to ignore the current line being edited
-        let submap_check = current_submap_clone.as_deref();
         if let Some(conflict) = check_conflict(&final_mods, &new_key, submap_check, Some((&file_path_str_c, line_number)), &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
