@@ -46,6 +46,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Bind Flags Support**: Full support for Hyprland's specialized bind flags like `binde` (repeat), `bindl` (locked), `bindr` (release), and more, selectable via a dropdown in the editor.
 - **Bindd (Descriptions) Support for Omarchy Users**: Full support for the `bindd` format (`bindd = MODS, KEY, DESC, DISPATCHER, ARGS`). This allows you to store human-readable descriptions directly in the keybind line, making them compatible with interactive viewers like **Omarchy**.
 - **Mouse Button & Scroll Support**: Effortlessly bind actions to any mouse button, including Side and Extra buttons (8/9). hyprKCS automatically handles Hyprland submaps during recording to ensure global binds don't interfere with your selection.
+- **Submap (Mode) Management**: Full visibility and management of Hyprland submaps. Filter keybinds by submap, see how many binds each mode contains, and set a default submap to show on startup.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Variable Management**: Define and manage Hyprland variables (e.g., `$mainMod`). Supports creating, editing, and deleting variables with smart reference handling and automatic refactoring.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
@@ -172,6 +173,18 @@ Organize your configuration using variables to keep it clean and maintainable.
 
 <p align="center">
     <img src="./assets/image_5.png" width="80%" />
+</p>
+
+**Submap Management**
+
+Organize and navigate complex configurations using Hyprland's submap (mode) system.
+- **Dedicated Submaps Page**: Access **Settings > Submaps** to see a list of all modes defined in your configuration.
+- **Bind Count**: Quickly see how many keybinds are assigned to each submap.
+- **Quick Navigation**: Click on any submap in the settings page to immediately filter the main view to show only those keybinds.
+- **Default View**: Set a specific submap to be shown by default when hyprKCS starts, or keep it on "All Submaps" for a global view.
+
+<p align="center">
+    <img src="./assets/image_7.png" width="80%" />
 </p>
 
 **Macro Builder**
