@@ -194,10 +194,6 @@ fn update_keybind_list(container: &gtk::Box) {
 pub fn run_hud() {
     let config = load_hud_config();
 
-    if !config.enabled {
-        return;
-    }
-
     // --- Single Instance Locking ---
     if is_hud_running() {
         eprintln!("HUD is already running");

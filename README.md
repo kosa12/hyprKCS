@@ -125,6 +125,7 @@ Launch `hyprkcs` from your application menu or terminal to open the main window.
 | `Esc` | Clear search or close the window |
 
 **Advanced Search Syntax**
+
 The search bar supports specific tags to filter results:
 - `mod:<value>` / `mods:<value>`: Filter by modifiers (e.g., `mod:super`).
 - `key:<value>`: Filter by key (e.g., `key:return`).
@@ -135,6 +136,7 @@ The search bar supports specific tags to filter results:
 > *Example:* `mod:super action:exec firefox` finds all Super-bound execution commands for Firefox.
 
 **Bindd (Omarchy Support)**
+
 Hyprland supports the `bindd` format which includes a human-readable description directly in the keybinding declaration. This is highly recommended for users of **Omarchy** or other interactive keybinding viewers.
 1. When adding or editing a keybind, select **Description (bindd)** from the **Behavior (Flags)** dropdown.
 2. Enter your description in the **Description** field.
@@ -142,6 +144,7 @@ Hyprland supports the `bindd` format which includes a human-readable description
 4. If you switch back to a standard flag (like `bind`), hyprKCS will move the description to a trailing comment (`# Description`) to preserve it.
 
 **Visual Keyboard Map**
+
 Click the keyboard icon in the top toolbar to open an interactive keyboard layout.
 - **Select Modifiers**: Toggle SUPER, SHIFT, CTRL, or ALT to see which keys are bound to those modifiers.
 - **Color Coding**: Keys bound to actions are highlighted. Hover over them to see the exact dispatcher and arguments.
@@ -153,12 +156,14 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 </p>
 
 **Input Configuration**
+
 Manage your system's input behavior without manual text editing.
 - **Keyboard Settings**: Set your layout code, variant, options (XKB), repeat rate, and delay.
 - **Mouse/Touchpad**: Adjust mouse sensitivity (-1.0 to 1.0) and window focus behavior (Follow Mouse).
 - **Direct Save**: Changes are written directly to your `hyprland.conf` input block.
 
 **Variable Management**
+
 Organize your configuration using variables to keep it clean and maintainable.
 - **Dynamic Listing**: View all variables defined across your configuration files, including their values and source locations.
 - **Refactor Hardcoded Values**: When creating a new variable, hyprKCS can scan your keybinds and automatically replace hardcoded values (like `SUPER`) with the new variable (like `$mainMod`).
@@ -170,6 +175,7 @@ Organize your configuration using variables to keep it clean and maintainable.
 </p>
 
 **Macro Builder**
+
 Create complex multi-step actions without writing scripts.
 1. Click the "Add Keybind" button.
 2. Enable **Macro mode** using the macro toggle/switch in the keybind editor.
@@ -177,6 +183,7 @@ Create complex multi-step actions without writing scripts.
 4. hyprKCS automatically formats this into a Hyprland-compatible macro command using `bash` and `hyprctl` (e.g., `bind = ..., exec, bash -c "hyprctl dispatch exec grim; hyprctl dispatch exec 'notify-send \"Screenshot taken\"'"`).
 
 **hyprKCS HUD (Wallpaper Overlay)**
+
 Keep your most important keybinds always in sight without opening the app.
 - **Dedicated Overlay**: The HUD is a minimalist, transparent widget that sits on your wallpaper (Layer Background).
 - **Persistent**: Since it runs as a separate process (`hyprkcs --hud`), it stays on your screen even after you close the main manager.
@@ -189,6 +196,7 @@ Keep your most important keybinds always in sight without opening the app.
 
 
 **Bulk Replace**
+
 Quickly update multiple keybinds at once (e.g., swapping `SUPER` for `ALT` or changing your terminal emulator).
 1. Click the "Bulk Replace" icon in the top toolbar.
 2. Select the target field (Modifiers, Key, Dispatcher, or Arguments).
@@ -197,6 +205,7 @@ Quickly update multiple keybinds at once (e.g., swapping `SUPER` for `ALT` or ch
 5. Click "Apply Changes" to update all matches. A backup is automatically created before applying.
 
 **Backup and Restore**
+
 Safely manage your configuration versions.
 - **Full Tree Backup**: Backs up your entire `~/.config/hypr` directory recursively, preserving folder structures and external scripts.
 - **Interactive Restore**: Access the Restore menu from Settings to see all available timestamped backups.
@@ -246,7 +255,7 @@ hyprkcs --doctor
 This tool verifies your Hyprland instance, config permissions, dependencies, and input device detection.
 
 ### Configuration Access Issues
-*   **Config Not Found**: hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag or set the path in **Settings > General**.
+*   **Config Not Found**: hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag.
 *   **Permission Denied**: Ensure your config files are writable. If you use a symbolic link (e.g., from a dotfiles repo), ensure the target file is also writable.
 *   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
 
