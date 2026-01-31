@@ -29,6 +29,7 @@ pub struct StyleConfig {
     pub auto_backup: bool,
     pub max_backups_enabled: bool,
     pub max_backups_count: i32,
+    pub alternative_config_path: Option<String>,
 
     pub errors: Vec<String>,
 }
@@ -56,6 +57,7 @@ impl Default for StyleConfig {
             auto_backup: true,
             max_backups_enabled: false,
             max_backups_count: 10,
+            alternative_config_path: None,
 
             errors: Vec::new(),
         }
@@ -101,6 +103,7 @@ shadowSize = 0 4px 24px rgba(0,0,0,0.4)
 autoBackup = true
 maxBackupsEnabled = false
 maxBackupsCount = 10
+alternativeConfigPath = 
 
 # Spacing
 monitorMargin = 12px
@@ -240,6 +243,11 @@ rowPadding = 2px
                             config.max_backups_count = num;
                         }
                     }
+                    if let Some(val) = vars.get("alternativeConfigPath") {
+                        if !val.is_empty() {
+                            config.alternative_config_path = Some(val.clone());
+                        }
+                    }
                 }
             }
         }
@@ -279,6 +287,7 @@ shadowSize = {}
 autoBackup = {}
 maxBackupsEnabled = {}
 maxBackupsCount = {}
+alternativeConfigPath = {}
 
 # Spacing
 monitorMargin = {}px
@@ -301,6 +310,7 @@ rowPadding = {}px
                 self.auto_backup,
                 self.max_backups_enabled,
                 self.max_backups_count,
+                self.alternative_config_path.as_deref().unwrap_or(""),
                 self.monitor_margin,
                 self.row_padding
             );

@@ -1,4 +1,5 @@
 use crate::config::StyleConfig;
+use crate::ui::utils::reload_keybinds;
 use gtk::{gio, glib};
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -14,6 +15,102 @@ pub fn create_general_page(
     on_restore_clicked: Rc<dyn Fn()>,
 ) -> adw::PreferencesPage {
     let page_general = adw::PreferencesPage::builder().build();
+
+    // Configuration Group
+    let group_config = adw::PreferencesGroup::builder()
+        .title("Configuration")
+        .build();
+
+    let config_path_row = adw::ActionRow::builder()
+        .title("Alternative Config Path")
+        .subtitle(
+            config
+                .borrow()
+                .alternative_config_path
+                .as_deref()
+                .unwrap_or("Default (System)"),
+        )
+        .build();
+
+    let browse_btn = gtk::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Browse for configuration folder")
+        .build();
+
+    let clear_btn = gtk::Button::builder()
+        .icon_name("edit-clear-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Reset to default")
+        .visible(config.borrow().alternative_config_path.is_some())
+        .build();
+
+    let window_weak = window.downgrade();
+    let config_c = config.clone();
+    let row_c = config_path_row.clone();
+    let clear_btn_c = clear_btn.clone();
+    let toast_cb = on_show_toast.clone();
+    let model_browse = model.clone();
+
+    browse_btn.connect_clicked(move |_| {
+        let dialog = gtk::FileDialog::builder()
+            .title("Select Configuration Folder")
+            .modal(true)
+            .build();
+
+        let window = window_weak.upgrade();
+        let c = config_c.clone();
+        let r = row_c.clone();
+        let cb = clear_btn_c.clone();
+        let t = toast_cb.clone();
+        let m = model_browse.clone();
+
+        dialog.select_folder(
+            window.as_ref(),
+            None::<&gtk::gio::Cancellable>,
+            move |res| match res {
+                Ok(file) => {
+                    if let Some(path) = file.path() {
+                        let path_str = path.to_string_lossy().to_string();
+                        c.borrow_mut().alternative_config_path = Some(path_str.clone());
+                        let _ = c.borrow().save();
+                        r.set_subtitle(&path_str);
+                        cb.set_visible(true);
+                        t(format!("Config path set to: {}", path_str));
+
+                        // Refetch binds from new path
+                        reload_keybinds(&m);
+                    }
+                }
+                Err(e) => {
+                    println!("Folder selection cancelled/error: {}", e);
+                }
+            },
+        );
+    });
+
+    let config_c = config.clone();
+    let row_c = config_path_row.clone();
+    // let clear_btn_c = clear_btn.clone(); // Unused here
+    let toast_cb = on_show_toast.clone();
+    let model_clear = model.clone();
+
+    clear_btn.connect_clicked(move |btn| {
+        config_c.borrow_mut().alternative_config_path = None;
+        let _ = config_c.borrow().save();
+        row_c.set_subtitle("Default (System)");
+        btn.set_visible(false);
+        toast_cb("Reset config path to default".to_string());
+
+        // Refetch binds from default path
+        reload_keybinds(&model_clear);
+    });
+
+    config_path_row.add_suffix(&browse_btn);
+    config_path_row.add_suffix(&clear_btn);
+    group_config.add(&config_path_row);
+    page_general.add(&group_config);
+
     let group_backup = adw::PreferencesGroup::builder()
         .title("Backup and Restore")
         .build();

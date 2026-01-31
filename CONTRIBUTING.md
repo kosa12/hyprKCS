@@ -8,13 +8,6 @@ First off, thank you for considering contributing to hyprKCS! It's people like y
 - **Suggesting Features:** Have an idea? [open an issue](https://github.com/kosa12/hyprKCS/issues) to discuss it.
 - **Code Contributions:** Fix bugs, add features, or improve documentation via Pull Requests.
 
-## Development Environment
-
-To build and test hyprKCS, you will need:
-
-- **Rust:** Version 1.75 or newer (Edition 2021).
-- **GTK4 & Libadwaita:** Development headers (e.g., `libadwaita-devel` or `libadwaita-1-dev`).
-
 ### Manual Setup
 Ensure you have the following installed on your system:
 - `rustc` / `cargo`
@@ -33,6 +26,7 @@ Ensure you have the following installed on your system:
 4.  **Verify your changes:**
     - Build: `cargo build`
     - Run: `cargo run`
+    - Test: `cargo test`
     - Check formatting: `cargo fmt --all -- --check`
 5.  **Commit your changes.** Keep commit messages clear and concise.
 6.  **Push to your fork** and [submit a Pull Request](https://github.com/kosa12/hyprKCS/pulls).
@@ -43,16 +37,7 @@ Ensure you have the following installed on your system:
 - **Error Handling:** Use `anyhow` for application-level error handling.
 - **UI:** Leverage Libadwaita widgets to maintain a native look and feel.
 - **Safety:** Avoid `unsafe` blocks unless absolutely necessary for FFI.
-
-## Project Structure
-
-- `src/main.rs`: Entry point and CLI logic.
-- `src/parser.rs`: Logic for parsing Hyprland configuration files.
-- `src/keybind_object.rs`: Data structures for keybinds.
-- `src/ui/`: All GTK/Libadwaita UI components.
-    - `window.rs`: Main application window.
-    - `views.rs`: List views and row definitions.
-    - `style.rs`: Custom CSS/styling.
+- **Testing:** Write tests for new features and bug fixes. Make sure existing tests pass.
 
 ## License
 

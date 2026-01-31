@@ -30,7 +30,24 @@ pub struct Variable {
 
 pub fn get_config_path() -> Result<PathBuf> {
     if let Ok(env_path) = std::env::var("HYPRKCS_CONFIG") {
-        return Ok(PathBuf::from(env_path));
+        let path = PathBuf::from(env_path);
+        if path.is_dir() {
+            return Ok(path.join(crate::config::constants::HYPRLAND_CONF));
+        }
+        return Ok(path);
+    }
+
+    // Check for alternative config path in settings
+    let style_config = crate::config::StyleConfig::load();
+    if let Some(alt_path) = style_config.alternative_config_path {
+        if !alt_path.trim().is_empty() {
+            let path = PathBuf::from(alt_path);
+            // If user pointed to a folder, append default config name
+            if path.is_dir() {
+                return Ok(path.join(crate::config::constants::HYPRLAND_CONF));
+            }
+            return Ok(path);
+        }
     }
 
     let mut path = config_dir().context("Could not find config directory")?;
@@ -136,6 +153,23 @@ struct ConfigData {
 fn load_config_data() -> Result<ConfigData> {
     let main_path = get_config_path()?;
     let mut ctx = ParserContext::new();
+
+    // Inject $hypr variable pointing to the config root
+    // This supports the common convention of using $hypr to refer to the config dir,
+    // which is especially useful when loading from a custom directory where the
+    // user's actual environment variable might not match the test context.
+    let active_root = main_path
+        .parent()
+        .unwrap_or(Path::new("."))
+        .canonicalize()
+        .unwrap_or_else(|_| PathBuf::from("."));
+
+    ctx.variables.insert(
+        "$hypr".to_string(),
+        active_root.to_string_lossy().to_string(),
+    );
+    ctx.mark_dirty();
+
     let mut file_cache: HashMap<PathBuf, Rc<String>> = HashMap::new();
     let mut path_cache: HashMap<PathBuf, Rc<PathBuf>> = HashMap::new();
     let mut defined_variables = Vec::new();
@@ -146,10 +180,19 @@ fn load_config_data() -> Result<ConfigData> {
         file_cache: &mut HashMap<PathBuf, Rc<String>>,
         path_cache: &mut HashMap<PathBuf, Rc<PathBuf>>,
         defined_variables: &mut Vec<Variable>,
+        system_root: &Path,
+        active_root: &Path,
     ) -> Result<()> {
-        if !path.exists() || ctx.visited.contains(&path) {
+        if ctx.visited.contains(&path) {
             return Ok(());
         }
+        // If path doesn't exist, we can't read it.
+        // However, we might have reached here via a re-rooted path that DOES exist.
+        // If it still doesn't exist, we skip.
+        if !path.exists() {
+            return Ok(());
+        }
+
         ctx.visited.insert(path.clone());
 
         // Get or create shared path reference
@@ -196,6 +239,7 @@ fn load_config_data() -> Result<ConfigData> {
                         } else {
                             raw_value.to_string()
                         };
+
                         ctx.variables.insert(name, value);
                         ctx.mark_dirty();
                     }
@@ -208,18 +252,39 @@ fn load_config_data() -> Result<ConfigData> {
                     let path_str = path_part.split('#').next().unwrap_or("").trim();
 
                     // Only get sorted keys if path contains variables
-                    let sourced_path = if path_str.contains('$') {
+                    let mut sourced_path = if path_str.contains('$') {
                         ctx.ensure_sorted();
                         expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys)
                     } else {
                         expand_path(path_str, &path, &ctx.variables, &[])
                     };
+
+                    // --- Re-rooting Logic ---
+                    // If we are scanning a custom directory, prefer files in that directory
+                    // if they mirror the structure of the system config directory.
+                    if system_root != active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
+                            let remapped = active_root.join(suffix);
+                            if remapped.exists() {
+                                sourced_path = remapped;
+                            }
+                        } else if !sourced_path.exists() {
+                            // Fallback: If path is absolute but not strictly under system_root
+                            // (e.g. different expansion of ~ ?), we might want to try finding it
+                            // relative to active_root anyway?
+                            // For now, let's keep strictly mapping system_root -> active_root
+                            // to avoid false positives.
+                        }
+                    }
+
                     let _ = collect_recursive(
                         sourced_path,
                         ctx,
                         file_cache,
                         path_cache,
                         defined_variables,
+                        system_root,
+                        active_root,
                     );
                 }
             }
@@ -227,12 +292,19 @@ fn load_config_data() -> Result<ConfigData> {
         Ok(())
     }
 
+    let system_root = config_dir()
+        .unwrap_or_default()
+        .join(crate::config::constants::HYPR_DIR);
+    let active_root = main_path.parent().unwrap_or(Path::new(".")).to_path_buf();
+
     collect_recursive(
         main_path,
         &mut ctx,
         &mut file_cache,
         &mut path_cache,
         &mut defined_variables,
+        &system_root,
+        &active_root,
     )?;
     Ok(ConfigData {
         variables: ctx.variables,
@@ -606,10 +678,17 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         visited: &mut HashSet<PathBuf>,
         current_submap: &mut Option<Rc<str>>,
         file_cache: &HashMap<PathBuf, Rc<String>>,
+        system_root: &Path,
+        active_root: &Path,
     ) -> Result<()> {
-        if !path.exists() || visited.contains(&path) {
+        if visited.contains(&path) {
             return Ok(());
         }
+        // Skip if path doesn't exist, unless we find it via re-rooting logic which we do BEFORE calling this function recursively
+        if !path.exists() {
+            return Ok(());
+        }
+
         visited.insert(path.clone());
 
         // Use cached content or read if missing (should be in cache from load_config_data, but fallback)
@@ -776,7 +855,18 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
                     let path_str = path_part.split('#').next().unwrap_or("").trim();
 
-                    let sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+                    let mut sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+
+                    // --- Re-rooting Logic ---
+                    if system_root != active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
+                            let remapped = active_root.join(suffix);
+                            if remapped.exists() {
+                                sourced_path = remapped;
+                            }
+                        }
+                    }
+
                     let _ = parse_recursive(
                         sourced_path,
                         keybinds,
@@ -785,12 +875,22 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         visited,
                         current_submap,
                         file_cache,
+                        system_root,
+                        active_root,
                     );
                 }
             }
         }
         Ok(())
     }
+
+    let system_root = config_dir()
+        .unwrap_or_default()
+        .join(crate::config::constants::HYPR_DIR);
+    let active_root = main_path
+        .parent()
+        .unwrap_or(&PathBuf::from("."))
+        .to_path_buf();
 
     parse_recursive(
         main_path,
@@ -800,6 +900,8 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         &mut visited,
         &mut current_submap,
         &file_cache,
+        &system_root,
+        &active_root,
     )?;
     Ok(keybinds)
 }
