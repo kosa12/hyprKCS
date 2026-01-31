@@ -3,11 +3,20 @@ use hyprKCS::parser::get_config_path;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
+// Global lock to serialize tests that modify environment variables
+static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+// Helper to run code with a temporary XDG_CONFIG_HOME
 fn with_temp_config<F>(test_name: &str, callback: F)
 where
     F: FnOnce(&PathBuf),
 {
+    // Acquire lock to ensure serial execution
+    let _guard = TEST_LOCK.lock().unwrap();
+
+    // Use a unique path for each test to avoid collisions
     let mut temp_config_dir = env::temp_dir();
     temp_config_dir.push("hyprkcs_test_config");
     temp_config_dir.push(test_name);
