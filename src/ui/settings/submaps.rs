@@ -1,6 +1,7 @@
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
 use crate::ui::utils::collect_submaps;
+use crate::ui::wizards::create_add_submap_wizard;
 use gtk::gio;
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -11,6 +12,8 @@ use std::rc::Rc;
 pub fn create_submaps_page(
     model: &gio::ListStore,
     config: Rc<RefCell<StyleConfig>>,
+    stack: &gtk::Stack,
+    toast_overlay: &adw::ToastOverlay,
     on_focus_submap: Rc<dyn Fn(Option<String>)>,
 ) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
@@ -22,6 +25,37 @@ pub fn create_submaps_page(
         .title("Manage Submaps")
         .description("View and manage your Hyprland modes (submaps).")
         .build();
+
+    let add_row = adw::ActionRow::builder()
+        .title("Add New Submap")
+        .subtitle("Create a new Hyprland mode")
+        .activatable(true)
+        .build();
+
+    let add_icon = gtk::Image::from_icon_name("list-add-symbolic");
+    add_row.add_prefix(&add_icon);
+
+    let stack_c = stack.clone();
+    let model_c = model.clone();
+    let toast_c = toast_overlay.clone();
+    add_row.connect_activated(move |row| {
+        let root = row.root();
+        if root.is_some() {
+            // We use the root stack to switch to the wizard page
+            // Find the wizard container in the root stack
+            if let Some(wizard_container) =
+                stack_c.child_by_name("wizard").and_downcast::<gtk::Box>()
+            {
+                while let Some(child) = wizard_container.first_child() {
+                    wizard_container.remove(&child);
+                }
+                let wizard_view = create_add_submap_wizard(&stack_c, &model_c, &toast_c);
+                wizard_container.append(&wizard_view);
+                stack_c.set_visible_child_name("wizard");
+            }
+        }
+    });
+    group.add(&add_row);
 
     // --- Default Submap Row ---
     // Extract unique submaps
@@ -91,19 +125,6 @@ pub fn create_submaps_page(
     group.add(&default_submap_row);
 
     let submaps = collect_submaps(model);
-
-    if submaps.is_empty() || (submaps.len() == 1 && submaps[0] == "All Submaps") {
-        // Only "All Submaps" implies no specific submaps found if we ignore the artificial one,
-        // but collect_submaps returns "All Submaps" at index 0? No, collect_submaps in util returns unique strings.
-        // Wait, collect_submaps in `ui/utils/components.rs` returns a Vec<String> of unique submaps.
-        // It does NOT include "All Submaps" by default in the utility?
-        // Let's check the utility.
-    }
-
-    // Actually, `collect_submaps` in `components.rs` returns just the submaps.
-    // My previous edit to `window.rs` defined a local `collect_submaps` that ADDED "All Submaps".
-    // The utility `crate::ui::utils::collect_submaps` (which I moved to components) DOES NOT add "All Submaps".
-    // So `submaps` here are just the real ones.
 
     if submaps.is_empty() {
         let row = adw::ActionRow::builder()

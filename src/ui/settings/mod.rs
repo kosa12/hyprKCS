@@ -51,8 +51,9 @@ impl Default for LazyPageState {
 #[allow(clippy::too_many_arguments)]
 pub fn create_settings_view(
     window: &adw::ApplicationWindow,
-    stack: &gtk::Stack,
+    stack: gtk::Stack,
     model: &gio::ListStore,
+    toast_overlay: adw::ToastOverlay,
     on_desc_toggle: Rc<dyn Fn(bool)>,
     on_fav_toggle: Rc<dyn Fn(bool)>,
     on_args_toggle: Rc<dyn Fn(bool)>,
@@ -76,13 +77,13 @@ pub fn create_settings_view(
         .build();
 
     // --- Header ---
-    let stack_c = stack.clone();
+    let stack_header = stack.clone();
     let header = create_page_header(
         "Settings",
         Some("Configure your preferences"),
         "Back",
         move || {
-            stack_c.set_visible_child_name("home");
+            stack_header.set_visible_child_name("home");
         },
     );
     header.set_margin_top(12);
@@ -166,6 +167,8 @@ pub fn create_settings_view(
     let config_c = config.clone();
     let window_c = window.clone();
     let model_c = model.clone();
+    let stack_lazy = stack.clone();
+    let toast_overlay_c = toast_overlay.clone();
     let on_show_toast_c = on_show_toast.clone();
     let on_desc_toggle_c = on_desc_toggle;
     let on_fav_toggle_c = on_fav_toggle;
@@ -176,8 +179,8 @@ pub fn create_settings_view(
     let input_config_c = input_config;
     let gestures_config_c = gestures_config;
 
-    settings_stack.connect_visible_child_name_notify(move |stack| {
-        let Some(name) = stack.visible_child_name() else {
+    settings_stack.connect_visible_child_name_notify(move |stack_inner| {
+        let Some(name) = stack_inner.visible_child_name() else {
             return;
         };
 
@@ -186,7 +189,7 @@ pub fn create_settings_view(
                 if name.as_str() == $page_name && !lazy_state.$field.get() {
                     lazy_state.$field.set(true);
                     let page = $create_expr;
-                    replace_placeholder(stack, $page_name, &page.upcast());
+                    replace_placeholder(stack_inner, $page_name, &page.upcast());
                 }
             };
         }
@@ -211,14 +214,19 @@ pub fn create_settings_view(
         if name.as_str() == "hud" && !lazy_state.hud.get() {
             lazy_state.hud.set(true);
             let page = hud::create_hud_page(&model_c, on_show_toast_c.clone());
-            replace_placeholder(stack, "hud", &page);
+            replace_placeholder(stack_inner, "hud", &page);
         }
 
         if name.as_str() == "submaps" && !lazy_state.submaps.get() {
             lazy_state.submaps.set(true);
-            let page =
-                submaps::create_submaps_page(&model_c, config_c.clone(), on_focus_submap_c.clone());
-            replace_placeholder(stack, "submaps", &page.upcast());
+            let page = submaps::create_submaps_page(
+                &model_c,
+                config_c.clone(),
+                &stack_lazy,
+                &toast_overlay_c,
+                on_focus_submap_c.clone(),
+            );
+            replace_placeholder(stack_inner, "submaps", &page.upcast());
         }
 
         lazy_load!(about, "about", about::create_about_page(&window_c));
@@ -245,13 +253,13 @@ pub fn create_settings_view(
                 let ic = input_config_c.borrow().as_ref().unwrap().clone();
                 let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
                 let page = input::create_input_page(ic, gc, on_show_toast_c.clone());
-                replace_placeholder(stack, "input", &page.upcast());
+                replace_placeholder(stack_inner, "input", &page.upcast());
             } else if name.as_str() == "gestures" && !lazy_state.gestures.get() {
                 lazy_state.gestures.set(true);
                 let ic = input_config_c.borrow().as_ref().unwrap().clone();
                 let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
                 let page = gestures::create_gestures_page(ic, gc, on_show_toast_c.clone());
-                replace_placeholder(stack, "gestures", &page.upcast());
+                replace_placeholder(stack_inner, "gestures", &page.upcast());
             }
         }
     });

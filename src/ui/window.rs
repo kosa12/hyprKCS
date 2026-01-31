@@ -1116,8 +1116,9 @@ pub fn build_ui(app: &adw::Application) {
 
         let view = crate::ui::settings::create_settings_view(
             &window,
-            &stack,
+            stack.clone(),
             &model_s,
+            toast_w.upgrade().unwrap(),
             std::rc::Rc::new(move |s| {
                 if let Some(c) = col_desc_w.upgrade() {
                     c.set_visible(s)
