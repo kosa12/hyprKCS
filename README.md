@@ -230,10 +230,11 @@ hyprKCS also includes a CLI for quick lookups and scripting.
   ```bash
   hyprkcs --search "mod:super action:exec"
   ```
-- **Use a custom config file:**
+- **Use a custom config file or directory:**
   ```bash
   hyprkcs --config ~/.config/hypr/custom.conf
-  # Short: hyprkcs -c ~/.config/hypr/custom.conf
+  # Or point to a folder (assumes hyprland.conf is inside)
+  hyprkcs --config ~/dotfiles/hypr/
   ```
 - **Launch the Wallpaper HUD:**
   ```bash
@@ -255,13 +256,17 @@ hyprkcs --doctor
 This tool verifies your Hyprland instance, config permissions, dependencies, and input device detection.
 
 ### Configuration Access Issues
-*   **Config Not Found**: hyprKCS looks for `~/.config/hypr/hyprland.conf` by default. If your config is elsewhere, use the `--config` flag.
+*   **Config Not Found**: hyprKCS looks for `~/.config/hypr/hyprland.conf` by default.
+*   **Alternative Path**: You can set a permanent custom configuration path in **Settings > General**. This is useful if you store your dotfiles in a non-standard location or want to manage a separate test configuration.
+*   **Directory Support**: Both the CLI flag (`--config`) and the UI setting support pointing directly to a folder. If a folder is provided, hyprKCS will automatically look for `hyprland.conf` inside it.
+*   **Smart Source Resolution**: When loading from a custom directory, hyprKCS intelligently re-maps absolute source paths (e.g., `source = ~/.config/hypr/my-binds.conf`) to look inside your custom folder first. It also automatically defines a `$hypr` variable pointing to your config root to ensure common portable configurations work out of the box.
 *   **Permission Denied**: Ensure your config files are writable. If you use a symbolic link (e.g., from a dotfiles repo), ensure the target file is also writable.
 *   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
 
 ### HUD (Wallpaper Overlay) Issues
 *   **HUD Not Visible**: The HUD uses the `top` or `background` layer. If it's hidden, ensure no other "layer-shell" applications (like `swww` or `hyprpaper`) are covering it. Try toggling the "Layer" setting in **Settings > Wallpaper HUD**.
-*   **HUD Doesn't Update**: The HUD runs as a separate process. Close and restart it (`killall hyprkcs && hyprkcs --hud`) to force a refresh of the keybind list.
+*   **HUD Manual Launch**: You can force the HUD to launch from the terminal using `hyprkcs --hud`, even if it is currently disabled in the application settings.
+*   **HUD Doesn't Update**: The HUD runs as a separate process. Close and restart it to force a refresh of the keybind list. (Note: The UI "Enable" toggle handles this automatically).
 
 ### Appearance & Theming
 *   **Broken Icons/Styles**: hyprKCS depends on GTK4 and Libadwaita. If icons are missing, install a standard icon theme (like `adwaita-icon-theme`).

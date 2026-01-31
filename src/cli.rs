@@ -46,7 +46,9 @@ impl Args {
                     println!("hyprKCS - Hyprland Keybind Cheat Sheet");
                     println!("\nUsage: hyprkcs [OPTIONS]");
                     println!("\nOptions:");
-                    println!("  -c, --config <PATH>  Path to the Hyprland config file");
+                    println!(
+                        "  -c, --config <PATH>  Path to the Hyprland config file or directory"
+                    );
                     println!("  -p, --print          Print parsed keybinds to stdout and exit");
                     println!(
                         "  -s, --search <TERM>  Filter keybinds by a search term (implies --print)"
