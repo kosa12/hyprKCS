@@ -8,6 +8,7 @@ pub fn create_add_submap_wizard(
     stack: &gtk::Stack,
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
+    default_submap: Option<String>,
 ) -> gtk::Widget {
     let container = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -118,11 +119,11 @@ pub fn create_add_submap_wizard(
         .build();
 
     let caution_icon = gtk::Image::builder()
-        .icon_name("dialog-warning-symbolic")
-        .css_classes(["warning"])
+        .icon_name("dialog-information-symbolic")
+        .css_classes(["suggested-action"])
         .build();
     let caution_label = gtk::Label::builder()
-        .label("Caution: If you use a custom submap (like 'global') as your default state, you may need to manually move the entry keybind into that submap and update the exit keybind to return to your custom submap instead of 'reset'.")
+        .label("Tip: If you use a custom default submap (e.g. 'global'), ensure it is set in Settings > General so the wizard can place keybinds correctly.")
         .css_classes(["dim-label", "caption"])
         .wrap(true)
         .halign(gtk::Align::Start)
@@ -155,6 +156,7 @@ pub fn create_add_submap_wizard(
     let entry_enter_mods_c = entry_enter_mods.clone();
     let entry_enter_key_c = entry_enter_key.clone();
     let entry_reset_c = entry_reset.clone();
+    let default_submap_c = default_submap.clone();
 
     apply_btn.connect_clicked(move |_| {
         let name = entry_name_c.text().trim().to_string();
@@ -172,41 +174,50 @@ pub fn create_add_submap_wizard(
         }
 
         if let Ok(config_path) = parser::get_config_path() {
-            if let Err(e) = parser::create_submap(
-                config_path,
+            let exit_target = default_submap_c.as_deref().unwrap_or("reset");
+
+            // 1. Create Submap Block
+            if let Err(e) = parser::create_submap_block(
+                config_path.clone(),
                 &name,
-                if enter_mods.is_empty() {
-                    Some("")
-                } else {
-                    Some(&enter_mods)
-                },
-                if enter_key.is_empty() {
-                    None
-                } else {
-                    Some(&enter_key)
-                },
                 if reset_key.is_empty() {
                     None
                 } else {
                     Some(&reset_key)
                 },
+                exit_target,
             ) {
                 let toast = adw::Toast::builder()
                     .title(format!("Failed to create submap: {}", e))
                     .timeout(crate::config::constants::TOAST_TIMEOUT)
                     .build();
                 toast_overlay_c.add_toast(toast);
-            } else {
-                reload_keybinds(&model_c);
-
-                let toast = adw::Toast::builder()
-                    .title(format!("Submap '{}' created successfully", name))
-                    .timeout(crate::config::constants::TOAST_TIMEOUT)
-                    .build();
-                toast_overlay_c.add_toast(toast);
-
-                stack_c.set_visible_child_name("settings");
+                return;
             }
+
+            // 2. Add Entry Bind (if specified)
+            if !enter_key.is_empty() {
+                let _ = parser::add_keybind(
+                    config_path,
+                    &enter_mods,
+                    &enter_key,
+                    "submap",
+                    &name,
+                    default_submap_c.clone(), // Parent submap (Root or Custom)
+                    None,
+                    "",
+                );
+            }
+
+            reload_keybinds(&model_c);
+
+            let toast = adw::Toast::builder()
+                .title(format!("Submap '{}' created successfully", name))
+                .timeout(crate::config::constants::TOAST_TIMEOUT)
+                .build();
+            toast_overlay_c.add_toast(toast);
+
+            stack_c.set_visible_child_name("settings");
         }
     });
 

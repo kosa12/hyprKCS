@@ -46,7 +46,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Bind Flags Support**: Full support for Hyprland's specialized bind flags like `binde` (repeat), `bindl` (locked), `bindr` (release), and more, selectable via a dropdown in the editor.
 - **Bindd (Descriptions) Support for Omarchy Users**: Full support for the `bindd` format (`bindd = MODS, KEY, DESC, DISPATCHER, ARGS`). This allows you to store human-readable descriptions directly in the keybind line, making them compatible with interactive viewers like **Omarchy**.
 - **Mouse Button & Scroll Support**: Effortlessly bind actions to any mouse button, including Side and Extra buttons (8/9). hyprKCS automatically handles Hyprland submaps during recording to ensure global binds don't interfere with your selection.
-- **Submap (Mode) Management**: Full visibility and management of Hyprland submaps. Create new submaps using the intuitive wizard, filter keybinds by submap, see how many binds each mode contains, and set a default submap to show on startup.
+- **Submap (Mode) Management**: Full visibility and management of Hyprland submaps. Create new submaps using the intuitive wizard, filter keybinds by submap, and see how many binds each mode contains. Setting a **Default Submap** in the settings enables smart placement, automatically configuring new keybinds and submaps to work correctly within your preferred mode.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Variable Management**: Define and manage Hyprland variables (e.g., `$mainMod`). Supports creating, editing, and deleting variables with smart reference handling and automatic refactoring.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
@@ -184,7 +184,7 @@ Organize and navigate complex configurations using Hyprland's submap (mode) syst
 - **Default View**: Set a specific submap to be shown by default when hyprKCS starts, or keep it on "All Submaps" for a global view.
 
 <p align="center">
-    <img src="./assets/image_7.png" width="80%" />
+    <img src="./assets/image_8.png" width="80%" />
 </p>
 
 **Macro Builder**
@@ -280,7 +280,9 @@ This tool verifies your Hyprland instance, config permissions, dependencies, and
 *   **Custom Default Submap (e.g., "Global" mode)**: In standard Hyprland, the default state is the root scope (where you land after `submap = reset`). However, some advanced configurations (like **Caelestia**) define an explicit custom submap (often named `global`) and force Hyprland to stay in it via `exec = hyprctl dispatch submap name`.
     *   **Symptom**: New keybinds added via hyprKCS don't work, or new submaps can't be entered.
     *   **Cause**: hyprKCS defaults to adding keybinds to the root scope. If your system is permanently inside a custom submap, it ignores these root-level keybinds.
-    *   **Solution**: When adding a keybind that should be always available, explicitly set the **Submap** field in the UI to match your custom default mode. For new submaps created with the wizard, you must manually move the entry keybind into your custom submap block in the config file, and ensure the exit keybind targets your custom submap instead of `reset`.
+    *   **Solution**: Set your custom home submap (e.g., `global`) in **Settings > Submaps > Default Submap**. Once configured:
+        *   **Add Keybind View**: Will automatically default to your custom submap.
+        *   **Submap Wizard**: Will intelligently place entry keybinds inside your default submap and configure exit keybinds to return to it instead of `reset`.
 
 ### HUD (Wallpaper Overlay) Issues
 *   **HUD Not Visible**: The HUD uses the `top` or `background` layer. If it's hidden, ensure no other "layer-shell" applications (like `swww` or `hyprpaper`) are covering it. Try toggling the "Layer" setting in **Settings > Wallpaper HUD**.

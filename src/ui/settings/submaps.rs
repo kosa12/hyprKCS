@@ -38,9 +38,13 @@ pub fn create_submaps_page(
     let stack_c = stack.clone();
     let model_c = model.clone();
     let toast_c = toast_overlay.clone();
+    let config_c_add = config.clone();
+
     add_row.connect_activated(move |row| {
         let root = row.root();
         if root.is_some() {
+            let default_submap = config_c_add.borrow().default_submap.clone();
+
             // We use the root stack to switch to the wizard page
             // Find the wizard container in the root stack
             if let Some(wizard_container) =
@@ -49,7 +53,8 @@ pub fn create_submaps_page(
                 while let Some(child) = wizard_container.first_child() {
                     wizard_container.remove(&child);
                 }
-                let wizard_view = create_add_submap_wizard(&stack_c, &model_c, &toast_c);
+                let wizard_view =
+                    create_add_submap_wizard(&stack_c, &model_c, &toast_c, default_submap);
                 wizard_container.append(&wizard_view);
                 stack_c.set_visible_child_name("wizard");
             }
