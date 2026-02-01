@@ -46,7 +46,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Bind Flags Support**: Full support for Hyprland's specialized bind flags like `binde` (repeat), `bindl` (locked), `bindr` (release), and more, selectable via a dropdown in the editor.
 - **Bindd (Descriptions) Support for Omarchy Users**: Full support for the `bindd` format (`bindd = MODS, KEY, DESC, DISPATCHER, ARGS`). This allows you to store human-readable descriptions directly in the keybind line, making them compatible with interactive viewers like **Omarchy**.
 - **Mouse Button & Scroll Support**: Effortlessly bind actions to any mouse button, including Side and Extra buttons (8/9). hyprKCS automatically handles Hyprland submaps during recording to ensure global binds don't interfere with your selection.
-- **Submap (Mode) Management**: Full visibility and management of Hyprland submaps. Filter keybinds by submap, see how many binds each mode contains, and set a default submap to show on startup.
+- **Submap (Mode) Management**: Full visibility and management of Hyprland submaps. Create new submaps using the intuitive wizard, filter keybinds by submap, see how many binds each mode contains, and set a default submap to show on startup.
 - **Full Keybind Management**: Add, edit, and delete keybinds directly from the UI. Changes are written back to the correct configuration files.
 - **Variable Management**: Define and manage Hyprland variables (e.g., `$mainMod`). Supports creating, editing, and deleting variables with smart reference handling and automatic refactoring.
 - **Configuration Backup**: Create a timestamped backup of your configuration files with a single click or set the automatic backup behavior in the settings (it's set to true by default).
@@ -275,6 +275,12 @@ This tool verifies your Hyprland instance, config permissions, dependencies, and
 *   **Smart Source Resolution**: When loading from a custom directory, hyprKCS intelligently re-maps absolute source paths (e.g., `source = ~/.config/hypr/my-binds.conf`) to look inside your custom folder first. It also automatically defines a `$hypr` variable pointing to your config root to ensure common portable configurations work out of the box.
 *   **Permission Denied**: Ensure your config files are writable. If you use a symbolic link (e.g., from a dotfiles repo), ensure the target file is also writable.
 *   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
+
+### Submap Issues
+*   **"Global" Submap confusion**: In standard Hyprland, "Global" usually refers to the root scope (where you land after `submap = reset`). However, some configurations (like **Caelestia**) define an explicit custom submap named `global` and force Hyprland to stay in it (`exec = hyprctl dispatch submap global`).
+    *   **Symptom**: New keybinds added via hyprKCS don't work, or new submaps can't be entered.
+    *   **Cause**: hyprKCS defaults to adding "standard" keybinds to the root scope. If your system is stuck in a custom `global` submap, it ignores these root keybinds.
+    *   **Solution**: When adding a keybind that should be available everywhere, explicitly set the **Submap** field to `global` in the UI. For new submaps created with the wizard, you must manually edit your config file to wrap the entry keybind (e.g., `bind = SUPER, R, submap, resize`) inside a `submap = global` block, and ensure your exit keybind targets `global` (e.g., `bind = , escape, submap, global`) instead of `reset`.
 
 ### HUD (Wallpaper Overlay) Issues
 *   **HUD Not Visible**: The HUD uses the `top` or `background` layer. If it's hidden, ensure no other "layer-shell" applications (like `swww` or `hyprpaper`) are covering it. Try toggling the "Layer" setting in **Settings > Wallpaper HUD**.

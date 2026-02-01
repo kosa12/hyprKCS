@@ -134,12 +134,12 @@ pub fn create_add_submap_wizard(
     let entry_reset_c = entry_reset.clone();
 
     apply_btn.connect_clicked(move |_| {
-        let name = entry_name_c.text().to_string();
-        let enter_mods = entry_enter_mods_c.text().to_string();
-        let enter_key = entry_enter_key_c.text().to_string();
-        let reset_key = entry_reset_c.text().to_string();
+        let name = entry_name_c.text().trim().to_string();
+        let enter_mods = entry_enter_mods_c.text().trim().to_string();
+        let enter_key = entry_enter_key_c.text().trim().to_string();
+        let reset_key = entry_reset_c.text().trim().to_string();
 
-        if name.trim().is_empty() {
+        if name.is_empty() {
             let toast = adw::Toast::builder()
                 .title("Submap name cannot be empty")
                 .timeout(crate::config::constants::TOAST_TIMEOUT)
@@ -157,12 +157,12 @@ pub fn create_add_submap_wizard(
                 } else {
                     Some(&enter_mods)
                 },
-                if enter_key.trim().is_empty() {
+                if enter_key.is_empty() {
                     None
                 } else {
                     Some(&enter_key)
                 },
-                if reset_key.trim().is_empty() {
+                if reset_key.is_empty() {
                     None
                 } else {
                     Some(&reset_key)

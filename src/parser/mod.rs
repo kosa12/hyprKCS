@@ -1013,6 +1013,18 @@ pub fn create_submap(
         content.lines().map(|s| s.to_string()).collect()
     };
 
+    // Ensure we are in global scope before adding new global binds
+    let needs_reset = lines
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+        .map(|l| l.trim() != "submap = reset")
+        .unwrap_or(false);
+
+    if needs_reset {
+        lines.push("submap = reset".to_string());
+    }
+
     // Add entry bind in global scope
     if let (Some(m), Some(k)) = (enter_mods, enter_key) {
         if !k.trim().is_empty() {

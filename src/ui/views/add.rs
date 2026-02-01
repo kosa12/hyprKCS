@@ -20,6 +20,7 @@ pub fn create_add_view(
     stack: &gtk::Stack,
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
+    default_submap: Option<&str>,
 ) -> gtk::Widget {
     let local_stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::SlideLeftRight)
@@ -183,7 +184,7 @@ pub fn create_add_view(
         glib::Propagation::Proceed
     });
 
-    let entry_submap = crate::ui::utils::components::create_submap_combo(model, None);
+    let entry_submap = crate::ui::utils::components::create_submap_combo(model, default_submap);
     form_box.append(&create_form_group("Submap (Optional):", &entry_submap));
 
     let entry_desc = gtk::Entry::builder()

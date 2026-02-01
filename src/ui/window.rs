@@ -639,6 +639,7 @@ pub fn build_ui(app: &adw::Application) {
     let toast_overlay_add = toast_overlay.clone();
     let root_stack_weak = root_stack.downgrade();
     let add_page_container_weak = add_page_container.downgrade();
+    let default_submap_add = config.default_submap.clone();
 
     add_button.connect_clicked(move |_| {
         let root_stack = match root_stack_weak.upgrade() {
@@ -655,7 +656,12 @@ pub fn build_ui(app: &adw::Application) {
             add_page_container.remove(&child);
         }
 
-        let add_view = create_add_view(&root_stack, &model_clone_add, &toast_overlay_add);
+        let add_view = create_add_view(
+            &root_stack,
+            &model_clone_add,
+            &toast_overlay_add,
+            default_submap_add.as_deref(),
+        );
         add_page_container.append(&add_view);
         root_stack.set_visible_child_name("add");
     });
