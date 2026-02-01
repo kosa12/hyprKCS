@@ -999,6 +999,53 @@ pub fn update_line(
     }
 }
 
+pub fn create_submap(
+    path: PathBuf,
+    name: &str,
+    enter_mods: Option<&str>,
+    enter_key: Option<&str>,
+    reset_key: Option<&str>,
+) -> Result<()> {
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut lines: Vec<String> = if content.is_empty() {
+        vec![]
+    } else {
+        content.lines().map(|s| s.to_string()).collect()
+    };
+
+    // Ensure we are in global scope before adding new global binds
+    let needs_reset = lines
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+        .map(|l| l.trim() != "submap = reset")
+        .unwrap_or(false);
+
+    if needs_reset {
+        lines.push("submap = reset".to_string());
+    }
+
+    // Add entry bind in global scope
+    if let (Some(m), Some(k)) = (enter_mods, enter_key) {
+        if !k.trim().is_empty() {
+            lines.push(format!("bind = {}, {}, submap, {}", m, k, name));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push(format!("submap = {}", name));
+
+    if let Some(rk) = reset_key {
+        if !rk.trim().is_empty() {
+            lines.push(format!("bind = , {}, submap, reset", rk));
+        }
+    }
+
+    lines.push("submap = reset".to_string());
+
+    write_lines(&path, &lines)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn add_keybind(
     path: PathBuf,

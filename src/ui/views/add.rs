@@ -20,6 +20,7 @@ pub fn create_add_view(
     stack: &gtk::Stack,
     model: &gio::ListStore,
     toast_overlay: &adw::ToastOverlay,
+    default_submap: Option<&str>,
 ) -> gtk::Widget {
     let local_stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::SlideLeftRight)
@@ -183,10 +184,7 @@ pub fn create_add_view(
         glib::Propagation::Proceed
     });
 
-    let entry_submap = gtk::Entry::builder()
-        .placeholder_text("e.g. resize (leave empty for global)")
-        .activates_default(true)
-        .build();
+    let entry_submap = crate::ui::utils::components::create_submap_combo(model, default_submap);
     form_box.append(&create_form_group("Submap (Optional):", &entry_submap));
 
     let entry_desc = gtk::Entry::builder()
@@ -356,11 +354,28 @@ pub fn create_add_view(
         };
 
         let desc = entry_desc_c.text().to_string();
-        let submap_raw = entry_submap_c.text().to_string();
-        let submap = if submap_raw.trim().is_empty() {
-            None
+
+        // Extract Submap
+        #[allow(deprecated)]
+        let submap_id = entry_submap_c.active_id();
+        let submap = if let Some(id) = submap_id {
+            if id.is_empty() {
+                None
+            } else {
+                Some(id.to_string())
+            }
         } else {
-            Some(submap_raw.trim().to_string())
+            #[allow(deprecated)]
+            if let Some(text) = entry_submap_c.active_text() {
+                let t = text.as_str().trim();
+                if t.is_empty() {
+                    None
+                } else {
+                    Some(t.to_string())
+                }
+            } else {
+                None
+            }
         };
 
         let config_path = parser::get_config_path().unwrap();
@@ -434,13 +449,21 @@ pub fn create_add_view(
             entry_key_c.text().to_string()
         };
         let mods = entry_mods_c.text().to_string();
-        let submap_raw = entry_submap_c.text().to_string();
-        let submap_trimmed = submap_raw.trim();
-        let submap = if submap_trimmed.is_empty() {
-            None
+
+        #[allow(deprecated)]
+        let submap_id = entry_submap_c.active_id();
+        let submap = if let Some(id) = submap_id {
+            if id.is_empty() { None } else { Some(id.to_string()) }
         } else {
-            Some(submap_trimmed)
+             #[allow(deprecated)]
+             if let Some(text) = entry_submap_c.active_text() {
+                let t = text.as_str().trim();
+                if t.is_empty() { None } else { Some(t.to_string()) }
+            } else {
+                None
+            }
         };
+        let submap_check = submap.as_deref();
 
         if !mouse_switch_c.is_active() && key.trim().is_empty() {
              let toast = adw::Toast::builder()
@@ -494,7 +517,7 @@ pub fn create_add_view(
         });
 
         // Check for conflicts
-        if let Some(conflict) = check_conflict(&mods, &key, submap, None, &model_c, &variables) {
+        if let Some(conflict) = check_conflict(&mods, &key, submap_check, None, &model_c, &variables) {
             conflict_target_label_c.set_label(&format!(
                 "Dispatcher: {}\nArgs: {}\nFile: {}:{}",
                 conflict.dispatcher, conflict.args, conflict.file, conflict.line
@@ -505,7 +528,7 @@ pub fn create_add_view(
                 conflict_suggestions_box_c.remove(&child);
             }
 
-            let suggestions = generate_suggestions(&mods, &key, submap, &model_c, &variables);
+            let suggestions = generate_suggestions(&mods, &key, submap.as_deref(), &model_c, &variables);
             if suggestions.is_empty() {
                 conflict_suggestions_box_c.append(&gtk::Label::new(Some("No simple alternatives found.")));
             } else {

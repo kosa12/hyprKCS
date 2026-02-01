@@ -4,6 +4,7 @@ pub mod general;
 pub mod gestures;
 pub mod hud;
 pub mod input;
+pub mod submaps;
 pub mod ui_elements;
 pub mod variables;
 pub mod window;
@@ -26,6 +27,7 @@ struct LazyPageState {
     hud: Cell<bool>,
     input: Cell<bool>,
     gestures: Cell<bool>,
+    submaps: Cell<bool>,
     ui_elements: Cell<bool>,
     about: Cell<bool>,
 }
@@ -39,6 +41,7 @@ impl Default for LazyPageState {
             hud: Cell::new(false),
             input: Cell::new(false),
             gestures: Cell::new(false),
+            submaps: Cell::new(false),
             ui_elements: Cell::new(false),
             about: Cell::new(false),
         }
@@ -48,14 +51,16 @@ impl Default for LazyPageState {
 #[allow(clippy::too_many_arguments)]
 pub fn create_settings_view(
     window: &adw::ApplicationWindow,
-    stack: &gtk::Stack,
+    stack: gtk::Stack,
     model: &gio::ListStore,
+    toast_overlay: adw::ToastOverlay,
     on_desc_toggle: Rc<dyn Fn(bool)>,
     on_fav_toggle: Rc<dyn Fn(bool)>,
     on_args_toggle: Rc<dyn Fn(bool)>,
     on_submap_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
     on_show_toast: Rc<dyn Fn(String)>,
+    on_focus_submap: Rc<dyn Fn(Option<String>)>,
     on_restore_clicked: Rc<dyn Fn()>,
 ) -> gtk::Widget {
     let config = Rc::new(RefCell::new(StyleConfig::load()));
@@ -72,13 +77,13 @@ pub fn create_settings_view(
         .build();
 
     // --- Header ---
-    let stack_c = stack.clone();
+    let stack_header = stack.clone();
     let header = create_page_header(
         "Settings",
         Some("Configure your preferences"),
         "Back",
         move || {
-            stack_c.set_visible_child_name("home");
+            stack_header.set_visible_child_name("home");
         },
     );
     header.set_margin_top(12);
@@ -149,6 +154,9 @@ pub fn create_settings_view(
     let placeholder_gestures = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_gestures, Some("gestures"), "Gestures");
 
+    let placeholder_submaps = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    settings_stack.add_titled(&placeholder_submaps, Some("submaps"), "Submaps");
+
     let placeholder_ui = gtk::Box::new(gtk::Orientation::Vertical, 0);
     settings_stack.add_titled(&placeholder_ui, Some("ui"), "UI Elements");
 
@@ -159,17 +167,20 @@ pub fn create_settings_view(
     let config_c = config.clone();
     let window_c = window.clone();
     let model_c = model.clone();
+    let stack_lazy = stack.clone();
+    let toast_overlay_c = toast_overlay.clone();
     let on_show_toast_c = on_show_toast.clone();
     let on_desc_toggle_c = on_desc_toggle;
     let on_fav_toggle_c = on_fav_toggle;
     let on_args_toggle_c = on_args_toggle;
     let on_submap_toggle_c = on_submap_toggle;
     let on_sort_change_c = on_sort_change;
+    let on_focus_submap_c = on_focus_submap;
     let input_config_c = input_config;
     let gestures_config_c = gestures_config;
 
-    settings_stack.connect_visible_child_name_notify(move |stack| {
-        let Some(name) = stack.visible_child_name() else {
+    settings_stack.connect_visible_child_name_notify(move |stack_inner| {
+        let Some(name) = stack_inner.visible_child_name() else {
             return;
         };
 
@@ -178,7 +189,7 @@ pub fn create_settings_view(
                 if name.as_str() == $page_name && !lazy_state.$field.get() {
                     lazy_state.$field.set(true);
                     let page = $create_expr;
-                    replace_placeholder(stack, $page_name, &page.upcast());
+                    replace_placeholder(stack_inner, $page_name, &page.upcast());
                 }
             };
         }
@@ -203,10 +214,23 @@ pub fn create_settings_view(
         if name.as_str() == "hud" && !lazy_state.hud.get() {
             lazy_state.hud.set(true);
             let page = hud::create_hud_page(&model_c, on_show_toast_c.clone());
-            replace_placeholder(stack, "hud", &page);
+            replace_placeholder(stack_inner, "hud", &page);
+        }
+
+        if name.as_str() == "submaps" && !lazy_state.submaps.get() {
+            lazy_state.submaps.set(true);
+            let page = submaps::create_submaps_page(
+                &model_c,
+                config_c.clone(),
+                &stack_lazy,
+                &toast_overlay_c,
+                on_focus_submap_c.clone(),
+            );
+            replace_placeholder(stack_inner, "submaps", &page.upcast());
         }
 
         lazy_load!(about, "about", about::create_about_page(&window_c));
+
         lazy_load!(
             ui_elements,
             "ui",
@@ -229,13 +253,13 @@ pub fn create_settings_view(
                 let ic = input_config_c.borrow().as_ref().unwrap().clone();
                 let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
                 let page = input::create_input_page(ic, gc, on_show_toast_c.clone());
-                replace_placeholder(stack, "input", &page.upcast());
+                replace_placeholder(stack_inner, "input", &page.upcast());
             } else if name.as_str() == "gestures" && !lazy_state.gestures.get() {
                 lazy_state.gestures.set(true);
                 let ic = input_config_c.borrow().as_ref().unwrap().clone();
                 let gc = gestures_config_c.borrow().as_ref().unwrap().clone();
                 let page = gestures::create_gestures_page(ic, gc, on_show_toast_c.clone());
-                replace_placeholder(stack, "gestures", &page.upcast());
+                replace_placeholder(stack_inner, "gestures", &page.upcast());
             }
         }
     });
