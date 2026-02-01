@@ -102,6 +102,7 @@ pub fn create_submaps_page(
     let default_row_weak = default_submap_row.downgrade();
     let config_c_update = config.clone();
     let on_focus_submap_c = on_focus_submap.clone();
+    let added_rows = Rc::new(RefCell::new(Vec::<gtk::Widget>::new()));
 
     let update_ui = Rc::new(move |model: &gio::ListStore| {
         let list_group = match list_group_weak.upgrade() {
@@ -114,8 +115,13 @@ pub fn create_submaps_page(
         };
 
         // 1. Refresh Submap List
-        while let Some(child) = list_group.first_child() {
-            list_group.remove(&child);
+        // Safely remove previously added rows
+        {
+            let mut rows = added_rows.borrow_mut();
+            for row in rows.iter() {
+                list_group.remove(row);
+            }
+            rows.clear();
         }
 
         let submaps = collect_submaps(model);
@@ -126,6 +132,7 @@ pub fn create_submaps_page(
                 .subtitle("Submaps are defined using 'submap = name' in your config.")
                 .build();
             list_group.add(&row);
+            added_rows.borrow_mut().push(row.upcast());
         } else {
             for name in &submaps {
                 let mut count = 0;
@@ -155,6 +162,7 @@ pub fn create_submaps_page(
                 });
 
                 list_group.add(&row);
+                added_rows.borrow_mut().push(row.upcast());
             }
         }
 
