@@ -1,9 +1,9 @@
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
+use crate::ui::utils::components::collect_submaps;
 use crate::ui::utils::normalize;
 use crate::ui::views::keyboard_layouts::{get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
-use gtk::gio;
-use gtk::prelude::*;
+use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
@@ -47,7 +47,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     header_box.append(&title);
     container.append(&header_box);
 
-    // Modifier Toggles
+    // Modifier Toggles & Submap Dropdown
     let mod_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     mod_box.set_halign(gtk::Align::Center);
     mod_box.set_margin_bottom(4);
@@ -77,6 +77,36 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     mod_box.append(&btn_shift);
     mod_box.append(&btn_ctrl);
     mod_box.append(&btn_alt);
+
+    mod_box.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+
+    // Submap Dropdown
+    mod_box.append(&gtk::Label::new(Some("Submap:")));
+    let submaps = collect_submaps(model);
+    let mut submap_items = vec!["Global (Root)".to_string()];
+    submap_items.extend(submaps);
+    let submap_model_list = gtk::StringList::new(
+        &submap_items
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<&str>>(),
+    );
+    let submap_dropdown = gtk::DropDown::builder()
+        .model(&submap_model_list)
+        .selected(0)
+        .build();
+
+    // Set initial selection from config
+    if let Some(default_sub) = &config.default_submap {
+        for (i, item) in submap_items.iter().enumerate() {
+            if item == default_sub {
+                submap_dropdown.set_selected(i as u32);
+                break;
+            }
+        }
+    }
+
+    mod_box.append(&submap_dropdown);
 
     container.append(&mod_box);
 
@@ -167,12 +197,25 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     let update_keys = {
         let model = model.clone();
         let grid_ref = grid.clone();
+        let submap_dropdown = submap_dropdown.clone();
 
         move |active_mods: &[String]| {
             let mut bound_keys: HashSet<String> = HashSet::new();
             let mut key_actions: HashMap<String, String> = HashMap::new();
 
             let (target_mods, _) = normalize(&active_mods.join(" "), "");
+
+            // Get selected submap
+            let idx = submap_dropdown.selected();
+            let selected_submap = if let Some(item) = submap_dropdown
+                .model()
+                .and_then(|m| m.item(idx))
+                .and_downcast::<gtk::StringObject>()
+            {
+                item.string().to_string()
+            } else {
+                "Global (Root)".to_string()
+            };
 
             for i in 0..model.n_items() {
                 if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
@@ -182,11 +225,13 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                     let args = obj.property::<String>("args");
                     let submap = obj.property::<String>("submap");
 
-                    let is_global = submap.is_empty()
-                        || submap.eq_ignore_ascii_case("global")
-                        || submap.eq_ignore_ascii_case("reset");
+                    let matches_submap = if selected_submap == "Global (Root)" {
+                        submap.is_empty() || submap.eq_ignore_ascii_case("reset")
+                    } else {
+                        submap == selected_submap
+                    };
 
-                    if !is_global {
+                    if !matches_submap {
                         continue;
                     }
 
@@ -265,6 +310,10 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     let ot4 = on_toggle.clone();
     btn_alt.connect_toggled(move |_| ot4());
+
+    // Connect dropdown signal
+    let ot5 = on_toggle.clone();
+    submap_dropdown.connect_selected_notify(move |_| ot5());
 
     // Initial Trigger
     on_toggle();

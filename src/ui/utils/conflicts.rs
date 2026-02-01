@@ -125,15 +125,6 @@ pub fn check_conflict(
     let (norm_mods, norm_key) = normalize(&resolved_mods, &resolved_key);
     let target_submap = target_submap.unwrap_or("").trim();
 
-    let are_submaps_equiv = |s1: &str, s2: &str| -> bool {
-        if s1 == s2 {
-            return true;
-        }
-        let s1_norm = if s1 == "global" { "" } else { s1 };
-        let s2_norm = if s2 == "global" { "" } else { s2 };
-        s1_norm == s2_norm
-    };
-
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {
             let conflict_found = obj.with_data(|data| {
@@ -148,10 +139,7 @@ pub fn check_conflict(
                 let (kb_mods, kb_key) = normalize(&data.clean_mods, &data.key);
                 let kb_submap = data.submap.as_deref().unwrap_or("").trim();
 
-                if norm_mods == kb_mods
-                    && norm_key == kb_key
-                    && are_submaps_equiv(target_submap, kb_submap)
-                {
+                if norm_mods == kb_mods && norm_key == kb_key && target_submap == kb_submap {
                     Some(ConflictInfo {
                         dispatcher: data.dispatcher.to_string(),
                         args: data.args.as_deref().unwrap_or("").to_string(),
@@ -196,24 +184,16 @@ pub fn generate_suggestions(
             obj.with_data(|data| {
                 let (k_mods, k_key) = normalize(&data.clean_mods, &data.key);
                 let k_submap = data.submap.as_deref().unwrap_or("").trim();
-                // Store normalized submap
-                let k_submap_norm = if k_submap == "global" { "" } else { k_submap };
-                occupied.insert((k_mods, k_key, k_submap_norm.to_string()));
+                occupied.insert((k_mods, k_key, k_submap.to_string()));
             });
         }
     }
-
-    let target_submap_norm = if target_submap == "global" {
-        ""
-    } else {
-        target_submap
-    };
 
     let is_free = |mods: &str, key: &str| -> bool {
         let r_mods = resolve(mods, variables);
         let r_key = resolve(key, variables);
         let (n_mods, n_key) = normalize(&r_mods, &r_key);
-        !occupied.contains(&(n_mods, n_key, target_submap_norm.to_string()))
+        !occupied.contains(&(n_mods, n_key, target_submap.to_string()))
     };
 
     // 1. Try adding a modifier
