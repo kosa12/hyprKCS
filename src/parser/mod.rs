@@ -999,12 +999,11 @@ pub fn update_line(
     }
 }
 
-pub fn create_submap(
+pub fn create_submap_block(
     path: PathBuf,
     name: &str,
-    enter_mods: Option<&str>,
-    enter_key: Option<&str>,
     reset_key: Option<&str>,
+    exit_target: &str,
 ) -> Result<()> {
     let content = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<String> = if content.is_empty() {
@@ -1013,7 +1012,7 @@ pub fn create_submap(
         content.lines().map(|s| s.to_string()).collect()
     };
 
-    // Ensure we are in global scope before adding new global binds
+    // Ensure we are in global scope before adding new block
     let needs_reset = lines
         .iter()
         .rev()
@@ -1025,19 +1024,12 @@ pub fn create_submap(
         lines.push("submap = reset".to_string());
     }
 
-    // Add entry bind in global scope
-    if let (Some(m), Some(k)) = (enter_mods, enter_key) {
-        if !k.trim().is_empty() {
-            lines.push(format!("bind = {}, {}, submap, {}", m, k, name));
-        }
-    }
-
     lines.push(String::new());
     lines.push(format!("submap = {}", name));
 
     if let Some(rk) = reset_key {
         if !rk.trim().is_empty() {
-            lines.push(format!("bind = , {}, submap, reset", rk));
+            lines.push(format!("bind = , {}, submap, {}", rk, exit_target));
         }
     }
 
