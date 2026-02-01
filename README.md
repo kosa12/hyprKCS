@@ -277,10 +277,10 @@ This tool verifies your Hyprland instance, config permissions, dependencies, and
 *   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
 
 ### Submap Issues
-*   **"Global" Submap confusion**: In standard Hyprland, "Global" usually refers to the root scope (where you land after `submap = reset`). However, some configurations (like **Caelestia**) define an explicit custom submap named `global` and force Hyprland to stay in it (`exec = hyprctl dispatch submap global`).
+*   **Custom Default Submap (e.g., "Global" mode)**: In standard Hyprland, the default state is the root scope (where you land after `submap = reset`). However, some advanced configurations (like **Caelestia**) define an explicit custom submap (often named `global`) and force Hyprland to stay in it via `exec = hyprctl dispatch submap name`.
     *   **Symptom**: New keybinds added via hyprKCS don't work, or new submaps can't be entered.
-    *   **Cause**: hyprKCS defaults to adding "standard" keybinds to the root scope. If your system is stuck in a custom `global` submap, it ignores these root keybinds.
-    *   **Solution**: When adding a keybind that should be available everywhere, explicitly set the **Submap** field to `global` in the UI. For new submaps created with the wizard, you must manually edit your config file to wrap the entry keybind (e.g., `bind = SUPER, R, submap, resize`) inside a `submap = global` block, and ensure your exit keybind targets `global` (e.g., `bind = , escape, submap, global`) instead of `reset`.
+    *   **Cause**: hyprKCS defaults to adding keybinds to the root scope. If your system is permanently inside a custom submap, it ignores these root-level keybinds.
+    *   **Solution**: When adding a keybind that should be always available, explicitly set the **Submap** field in the UI to match your custom default mode. For new submaps created with the wizard, you must manually move the entry keybind into your custom submap block in the config file, and ensure the exit keybind targets your custom submap instead of `reset`.
 
 ### HUD (Wallpaper Overlay) Issues
 *   **HUD Not Visible**: The HUD uses the `top` or `background` layer. If it's hidden, ensure no other "layer-shell" applications (like `swww` or `hyprpaper`) are covering it. Try toggling the "Layer" setting in **Settings > Wallpaper HUD**.

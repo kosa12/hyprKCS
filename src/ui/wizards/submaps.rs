@@ -109,6 +109,29 @@ pub fn create_add_submap_wizard(
         .build();
     container.append(&info_label);
 
+    let caution_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(8)
+        .margin_start(24)
+        .margin_end(24)
+        .margin_top(12)
+        .build();
+
+    let caution_icon = gtk::Image::builder()
+        .icon_name("dialog-warning-symbolic")
+        .css_classes(["warning"])
+        .build();
+    let caution_label = gtk::Label::builder()
+        .label("Caution: If you use a custom submap (like 'global') as your default state, you may need to manually move the entry keybind into that submap and update the exit keybind to return to your custom submap instead of 'reset'.")
+        .css_classes(["dim-label", "caption"])
+        .wrap(true)
+        .halign(gtk::Align::Start)
+        .build();
+
+    caution_box.append(&caution_icon);
+    caution_box.append(&caution_label);
+    container.append(&caution_box);
+
     // Spacer
     let spacer = gtk::Box::builder().vexpand(true).build();
     container.append(&spacer);
