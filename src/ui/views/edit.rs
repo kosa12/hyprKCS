@@ -1,5 +1,6 @@
 use crate::keybind_object::KeybindObject;
 use crate::parser;
+use crate::ui::utils::clone::{create_clone_button, CloneContext};
 use crate::ui::utils::components::{
     create_flags_dropdown, create_mouse_button_dropdown, create_recorder_row, get_flag_from_index,
     get_index_from_flag, get_index_from_mouse_code, get_mouse_code_from_index,
@@ -276,11 +277,30 @@ pub fn create_edit_view(
     let button_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(12)
-        .halign(gtk::Align::End)
         .margin_top(12)
         .build();
 
     let delete_btn = create_destructive_button("Delete", None);
+    let clone_ctx = CloneContext {
+        file_path: PathBuf::from(&file_path_display),
+        model: model.clone(),
+        toast_overlay: toast_overlay.clone(),
+        stack: stack.clone(),
+        entry_mods: entry_mods.clone(),
+        entry_key: entry_key.clone(),
+        entry_dispatcher: entry_dispatcher.clone(),
+        entry_args: entry_args.clone(),
+        entry_desc: entry_desc.clone(),
+        entry_submap: entry_submap.clone(),
+        macro_switch: macro_switch.clone(),
+        macro_list: macro_list.clone(),
+        flags_dropdown: flags_dropdown.clone(),
+        mouse_switch: mouse_switch.clone(),
+        mouse_dropdown: mouse_dropdown.clone(),
+        mods_had_prefix,
+        args_had_prefix,
+    };
+    let clone_btn = create_clone_button(clone_ctx);
     let exec_btn = create_pill_button("Execute", None);
     exec_btn.set_tooltip_text(Some("Test this keybind immediately using hyprctl dispatch"));
     let cancel_btn = create_pill_button("Cancel", None);
@@ -289,6 +309,7 @@ pub fn create_edit_view(
     button_box.append(&delete_btn);
     let spacer = gtk::Box::builder().hexpand(true).build();
     button_box.append(&spacer);
+    button_box.append(&clone_btn);
     button_box.append(&exec_btn);
     button_box.append(&cancel_btn);
     button_box.append(&save_btn);
