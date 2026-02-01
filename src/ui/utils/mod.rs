@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod clone;
 pub mod components;
 pub mod conflicts;
 pub mod execution;
