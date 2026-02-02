@@ -1,7 +1,7 @@
 use crate::parser;
 use crate::ui::utils::components::{get_flag_from_index, get_mouse_code_from_index};
 use crate::ui::utils::macro_builder::compile_macro;
-use crate::ui::utils::{create_pill_button, reload_keybinds};
+use crate::ui::utils::{create_pill_button, perform_backup, reload_keybinds};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
@@ -118,6 +118,10 @@ pub fn create_clone_button(ctx: CloneContext) -> gtk::Button {
             };
             (d, a)
         };
+
+        if let Err(e) = perform_backup(false) {
+            eprintln!("Auto-backup failed: {}", e);
+        }
 
         match parser::add_keybind(
             file_path.clone(),

@@ -110,6 +110,85 @@ pub fn create_general_page(
     config_path_row.add_suffix(&clear_btn);
     group_config.add(&config_path_row);
 
+    let backup_path_row = adw::ActionRow::builder()
+        .title("Alternative Backup Path")
+        .subtitle(
+            config
+                .borrow()
+                .alternative_backup_path
+                .as_deref()
+                .unwrap_or("Default (Config Dir/backups)"),
+        )
+        .build();
+
+    let backup_browse_btn = gtk::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Browse for backup folder")
+        .build();
+
+    let backup_clear_btn = gtk::Button::builder()
+        .icon_name("edit-clear-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Reset to default")
+        .visible(config.borrow().alternative_backup_path.is_some())
+        .build();
+
+    let backup_row_c = backup_path_row.clone();
+    let backup_config_c = config.clone();
+    let backup_clear_c = backup_clear_btn.clone();
+    let backup_toast_c = on_show_toast.clone();
+    let window_weak_backup = window.downgrade();
+
+    backup_browse_btn.connect_clicked(move |_| {
+        let dialog = gtk::FileDialog::builder()
+            .title("Select Backup Folder")
+            .modal(true)
+            .build();
+
+        let window = window_weak_backup.upgrade();
+        let c = backup_config_c.clone();
+        let r = backup_row_c.clone();
+        let cb = backup_clear_c.clone();
+        let t = backup_toast_c.clone();
+
+        dialog.select_folder(
+            window.as_ref(),
+            None::<&gtk::gio::Cancellable>,
+            move |res| match res {
+                Ok(file) => {
+                    if let Some(path) = file.path() {
+                        let path_str = path.to_string_lossy().to_string();
+                        c.borrow_mut().alternative_backup_path = Some(path_str.clone());
+                        let _ = c.borrow().save();
+                        r.set_subtitle(&path_str);
+                        cb.set_visible(true);
+                        t(format!("Backup path set to: {}", path_str));
+                    }
+                }
+                Err(e) => {
+                    println!("Folder selection cancelled/error: {}", e);
+                }
+            },
+        );
+    });
+
+    let backup_clear_config_c = config.clone();
+    let backup_clear_row_c = backup_path_row.clone();
+    let backup_clear_toast_c = on_show_toast.clone();
+
+    backup_clear_btn.connect_clicked(move |btn| {
+        backup_clear_config_c.borrow_mut().alternative_backup_path = None;
+        let _ = backup_clear_config_c.borrow().save();
+        backup_clear_row_c.set_subtitle("Default (Config Dir/backups)");
+        btn.set_visible(false);
+        backup_clear_toast_c("Reset backup path to default".to_string());
+    });
+
+    backup_path_row.add_suffix(&backup_browse_btn);
+    backup_path_row.add_suffix(&backup_clear_btn);
+    group_config.add(&backup_path_row);
+
     page_general.add(&group_config);
 
     let group_backup = adw::PreferencesGroup::builder()

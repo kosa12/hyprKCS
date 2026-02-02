@@ -5,6 +5,40 @@ use chrono::Local;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+fn expand_tilde(path_str: &str) -> PathBuf {
+    if let Some(stripped) = path_str.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(stripped);
+        }
+    } else if path_str == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    PathBuf::from(path_str)
+}
+
+fn get_backup_root() -> Result<PathBuf> {
+    // 1. Check CLI/Env override
+    if let Ok(env_path) = std::env::var("HYPRKCS_BACKUP_PATH") {
+        return Ok(expand_tilde(&env_path));
+    }
+
+    // 2. Check Config setting
+    let config = StyleConfig::load();
+    if let Some(alt_path) = config.alternative_backup_path {
+        if !alt_path.trim().is_empty() {
+            return Ok(expand_tilde(&alt_path));
+        }
+    }
+
+    // 3. Default
+    let config_dir = dirs::config_dir().context("Could not find config directory")?;
+    Ok(config_dir
+        .join(constants::HYPR_DIR)
+        .join(constants::BACKUP_DIR))
+}
+
 pub fn perform_backup(force: bool) -> Result<String> {
     let config = StyleConfig::load();
 
@@ -14,7 +48,7 @@ pub fn perform_backup(force: bool) -> Result<String> {
 
     let config_dir = dirs::config_dir().context("Could not find config directory")?;
     let hypr_dir = config_dir.join(constants::HYPR_DIR);
-    let backup_root = hypr_dir.join(constants::BACKUP_DIR);
+    let backup_root = get_backup_root()?;
 
     let now = Local::now();
     let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
@@ -248,10 +282,7 @@ pub fn generate_diff(backup_path: &Path) -> Result<String> {
 }
 
 pub fn list_backups() -> Result<Vec<PathBuf>> {
-    let config_dir = dirs::config_dir().context("Could not find config directory")?;
-    let backup_root = config_dir
-        .join(constants::HYPR_DIR)
-        .join(constants::BACKUP_DIR);
+    let backup_root = get_backup_root()?;
 
     if !backup_root.exists() {
         return Ok(Vec::new());
