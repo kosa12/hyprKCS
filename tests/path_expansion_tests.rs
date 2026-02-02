@@ -43,12 +43,16 @@ impl Drop for TempDir {
 #[test]
 fn test_get_config_path_tilde_expansion() {
     let _guard = lock_env();
-    
+
     std::env::set_var("HYPRKCS_CONFIG", "~/test_config.conf");
     let path = get_config_path().expect("get_config_path failed");
-    
+
     let path_str = path.to_string_lossy();
-    assert!(!path_str.starts_with('~'), "Path should not start with ~: {}", path_str);
+    assert!(
+        !path_str.starts_with('~'),
+        "Path should not start with ~: {}",
+        path_str
+    );
     assert!(path.is_absolute(), "Path should be absolute: {}", path_str);
 }
 
@@ -56,7 +60,7 @@ fn test_get_config_path_tilde_expansion() {
 fn test_source_tilde_expansion() {
     let _guard = lock_env();
     let temp_dir = TempDir::new();
-    
+
     let main_conf = temp_dir.path.join("hyprland.conf");
     let nested_dir = temp_dir.path.join("nested");
     fs::create_dir(&nested_dir).expect("Failed to create nested dir");
@@ -66,7 +70,7 @@ fn test_source_tilde_expansion() {
     fs::write(&nested_conf, "bind = SUPER, S, exec, source_works").expect("Failed to write nested");
 
     std::env::set_var("HYPRKCS_CONFIG", &temp_dir.path);
-    
+
     let binds = parse_config().expect("Failed to parse config");
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].key.as_ref(), "S");
