@@ -24,6 +24,10 @@ fn main() -> glib::ExitCode {
         std::env::set_var("HYPRKCS_CONFIG", config_path);
     }
 
+    if let Some(backup_path) = args.backup_path {
+        std::env::set_var("HYPRKCS_BACKUP_PATH", backup_path);
+    }
+
     if args.print || args.search.is_some() {
         match parser::parse_config() {
             Ok(binds) => {

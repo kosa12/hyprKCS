@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub struct Args {
     pub config: Option<PathBuf>,
+    pub backup_path: Option<PathBuf>,
     pub print: bool,
     pub search: Option<String>,
     pub doctor: bool,
@@ -20,6 +21,7 @@ impl Args {
         T: Into<String>,
     {
         let mut config = None;
+        let mut backup_path = None;
         let mut print = false;
         let mut search = None;
         let mut doctor = false;
@@ -32,6 +34,11 @@ impl Args {
                 "-c" | "--config" => {
                     if let Some(path) = args_iter.next() {
                         config = Some(PathBuf::from(path.into()));
+                    }
+                }
+                "-b" | "--backup-path" => {
+                    if let Some(path) = args_iter.next() {
+                        backup_path = Some(PathBuf::from(path.into()));
                     }
                 }
                 "-p" | "--print" => print = true,
@@ -47,15 +54,20 @@ impl Args {
                     println!("\nUsage: hyprkcs [OPTIONS]");
                     println!("\nOptions:");
                     println!(
-                        "  -c, --config <PATH>  Path to the Hyprland config file or directory"
+                        "  -c, --config <PATH>       Path to the Hyprland config file or directory"
                     );
-                    println!("  -p, --print          Print parsed keybinds to stdout and exit");
+                    println!("  -b, --backup-path <PATH>  Alternative directory for backups");
                     println!(
-                        "  -s, --search <TERM>  Filter keybinds by a search term (implies --print)"
+                        "  -p, --print               Print parsed keybinds to stdout and exit"
                     );
-                    println!("  --doctor             Check system compatibility and report issues");
-                    println!("  --hud                Launch the Wallpaper HUD");
-                    println!("  -h, --help           Print this help message");
+                    println!(
+                        "  -s, --search <TERM>       Filter keybinds by a search term (implies --print)"
+                    );
+                    println!(
+                        "  --doctor                  Check system compatibility and report issues"
+                    );
+                    println!("  --hud                     Launch the Wallpaper HUD");
+                    println!("  -h, --help                Print this help message");
                     std::process::exit(0);
                 }
                 "-v" | "--version" | "-V" => {
@@ -68,6 +80,7 @@ impl Args {
 
         Args {
             config,
+            backup_path,
             print,
             search,
             doctor,
