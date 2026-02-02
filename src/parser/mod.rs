@@ -30,7 +30,7 @@ pub struct Variable {
 
 pub fn get_config_path() -> Result<PathBuf> {
     if let Ok(env_path) = std::env::var("HYPRKCS_CONFIG") {
-        let path = PathBuf::from(env_path);
+        let path = expand_tilde(&env_path);
         if path.is_dir() {
             return Ok(path.join(crate::config::constants::HYPRLAND_CONF));
         }
@@ -41,7 +41,7 @@ pub fn get_config_path() -> Result<PathBuf> {
     let style_config = crate::config::StyleConfig::load();
     if let Some(alt_path) = style_config.alternative_config_path {
         if !alt_path.trim().is_empty() {
-            let path = PathBuf::from(alt_path);
+            let path = expand_tilde(&alt_path);
             // If user pointed to a folder, append default config name
             if path.is_dir() {
                 return Ok(path.join(crate::config::constants::HYPRLAND_CONF));
@@ -54,6 +54,19 @@ pub fn get_config_path() -> Result<PathBuf> {
     path.push(crate::config::constants::HYPR_DIR);
     path.push(crate::config::constants::HYPRLAND_CONF);
     Ok(path)
+}
+
+fn expand_tilde(path_str: &str) -> PathBuf {
+    if let Some(stripped) = path_str.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(stripped);
+        }
+    } else if path_str == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    PathBuf::from(path_str)
 }
 
 fn resolve_variables(
@@ -98,10 +111,7 @@ fn expand_path(
     let path_str = resolved_path_str.trim();
 
     if path_str.starts_with('~') {
-        if let Some(home) = dirs::home_dir() {
-            let s: &str = &path_str[2..];
-            return home.join(s);
-        }
+        return expand_tilde(path_str);
     }
 
     let p = PathBuf::from(path_str);
