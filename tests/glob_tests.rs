@@ -205,3 +205,33 @@ fn test_hyprland_d_directory_structure() {
     assert_eq!(binds.len(), 1, "Failed to load keybinds from nested .d structure");
     assert_eq!(binds[0].key.as_ref(), "K");
 }
+
+#[test]
+fn test_exact_user_reproduction() {
+    let _guard = lock_env();
+    let temp = TempDir::new();
+
+    // Recreating user's structure
+    // ~/.config/hypr (root of temp)
+    //   custom.d/regular/keybinds.conf
+    //   hyprland.conf sourcing ./custom.d/regular/.conf
+    
+    temp.create_file("hyprland.conf", "source = ./custom.d/regular/.conf");
+    
+    // The content from user's keybinds.conf (simplified)
+    temp.create_file(
+        "custom.d/regular/keybinds.conf", 
+        "bind = SUPER, Q, exec, kitty\nbind = SUPER, W, killactive"
+    );
+
+    std::env::set_var("HYPRKCS_CONFIG", temp.path.join("hyprland.conf"));
+
+    let binds = parse_config().expect("Failed to parse user reproduction config");
+    
+    // User expects these binds to be found
+    let has_q = binds.iter().any(|b| b.key.as_ref() == "Q" && b.dispatcher.as_ref() == "exec" && b.args.as_ref() == "kitty");
+    let has_w = binds.iter().any(|b| b.key.as_ref() == "W" && b.dispatcher.as_ref() == "killactive");
+
+    assert!(has_q, "Failed to find SUPER+Q bind");
+    assert!(has_w, "Failed to find SUPER+W bind");
+}
