@@ -135,13 +135,13 @@ fn test_glob_dot_segment() {
 fn test_glob_typo_fallback() {
     let _guard = lock_env();
     let temp = TempDir::new();
-    
+
     // Test fallback: source = ./typo/.conf (file .conf doesn't exist) -> treats as *.conf
     temp.create_file("hyprland.conf", "source = ./typo/.conf");
     temp.create_file("typo/real.conf", "bind = SUPER, F, exec, fallback");
-    
+
     std::env::set_var("HYPRKCS_CONFIG", temp.path.join("hyprland.conf"));
-    
+
     let binds = parse_config().expect("Failed to parse");
     assert_eq!(binds.len(), 1, "Failed to use fallback for .conf");
     assert_eq!(binds[0].key.as_ref(), "F");
@@ -151,13 +151,13 @@ fn test_glob_typo_fallback() {
 fn test_glob_dot_d_directory() {
     let _guard = lock_env();
     let temp = TempDir::new();
-    
+
     // Test directory with .d extension: ./conf.d/*.conf
     temp.create_file("hyprland.conf", "source = ./conf.d/*.conf");
     temp.create_file("conf.d/test.conf", "bind = SUPER, D, exec, dot_d");
-    
+
     std::env::set_var("HYPRKCS_CONFIG", temp.path.join("hyprland.conf"));
-    
+
     let binds = parse_config().expect("Failed to parse");
     assert_eq!(binds.len(), 1, "Failed to parse from .d directory");
     assert_eq!(binds[0].args.as_ref(), "dot_d");
@@ -167,23 +167,26 @@ fn test_glob_dot_d_directory() {
 fn test_directory_source() {
     let _guard = lock_env();
     let temp = TempDir::new();
-    
+
     // Test direct directory sourcing: source = ./confdir (now recursive)
     temp.create_file("hyprland.conf", "source = ./confdir");
     temp.create_file("confdir/a.conf", "bind = SUPER, A, exec, echo A");
     temp.create_file("confdir/b.conf", "bind = SUPER, B, exec, echo B");
     // Nested file should now be picked up
-    temp.create_file("confdir/nested/nested.conf", "bind = SUPER, N, exec, nested");
-    
+    temp.create_file(
+        "confdir/nested/nested.conf",
+        "bind = SUPER, N, exec, nested",
+    );
+
     std::env::set_var("HYPRKCS_CONFIG", temp.path.join("hyprland.conf"));
-    
+
     let binds = parse_config().expect("Failed to parse directory source");
     assert_eq!(binds.len(), 3, "Expected 3 binds from recursive directory");
-    
+
     let has_a = binds.iter().any(|b| b.key.as_ref() == "A");
     let has_b = binds.iter().any(|b| b.key.as_ref() == "B");
     let has_n = binds.iter().any(|b| b.key.as_ref() == "N");
-    
+
     assert!(has_a);
     assert!(has_b);
     assert!(has_n, "Failed to recursively source nested subdirectory");
@@ -196,13 +199,23 @@ fn test_hyprland_d_directory_structure() {
 
     // Structure: hyprland.d/hyprland.conf
     //            hyprland.d/custom.d/regular/keybinds.conf
-    let main_conf = temp.create_file("hyprland.d/hyprland.conf", "source = ./custom.d/regular/.conf");
-    temp.create_file("hyprland.d/custom.d/regular/keybinds.conf", "bind = SUPER, K, exec, loaded");
+    let main_conf = temp.create_file(
+        "hyprland.d/hyprland.conf",
+        "source = ./custom.d/regular/.conf",
+    );
+    temp.create_file(
+        "hyprland.d/custom.d/regular/keybinds.conf",
+        "bind = SUPER, K, exec, loaded",
+    );
 
     std::env::set_var("HYPRKCS_CONFIG", &main_conf);
 
     let binds = parse_config().expect("Failed to parse hyprland.d structure");
-    assert_eq!(binds.len(), 1, "Failed to load keybinds from nested .d structure");
+    assert_eq!(
+        binds.len(),
+        1,
+        "Failed to load keybinds from nested .d structure"
+    );
     assert_eq!(binds[0].key.as_ref(), "K");
 }
 
@@ -215,22 +228,26 @@ fn test_exact_user_reproduction() {
     // ~/.config/hypr (root of temp)
     //   custom.d/regular/keybinds.conf
     //   hyprland.conf sourcing ./custom.d/regular/.conf
-    
+
     temp.create_file("hyprland.conf", "source = ./custom.d/regular/.conf");
-    
+
     // The content from user's keybinds.conf (simplified)
     temp.create_file(
-        "custom.d/regular/keybinds.conf", 
-        "bind = SUPER, Q, exec, kitty\nbind = SUPER, W, killactive"
+        "custom.d/regular/keybinds.conf",
+        "bind = SUPER, Q, exec, kitty\nbind = SUPER, W, killactive",
     );
 
     std::env::set_var("HYPRKCS_CONFIG", temp.path.join("hyprland.conf"));
 
     let binds = parse_config().expect("Failed to parse user reproduction config");
-    
+
     // User expects these binds to be found
-    let has_q = binds.iter().any(|b| b.key.as_ref() == "Q" && b.dispatcher.as_ref() == "exec" && b.args.as_ref() == "kitty");
-    let has_w = binds.iter().any(|b| b.key.as_ref() == "W" && b.dispatcher.as_ref() == "killactive");
+    let has_q = binds.iter().any(|b| {
+        b.key.as_ref() == "Q" && b.dispatcher.as_ref() == "exec" && b.args.as_ref() == "kitty"
+    });
+    let has_w = binds
+        .iter()
+        .any(|b| b.key.as_ref() == "W" && b.dispatcher.as_ref() == "killactive");
 
     assert!(has_q, "Failed to find SUPER+Q bind");
     assert!(has_w, "Failed to find SUPER+W bind");
