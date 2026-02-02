@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use dirs::config_dir;
+use glob::glob;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -205,6 +206,26 @@ fn load_config_data() -> Result<ConfigData> {
 
         ctx.visited.insert(path.clone());
 
+        // Support for directory sourcing (Hyprland feature)
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&path) {
+                let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+                paths.sort(); // Alphabetical order
+                for sub_path in paths {
+                    let _ = collect_recursive(
+                        sub_path,
+                        ctx,
+                        file_cache,
+                        path_cache,
+                        defined_variables,
+                        system_root,
+                        active_root,
+                    );
+                }
+            }
+            return Ok(());
+        }
+
         // Get or create shared path reference
         let shared_path = path_cache
             .entry(path.clone())
@@ -259,7 +280,12 @@ fn load_config_data() -> Result<ConfigData> {
             else if let Some(rest) = line.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                    let path_str = path_part.split('#').next().unwrap_or("").trim();
+                    let path_str = path_part
+                        .split('#')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .trim_matches('"');
 
                     // Only get sorted keys if path contains variables
                     let mut sourced_path = if path_str.contains('$') {
@@ -269,33 +295,51 @@ fn load_config_data() -> Result<ConfigData> {
                         expand_path(path_str, &path, &ctx.variables, &[])
                     };
 
-                    // --- Re-rooting Logic ---
-                    // If we are scanning a custom directory, prefer files in that directory
-                    // if they mirror the structure of the system config directory.
-                    if system_root != active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
-                            let remapped = active_root.join(suffix);
-                            if remapped.exists() {
-                                sourced_path = remapped;
-                            }
-                        } else if !sourced_path.exists() {
-                            // Fallback: If path is absolute but not strictly under system_root
-                            // (e.g. different expansion of ~ ?), we might want to try finding it
-                            // relative to active_root anyway?
-                            // For now, let's keep strictly mapping system_root -> active_root
-                            // to avoid false positives.
+                    // Fallback: If path ends in /.conf and doesn't exist, try /*.conf
+                    // This handles potential typos or specific user patterns where .conf implies *.conf
+                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
+                        if let Some(parent) = sourced_path.parent() {
+                            sourced_path = parent.join("*.conf");
                         }
                     }
 
-                    let _ = collect_recursive(
-                        sourced_path,
-                        ctx,
-                        file_cache,
-                        path_cache,
-                        defined_variables,
-                        system_root,
-                        active_root,
-                    );
+                    // --- Re-rooting Logic ---
+                    if system_root != active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
+                            let remapped = active_root.join(suffix);
+                            // Check if remapped path exists or is a glob pattern that matches files
+                            let remapped_str = remapped.to_string_lossy();
+                            let is_glob = remapped_str.contains('*')
+                                || remapped_str.contains('?')
+                                || remapped_str.contains('[');
+
+                            if remapped.exists()
+                                || (is_glob
+                                    && glob(&remapped_str)
+                                        .map_or(false, |mut p| p.next().is_some()))
+                            {
+                                sourced_path = remapped;
+                            }
+                        }
+                    }
+
+                    // Use glob to expand wildcards
+                    let pattern = sourced_path.to_string_lossy();
+                    if let Ok(paths) = glob(&pattern) {
+                        for entry in paths {
+                            if let Ok(p) = entry {
+                                let _ = collect_recursive(
+                                    p,
+                                    ctx,
+                                    file_cache,
+                                    path_cache,
+                                    defined_variables,
+                                    system_root,
+                                    active_root,
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -701,6 +745,28 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
         visited.insert(path.clone());
 
+        // Support for directory sourcing (Hyprland feature)
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&path) {
+                let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+                paths.sort(); // Alphabetical order
+                for sub_path in paths {
+                    let _ = parse_recursive(
+                        sub_path,
+                        keybinds,
+                        variables,
+                        sorted_keys,
+                        visited,
+                        current_submap,
+                        file_cache,
+                        system_root,
+                        active_root,
+                    );
+                }
+            }
+            return Ok(());
+        }
+
         // Use cached content or read if missing (should be in cache from load_config_data, but fallback)
         let content = if let Some(cached) = file_cache.get(&path) {
             cached.clone()
@@ -863,31 +929,61 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             else if let Some(rest) = line_trimmed.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                    let path_str = path_part.split('#').next().unwrap_or("").trim();
+                    let path_str = path_part
+                        .split('#')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .trim_matches('"');
 
                     let mut sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+
+                    // Fallback: If path ends in /.conf and doesn't exist, try /*.conf
+                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
+                        if let Some(parent) = sourced_path.parent() {
+                            sourced_path = parent.join("*.conf");
+                        }
+                    }
 
                     // --- Re-rooting Logic ---
                     if system_root != active_root {
                         if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
                             let remapped = active_root.join(suffix);
-                            if remapped.exists() {
+                            // Check if remapped path exists or is a glob pattern that matches files
+                            let remapped_str = remapped.to_string_lossy();
+                            let is_glob = remapped_str.contains('*')
+                                || remapped_str.contains('?')
+                                || remapped_str.contains('[');
+
+                            if remapped.exists()
+                                || (is_glob
+                                    && glob(&remapped_str)
+                                        .map_or(false, |mut p| p.next().is_some()))
+                            {
                                 sourced_path = remapped;
                             }
                         }
                     }
 
-                    let _ = parse_recursive(
-                        sourced_path,
-                        keybinds,
-                        variables,
-                        sorted_keys,
-                        visited,
-                        current_submap,
-                        file_cache,
-                        system_root,
-                        active_root,
-                    );
+                    // Use glob to expand wildcards
+                    let pattern = sourced_path.to_string_lossy();
+                    if let Ok(paths) = glob(&pattern) {
+                        for entry in paths {
+                            if let Ok(p) = entry {
+                                let _ = parse_recursive(
+                                    p,
+                                    keybinds,
+                                    variables,
+                                    sorted_keys,
+                                    visited,
+                                    current_submap,
+                                    file_cache,
+                                    system_root,
+                                    active_root,
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }

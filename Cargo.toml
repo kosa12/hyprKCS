@@ -1,6 +1,6 @@
 [package]
 name = "hyprKCS"
-version = "1.23.5"
+version = "1.23.6"
 edition = "2021"
 license = "GPL-3.0"
 description = "A fast, lightweight, and graphical keybind manager for Hyprland"
@@ -28,6 +28,7 @@ libc = "0.2"
 chrono = { version = "0.4.43", default-features = false, features = ["clock"] }
 similar = "2.7.0"
 notify = { version = "8.2.0", default-features = false }
+glob = "0.3.3"
 
 [[bin]]
 name = "hyprkcs"

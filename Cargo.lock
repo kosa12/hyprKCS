@@ -386,6 +386,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
+
+[[package]]
 name = "gobject-sys"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -544,12 +550,13 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hyprKCS"
-version = "1.23.5"
+version = "1.23.6"
 dependencies = [
  "anyhow",
  "chrono",
  "dirs",
  "fuzzy-matcher",
+ "glob",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
