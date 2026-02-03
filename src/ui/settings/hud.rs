@@ -183,10 +183,7 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
 
         // Check if this keybind is already selected
         let is_selected = config.borrow().keybinds.iter().any(|kb| {
-            &*kb.mods == &*mods
-                && &*kb.key == &*key
-                && &*kb.dispatcher == &*disp
-                && &*kb.args == &*args
+            *kb.mods == *mods && *kb.key == *key && *kb.dispatcher == *disp && *kb.args == *args
         });
         check.set_active(is_selected);
 

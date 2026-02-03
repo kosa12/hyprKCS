@@ -403,7 +403,7 @@ pub fn load_css() {
         settings.connect_notify_local(None, move |_, pspec| {
             let name = pspec.name();
             if matches!(
-                &*name,
+                name,
                 "gtk-theme-name" | "gtk-color-scheme" | "gtk-application-prefer-dark-theme"
             ) {
                 reload();
@@ -415,7 +415,7 @@ pub fn load_css() {
     let reload = reload_all;
     manager.connect_notify_local(None, move |_, pspec| {
         let name = pspec.name();
-        if matches!(&*name, "dark" | "accent-color" | "color-scheme") {
+        if matches!(name, "dark" | "accent-color" | "color-scheme") {
             reload();
         }
     });

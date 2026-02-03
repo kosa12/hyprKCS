@@ -80,7 +80,7 @@ pub fn perform_backup(force: bool) -> Result<String> {
         // unless we want to suppress that specific error.
         // But since we are recursing into existing dirs, it should be fine.
         // However, the initial call passes hypr_dir which might be missing? (Unlikely for valid config)
-        
+
         match fs::read_dir(current_dir) {
             Ok(entries) => {
                 for entry in entries {
@@ -88,12 +88,12 @@ pub fn perform_backup(force: bool) -> Result<String> {
                     let path = entry.path();
                     let file_name = entry.file_name();
                     let file_name_str = file_name.to_string_lossy();
-        
+
                     // Skip backup directory and hidden files/directories (like .git)
                     if file_name == constants::BACKUP_DIR || file_name_str.starts_with('.') {
                         continue;
                     }
-        
+
                     if path.is_dir() {
                         // Recursively backup subdirectories
                         backup_recursive(&path, hypr_root, backup_root, count, errors)?;
@@ -101,15 +101,17 @@ pub fn perform_backup(force: bool) -> Result<String> {
                         // Backup file
                         if let Ok(rel_path) = path.strip_prefix(hypr_root) {
                             let dest = backup_root.join(rel_path);
-        
+
                             if let Some(parent) = dest.parent() {
                                 if let Err(e) = fs::create_dir_all(parent) {
-                                    errors
-                                        .push(format!("Failed to create parent dir for {:?}: {}", dest, e));
+                                    errors.push(format!(
+                                        "Failed to create parent dir for {:?}: {}",
+                                        dest, e
+                                    ));
                                     continue;
                                 }
                             }
-        
+
                             if let Err(e) = fs::copy(&path, &dest) {
                                 errors.push(format!("Failed to backup {:?}: {}", path, e));
                             } else {

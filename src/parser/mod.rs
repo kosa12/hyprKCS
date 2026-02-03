@@ -354,7 +354,7 @@ fn load_config_data() -> Result<ConfigData> {
                     // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
                     if !is_glob_pattern(&pattern) {
-                         let _ = collect_recursive(
+                        let _ = collect_recursive(
                             sourced_path,
                             ctx,
                             file_cache,
@@ -1004,7 +1004,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
                     if !is_glob_pattern(&pattern) {
-                         let _ = parse_recursive(
+                        let _ = parse_recursive(
                             sourced_path,
                             keybinds,
                             variables,
