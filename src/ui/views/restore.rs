@@ -63,7 +63,8 @@ pub fn create_restore_view(
     scroll.set_child(Some(&list_box));
     container.append(&scroll);
 
-    let backups = list_backups().unwrap_or_default();
+    let config = crate::config::StyleConfig::load();
+    let backups = list_backups(Some(&config)).unwrap_or_default();
 
     if backups.is_empty() {
         let no_backups = adw::StatusPage::builder()

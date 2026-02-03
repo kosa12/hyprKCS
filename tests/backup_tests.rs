@@ -66,7 +66,7 @@ fn test_backup_and_restore() {
     let result = perform_backup(true).expect("Backup failed");
     assert!(result.contains("Backed up 2 files"));
 
-    let backups = list_backups().expect("Failed to list backups");
+    let backups = list_backups(None).expect("Failed to list backups");
     assert_eq!(backups.len(), 1);
     let backup_path = &backups[0];
 
@@ -106,7 +106,7 @@ fn test_prune_backups() {
 
     perform_backup(false).expect("Backup failed");
 
-    let backups = list_backups().expect("Failed to list backups");
+    let backups = list_backups(None).expect("Failed to list backups");
     assert_eq!(backups.len(), 3);
 }
 
@@ -121,7 +121,7 @@ fn test_generate_diff() {
     fs::write(&conf_path, "line1\nline2\n").unwrap();
 
     perform_backup(true).unwrap();
-    let backups = list_backups().unwrap();
+    let backups = list_backups(None).unwrap();
     let backup_path = &backups[0];
 
     fs::write(&conf_path, "line1\nline2 modified\nline3\n").unwrap();

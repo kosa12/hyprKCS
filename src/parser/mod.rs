@@ -70,6 +70,10 @@ fn expand_tilde(path_str: &str) -> PathBuf {
     PathBuf::from(path_str)
 }
 
+fn is_glob_pattern(s: &str) -> bool {
+    s.contains('*') || s.contains('?') || s.contains('[')
+}
+
 fn resolve_variables(
     input: &str,
     vars: &HashMap<String, String>,
@@ -78,15 +82,41 @@ fn resolve_variables(
     if !input.contains('$') {
         return input.to_string();
     }
-    let mut result = input.to_string();
-    for key in sorted_keys {
-        if result.contains(key) {
-            result = result.replace(key, &vars[key]);
-            if !result.contains('$') {
+
+    let mut result = String::with_capacity(input.len());
+    let mut remaining = input;
+
+    while let Some(idx) = remaining.find('$') {
+        result.push_str(&remaining[..idx]);
+        remaining = &remaining[idx..];
+
+        let mut matched = false;
+        // sorted_keys are sorted by length descending, so the first match is the longest
+        for key in sorted_keys {
+            if remaining.starts_with(key) {
+                if let Some(val) = vars.get(key) {
+                    result.push_str(val);
+                    remaining = &remaining[key.len()..];
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        if !matched {
+            // No variable matched, keep the '$' and advance
+            // We need to advance by at least 1 char to avoid infinite loop
+            // Handle potentially multi-byte char if '$' wasn't 1 byte (it is, but good practice)
+            let mut chars = remaining.chars();
+            if let Some(c) = chars.next() {
+                result.push(c);
+                remaining = chars.as_str();
+            } else {
                 break;
             }
         }
     }
+    result.push_str(remaining);
     result
 }
 
@@ -309,9 +339,7 @@ fn load_config_data() -> Result<ConfigData> {
                             let remapped = active_root.join(suffix);
                             // Check if remapped path exists or is a glob pattern that matches files
                             let remapped_str = remapped.to_string_lossy();
-                            let is_glob = remapped_str.contains('*')
-                                || remapped_str.contains('?')
-                                || remapped_str.contains('[');
+                            let is_glob = is_glob_pattern(&remapped_str);
 
                             if remapped.exists()
                                 || (is_glob
@@ -325,7 +353,17 @@ fn load_config_data() -> Result<ConfigData> {
 
                     // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
-                    if let Ok(paths) = glob(&pattern) {
+                    if !is_glob_pattern(&pattern) {
+                         let _ = collect_recursive(
+                            sourced_path,
+                            ctx,
+                            file_cache,
+                            path_cache,
+                            defined_variables,
+                            system_root,
+                            active_root,
+                        );
+                    } else if let Ok(paths) = glob(&pattern) {
                         for entry in paths {
                             if let Ok(p) = entry {
                                 let _ = collect_recursive(
@@ -951,9 +989,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                             let remapped = active_root.join(suffix);
                             // Check if remapped path exists or is a glob pattern that matches files
                             let remapped_str = remapped.to_string_lossy();
-                            let is_glob = remapped_str.contains('*')
-                                || remapped_str.contains('?')
-                                || remapped_str.contains('[');
+                            let is_glob = is_glob_pattern(&remapped_str);
 
                             if remapped.exists()
                                 || (is_glob
@@ -967,7 +1003,19 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
                     // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
-                    if let Ok(paths) = glob(&pattern) {
+                    if !is_glob_pattern(&pattern) {
+                         let _ = parse_recursive(
+                            sourced_path,
+                            keybinds,
+                            variables,
+                            sorted_keys,
+                            visited,
+                            current_submap,
+                            file_cache,
+                            system_root,
+                            active_root,
+                        );
+                    } else if let Ok(paths) = glob(&pattern) {
                         for entry in paths {
                             if let Ok(p) = entry {
                                 let _ = parse_recursive(
