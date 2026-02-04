@@ -1,6 +1,6 @@
 [package]
 name = "hyprKCS"
-version = "1.23.7"
+version = "1.23.8"
 edition = "2021"
 license = "GPL-3.0"
 description = "A fast, lightweight, and graphical keybind manager for Hyprland"

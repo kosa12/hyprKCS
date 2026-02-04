@@ -105,6 +105,19 @@ pub fn create_flat_button(icon: &str, tooltip: &str) -> gtk::Button {
         .build()
 }
 
+pub fn create_close_button() -> gtk::Button {
+    let close_btn = create_flat_button("window-close-symbolic", "Close Application");
+    close_btn.add_css_class("destructive-action");
+    close_btn.connect_clicked(|b| {
+        if let Some(root) = b.root() {
+            if let Some(window) = root.downcast_ref::<gtk::Window>() {
+                window.close();
+            }
+        }
+    });
+    close_btn
+}
+
 pub fn create_page_header(
     title: &str,
     subtitle: Option<&str>,
@@ -136,8 +149,11 @@ pub fn create_page_header(
         title_box.append(&sub_label);
     }
 
+    let close_btn = create_close_button();
+
     header_box.append(&back_btn);
     header_box.append(&title_box);
+    header_box.append(&close_btn);
     header_box
 }
 
