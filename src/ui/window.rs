@@ -1,7 +1,7 @@
 use crate::config::favorites::{load_favorites, save_favorites, toggle_favorite, FavoriteKeybind};
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::{create_flat_button, reload_keybinds, SearchQuery};
+use crate::ui::utils::{create_close_button, create_flat_button, reload_keybinds, SearchQuery};
 use crate::ui::views::{create_add_view, create_edit_view};
 use crate::ui::wizards::{create_bulk_replace_wizard, create_conflict_wizard};
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -407,6 +407,10 @@ pub fn build_ui(app: &adw::Application) {
     top_box.append(&backup_button);
     top_box.append(&keyboard_button);
     top_box.append(&settings_button);
+
+    let close_button = create_close_button();
+    let close_button_main = close_button.clone();
+    top_box.append(&close_button);
 
     // Status Page (Empty State)
     let status_page = adw::StatusPage::builder()
@@ -1160,6 +1164,12 @@ pub fn build_ui(app: &adw::Application) {
             std::rc::Rc::new(move |s| {
                 if let Some(c) = col_submap_w.upgrade() {
                     c.set_visible(s)
+                }
+            }),
+            std::rc::Rc::new({
+                let close_button_main = close_button_main.clone();
+                move |s| {
+                    close_button_main.set_visible(s);
                 }
             }),
             std::rc::Rc::new(move |sort_key| {

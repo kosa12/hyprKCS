@@ -58,6 +58,7 @@ pub fn create_settings_view(
     on_fav_toggle: Rc<dyn Fn(bool)>,
     on_args_toggle: Rc<dyn Fn(bool)>,
     on_submap_toggle: Rc<dyn Fn(bool)>,
+    on_close_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
     on_show_toast: Rc<dyn Fn(String)>,
     on_focus_submap: Rc<dyn Fn(Option<String>)>,
@@ -93,6 +94,15 @@ pub fn create_settings_view(
 
     main_box.append(&header);
     main_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+    let close_btn_settings = header.last_child().and_downcast::<gtk::Button>();
+    let on_close_toggle_settings = on_close_toggle.clone();
+    let on_close_toggle_c = Rc::new(move |s: bool| {
+        if let Some(btn) = &close_btn_settings {
+            btn.set_visible(s);
+        }
+        on_close_toggle_settings(s);
+    });
 
     // --- Sidebar Layout ---
     let sidebar_box = gtk::Box::builder()
@@ -174,6 +184,7 @@ pub fn create_settings_view(
     let on_fav_toggle_c = on_fav_toggle;
     let on_args_toggle_c = on_args_toggle;
     let on_submap_toggle_c = on_submap_toggle;
+    let on_close_toggle_lazy = on_close_toggle_c;
     let on_sort_change_c = on_sort_change;
     let on_focus_submap_c = on_focus_submap;
     let input_config_c = input_config;
@@ -240,6 +251,7 @@ pub fn create_settings_view(
                 on_fav_toggle_c.clone(),
                 on_args_toggle_c.clone(),
                 on_submap_toggle_c.clone(),
+                on_close_toggle_lazy.clone(),
                 on_sort_change_c.clone(),
             )
         );

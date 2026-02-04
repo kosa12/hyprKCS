@@ -27,6 +27,9 @@
 
 hyprKCS provides a simple and intuitive interface to view, edit, and manage your Hyprland keybinds. It automatically parses your `hyprland.conf` (and any sourced files), detects conflicts, and allows you to make changes safely.
 
+> [!NOTE]
+> hyprKCS runs as a **Layer-Shell surface** (Overlay).
+
 <details>
   <summary align="center">View a Live Demo</summary>
   <p align="center">
@@ -115,7 +118,7 @@ cargo build --release
 
 ### Graphical Interface
 
-Launch `hyprkcs` from your application menu or terminal to open the main window.
+Launch `hyprkcs` from your application menu or terminal to open the main window. Because it runs as a **Layer-Shell Overlay**, it may not appear as a traditional window in your taskbar or overview, but it will always be on top of your windows for quick access.
 
 **Keyboard Shortcuts**
 | Key | Action |
@@ -123,7 +126,7 @@ Launch `hyprkcs` from your application menu or terminal to open the main window.
 | `/` | Focus the search bar |
 | `Enter` | Edit the selected keybind |
 | `Ctrl` + `f` | Focus the search bar |
-| `Esc` | Clear search or close the window |
+| `Esc` | Clear search or close the application |
 
 **Advanced Search Syntax**
 

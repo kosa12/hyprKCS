@@ -1,6 +1,6 @@
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
-use crate::ui::utils::components::collect_submaps;
+use crate::ui::utils::components::{collect_submaps, create_close_button};
 use crate::ui::utils::normalize;
 use crate::ui::views::keyboard_layouts::{get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
 use gtk::{gio, prelude::*};
@@ -24,7 +24,8 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     // Title / Back Button
     let header_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    header_box.set_halign(gtk::Align::Center);
+    header_box.set_halign(gtk::Align::Fill);
+
     let back_btn = gtk::Button::builder()
         .icon_name("go-previous-symbolic")
         .css_classes(["flat", "circular"])
@@ -41,10 +42,15 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     let title = gtk::Label::builder()
         .label(format!("Visual Keyboard Map ({})", layout))
         .css_classes(["title-2"])
+        .hexpand(true)
+        .halign(gtk::Align::Center)
         .build();
+
+    let close_btn = create_close_button();
 
     header_box.append(&back_btn);
     header_box.append(&title);
+    header_box.append(&close_btn);
     container.append(&header_box);
 
     // Modifier Toggles & Submap Dropdown
