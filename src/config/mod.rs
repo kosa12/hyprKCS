@@ -18,6 +18,7 @@ pub struct StyleConfig {
     pub show_args: bool,
     pub show_favorites: bool,
     pub show_description: bool,
+    pub show_close_button: bool,
     pub alternating_row_colors: bool,
     pub default_sort: String,
     pub keyboard_layout: String,
@@ -49,6 +50,7 @@ impl Default for StyleConfig {
             show_args: true,
             show_favorites: true,
             show_description: false,
+            show_close_button: true,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
             keyboard_layout: "ANSI".to_string(),
@@ -98,6 +100,7 @@ showSubmaps = false
 showArgs = true
 showFavorites = true
 showDescription = false
+showCloseButton = true
 alternatingRowColors = true
 defaultSort = key
 keyboardLayout = ANSI
@@ -193,6 +196,9 @@ rowPadding = 2px
                     }
                     if let Some(val) = vars.get("showDescription") {
                         config.show_description = val.to_lowercase() == "true";
+                    }
+                    if let Some(val) = vars.get("showCloseButton") {
+                        config.show_close_button = val.to_lowercase() == "true";
                     }
                     if let Some(val) = vars.get("alternatingRowColors") {
                         config.alternating_row_colors = val.to_lowercase() == "true";
@@ -294,6 +300,7 @@ showSubmaps = {}
 showArgs = {}
 showFavorites = {}
 showDescription = {}
+showCloseButton = {}
 alternatingRowColors = {}
 defaultSort = {}
 keyboardLayout = {}
@@ -321,6 +328,7 @@ rowPadding = {}px
                 self.show_args,
                 self.show_favorites,
                 self.show_description,
+                self.show_close_button,
                 self.alternating_row_colors,
                 self.default_sort,
                 self.keyboard_layout,

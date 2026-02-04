@@ -12,9 +12,34 @@ pub fn create_ui_elements_page(
     on_fav_toggle: Rc<dyn Fn(bool)>,
     on_args_toggle: Rc<dyn Fn(bool)>,
     on_submap_toggle: Rc<dyn Fn(bool)>,
+    on_close_toggle: Rc<dyn Fn(bool)>,
     on_sort_change: Rc<dyn Fn(String)>,
 ) -> adw::PreferencesPage {
     let page_ui = adw::PreferencesPage::builder().build();
+
+    let group_general = adw::PreferencesGroup::builder().title("General UI").build();
+
+    // Close Button
+    let close_switch = gtk::Switch::builder()
+        .active(config.borrow().show_close_button)
+        .valign(gtk::Align::Center)
+        .build();
+    let close_row = adw::ActionRow::builder()
+        .title("Show Close Button")
+        .subtitle("Show a dedicated close button in headers (Esc still works).")
+        .activatable_widget(&close_switch)
+        .build();
+    close_row.add_suffix(&close_switch);
+    let c = config.clone();
+    let on_close = on_close_toggle.clone();
+    close_switch.connect_state_set(move |_, s| {
+        c.borrow_mut().show_close_button = s;
+        let _ = c.borrow().save();
+        on_close(s);
+        glib::Propagation::Proceed
+    });
+    group_general.add(&close_row);
+
     let group_cols = adw::PreferencesGroup::builder()
         .title("Table Columns")
         .build();
@@ -145,6 +170,7 @@ pub fn create_ui_elements_page(
     });
     group_sort.add(&sort_row);
 
+    page_ui.add(&group_general);
     page_ui.add(&group_cols);
     page_ui.add(&group_sort);
 

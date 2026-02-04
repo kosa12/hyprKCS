@@ -106,8 +106,10 @@ pub fn create_flat_button(icon: &str, tooltip: &str) -> gtk::Button {
 }
 
 pub fn create_close_button() -> gtk::Button {
+    let config = crate::config::StyleConfig::load();
     let close_btn = create_flat_button("window-close-symbolic", "Close Application");
     close_btn.add_css_class("destructive-action");
+    close_btn.set_visible(config.show_close_button);
     close_btn.connect_clicked(|b| {
         if let Some(root) = b.root() {
             if let Some(window) = root.downcast_ref::<gtk::Window>() {
