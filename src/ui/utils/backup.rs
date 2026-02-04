@@ -18,17 +18,27 @@ fn expand_tilde(path_str: &str) -> PathBuf {
     PathBuf::from(path_str)
 }
 
-fn get_backup_root() -> Result<PathBuf> {
+fn get_backup_root(config: Option<&StyleConfig>) -> Result<PathBuf> {
     // 1. Check CLI/Env override
     if let Ok(env_path) = std::env::var("HYPRKCS_BACKUP_PATH") {
         return Ok(expand_tilde(&env_path));
     }
 
     // 2. Check Config setting
-    let config = StyleConfig::load();
-    if let Some(alt_path) = config.alternative_backup_path {
-        if !alt_path.trim().is_empty() {
-            return Ok(expand_tilde(&alt_path));
+    if let Some(cfg) = config {
+        if let Some(alt_path) = &cfg.alternative_backup_path {
+            if !alt_path.trim().is_empty() {
+                return Ok(expand_tilde(alt_path));
+            }
+        }
+        // If config is provided but no alt path, fall through to default
+    } else {
+        // Only load if not provided
+        let cfg = StyleConfig::load();
+        if let Some(alt_path) = cfg.alternative_backup_path {
+            if !alt_path.trim().is_empty() {
+                return Ok(expand_tilde(&alt_path));
+            }
         }
     }
 
@@ -48,7 +58,7 @@ pub fn perform_backup(force: bool) -> Result<String> {
 
     let config_dir = dirs::config_dir().context("Could not find config directory")?;
     let hypr_dir = config_dir.join(constants::HYPR_DIR);
-    let backup_root = get_backup_root()?;
+    let backup_root = get_backup_root(Some(&config))?;
 
     let now = Local::now();
     let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
@@ -66,43 +76,54 @@ pub fn perform_backup(force: bool) -> Result<String> {
         count: &mut i32,
         errors: &mut Vec<String>,
     ) -> Result<()> {
-        if !current_dir.exists() {
-            return Ok(());
-        }
+        // Optimization: read_dir errors if dir missing, so we don't need explicit exists() check
+        // unless we want to suppress that specific error.
+        // But since we are recursing into existing dirs, it should be fine.
+        // However, the initial call passes hypr_dir which might be missing? (Unlikely for valid config)
 
-        for entry in fs::read_dir(current_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            let file_name = entry.file_name();
-            let file_name_str = file_name.to_string_lossy();
+        match fs::read_dir(current_dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = entry?;
+                    let path = entry.path();
+                    let file_name = entry.file_name();
+                    let file_name_str = file_name.to_string_lossy();
 
-            // Skip backup directory and hidden files/directories (like .git)
-            if file_name == constants::BACKUP_DIR || file_name_str.starts_with('.') {
-                continue;
-            }
+                    // Skip backup directory and hidden files/directories (like .git)
+                    if file_name == constants::BACKUP_DIR || file_name_str.starts_with('.') {
+                        continue;
+                    }
 
-            if path.is_dir() {
-                // Recursively backup subdirectories
-                backup_recursive(&path, hypr_root, backup_root, count, errors)?;
-            } else {
-                // Backup file
-                if let Ok(rel_path) = path.strip_prefix(hypr_root) {
-                    let dest = backup_root.join(rel_path);
+                    if path.is_dir() {
+                        // Recursively backup subdirectories
+                        backup_recursive(&path, hypr_root, backup_root, count, errors)?;
+                    } else {
+                        // Backup file
+                        if let Ok(rel_path) = path.strip_prefix(hypr_root) {
+                            let dest = backup_root.join(rel_path);
 
-                    if let Some(parent) = dest.parent() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            errors
-                                .push(format!("Failed to create parent dir for {:?}: {}", dest, e));
-                            continue;
+                            if let Some(parent) = dest.parent() {
+                                if let Err(e) = fs::create_dir_all(parent) {
+                                    errors.push(format!(
+                                        "Failed to create parent dir for {:?}: {}",
+                                        dest, e
+                                    ));
+                                    continue;
+                                }
+                            }
+
+                            if let Err(e) = fs::copy(&path, &dest) {
+                                errors.push(format!("Failed to backup {:?}: {}", path, e));
+                            } else {
+                                *count += 1;
+                            }
                         }
                     }
-
-                    if let Err(e) = fs::copy(&path, &dest) {
-                        errors.push(format!("Failed to backup {:?}: {}", path, e));
-                    } else {
-                        *count += 1;
-                    }
                 }
+            }
+            Err(_) => {
+                // If directory doesn't exist or permission denied, just skip
+                return Ok(());
             }
         }
         Ok(())
@@ -281,8 +302,8 @@ pub fn generate_diff(backup_path: &Path) -> Result<String> {
     Ok(diff_output)
 }
 
-pub fn list_backups() -> Result<Vec<PathBuf>> {
-    let backup_root = get_backup_root()?;
+pub fn list_backups(config: Option<&StyleConfig>) -> Result<Vec<PathBuf>> {
+    let backup_root = get_backup_root(config)?;
 
     if !backup_root.exists() {
         return Ok(Vec::new());

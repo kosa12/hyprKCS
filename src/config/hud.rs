@@ -22,6 +22,8 @@ impl HudKeybind {
     }
 }
 
+use std::str::FromStr;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HudPosition {
     #[default]
@@ -31,22 +33,27 @@ pub enum HudPosition {
     BottomLeft,
 }
 
-impl HudPosition {
-    pub fn from_str(s: &str) -> Self {
+impl FromStr for HudPosition {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "top-left" => Self::TopLeft,
-            "bottom-right" => Self::BottomRight,
-            "bottom-left" => Self::BottomLeft,
-            _ => Self::TopRight,
+            "top-left" => Ok(Self::TopLeft),
+            "bottom-right" => Ok(Self::BottomRight),
+            "bottom-left" => Ok(Self::BottomLeft),
+            "top-right" => Ok(Self::TopRight),
+            _ => Err(()),
         }
     }
+}
 
-    pub fn to_str(self) -> &'static str {
+impl HudPosition {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::TopRight => "top-right",
             Self::TopLeft => "top-left",
-            Self::BottomRight => "bottom-right",
+            Self::TopRight => "top-right",
             Self::BottomLeft => "bottom-left",
+            Self::BottomRight => "bottom-right",
         }
     }
 }
@@ -96,7 +103,7 @@ pub fn load_hud_config() -> HudConfig {
         if let Some(value) = line.strip_prefix("enabled=") {
             config.enabled = value == "true";
         } else if let Some(value) = line.strip_prefix("position=") {
-            config.position = HudPosition::from_str(value);
+            config.position = HudPosition::from_str(value).unwrap_or_default();
         } else if line.contains('|') {
             let mut parts = line.splitn(4, '|');
             if let (Some(mods), Some(key), Some(disp), Some(args)) =
@@ -133,7 +140,7 @@ pub fn save_hud_config(config: &HudConfig) -> std::io::Result<()> {
     content.push_str(if config.enabled { "true" } else { "false" });
     content.push('\n');
     content.push_str("position=");
-    content.push_str(config.position.to_str());
+    content.push_str(config.position.as_str());
     content.push('\n');
 
     for k in &config.keybinds {

@@ -32,7 +32,7 @@ pub fn build_ui(app: &adw::Application) {
         let _ = &_watcher;
 
         let mut reload = false;
-        while let Ok(_) = receiver.try_recv() {
+        while receiver.try_recv().is_ok() {
             reload = true;
         }
 

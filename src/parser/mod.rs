@@ -70,6 +70,10 @@ fn expand_tilde(path_str: &str) -> PathBuf {
     PathBuf::from(path_str)
 }
 
+fn is_glob_pattern(s: &str) -> bool {
+    s.contains('*') || s.contains('?') || s.contains('[')
+}
+
 fn resolve_variables(
     input: &str,
     vars: &HashMap<String, String>,
@@ -78,15 +82,41 @@ fn resolve_variables(
     if !input.contains('$') {
         return input.to_string();
     }
-    let mut result = input.to_string();
-    for key in sorted_keys {
-        if result.contains(key) {
-            result = result.replace(key, &vars[key]);
-            if !result.contains('$') {
+
+    let mut result = String::with_capacity(input.len());
+    let mut remaining = input;
+
+    while let Some(idx) = remaining.find('$') {
+        result.push_str(&remaining[..idx]);
+        remaining = &remaining[idx..];
+
+        let mut matched = false;
+        // sorted_keys are sorted by length descending, so the first match is the longest
+        for key in sorted_keys {
+            if remaining.starts_with(key) {
+                if let Some(val) = vars.get(key) {
+                    result.push_str(val);
+                    remaining = &remaining[key.len()..];
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        if !matched {
+            // No variable matched, keep the '$' and advance
+            // We need to advance by at least 1 char to avoid infinite loop
+            // Handle potentially multi-byte char if '$' wasn't 1 byte (it is, but good practice)
+            let mut chars = remaining.chars();
+            if let Some(c) = chars.next() {
+                result.push(c);
+                remaining = chars.as_str();
+            } else {
                 break;
             }
         }
     }
+    result.push_str(remaining);
     result
 }
 
@@ -309,14 +339,11 @@ fn load_config_data() -> Result<ConfigData> {
                             let remapped = active_root.join(suffix);
                             // Check if remapped path exists or is a glob pattern that matches files
                             let remapped_str = remapped.to_string_lossy();
-                            let is_glob = remapped_str.contains('*')
-                                || remapped_str.contains('?')
-                                || remapped_str.contains('[');
+                            let is_glob = is_glob_pattern(&remapped_str);
 
                             if remapped.exists()
                                 || (is_glob
-                                    && glob(&remapped_str)
-                                        .map_or(false, |mut p| p.next().is_some()))
+                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
                             {
                                 sourced_path = remapped;
                             }
@@ -325,19 +352,27 @@ fn load_config_data() -> Result<ConfigData> {
 
                     // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
-                    if let Ok(paths) = glob(&pattern) {
-                        for entry in paths {
-                            if let Ok(p) = entry {
-                                let _ = collect_recursive(
-                                    p,
-                                    ctx,
-                                    file_cache,
-                                    path_cache,
-                                    defined_variables,
-                                    system_root,
-                                    active_root,
-                                );
-                            }
+                    if !is_glob_pattern(&pattern) {
+                        let _ = collect_recursive(
+                            sourced_path,
+                            ctx,
+                            file_cache,
+                            path_cache,
+                            defined_variables,
+                            system_root,
+                            active_root,
+                        );
+                    } else if let Ok(paths) = glob(&pattern) {
+                        for p in paths.flatten() {
+                            let _ = collect_recursive(
+                                p,
+                                ctx,
+                                file_cache,
+                                path_cache,
+                                defined_variables,
+                                system_root,
+                                active_root,
+                            );
                         }
                     }
                 }
@@ -711,34 +746,54 @@ pub fn delete_variable(path: PathBuf, line_number: usize) -> Result<()> {
     delete_keybind(path, line_number)
 }
 
+struct RecursiveParseContext<'a> {
+    variables: &'a HashMap<String, String>,
+
+    sorted_keys: &'a [String],
+
+    file_cache: &'a HashMap<PathBuf, Rc<String>>,
+
+    system_root: &'a Path,
+
+    active_root: &'a Path,
+}
+
 pub fn parse_config() -> Result<Vec<Keybind>> {
     let main_path = get_config_path()?;
+
     let data = load_config_data()?;
+
     let variables = data.variables;
+
     let file_cache = data.file_cache;
 
     let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
+
     sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
 
     let mut keybinds = Vec::new();
+
     let mut visited = HashSet::new();
+
     let mut current_submap: Option<Rc<str>> = None;
 
     fn parse_recursive(
         path: PathBuf,
+
         keybinds: &mut Vec<Keybind>,
-        variables: &HashMap<String, String>,
-        sorted_keys: &[String],
+
+        ctx: &RecursiveParseContext,
+
         visited: &mut HashSet<PathBuf>,
+
         current_submap: &mut Option<Rc<str>>,
-        file_cache: &HashMap<PathBuf, Rc<String>>,
-        system_root: &Path,
-        active_root: &Path,
     ) -> Result<()> {
         if visited.contains(&path) {
             return Ok(());
         }
+
         // Skip if path doesn't exist, unless we find it via re-rooting logic which we do BEFORE calling this function recursively
+
         if !path.exists() {
             return Ok(());
         }
@@ -746,29 +801,24 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         visited.insert(path.clone());
 
         // Support for directory sourcing (Hyprland feature)
+
         if path.is_dir() {
             if let Ok(entries) = std::fs::read_dir(&path) {
                 let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+
                 paths.sort(); // Alphabetical order
+
                 for sub_path in paths {
-                    let _ = parse_recursive(
-                        sub_path,
-                        keybinds,
-                        variables,
-                        sorted_keys,
-                        visited,
-                        current_submap,
-                        file_cache,
-                        system_root,
-                        active_root,
-                    );
+                    let _ = parse_recursive(sub_path, keybinds, ctx, visited, current_submap);
                 }
             }
+
             return Ok(());
         }
 
         // Use cached content or read if missing (should be in cache from load_config_data, but fallback)
-        let content = if let Some(cached) = file_cache.get(&path) {
+
+        let content = if let Some(cached) = ctx.file_cache.get(&path) {
             cached.clone()
         } else {
             Rc::new(std::fs::read_to_string(&path).unwrap_or_default())
@@ -778,15 +828,19 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
         for (index, line) in lines.iter().enumerate() {
             let line_trimmed = line.trim();
+
             if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
                 continue;
             }
 
             // Check for submap
+
             if let Some(rest) = line_trimmed.strip_prefix("submap") {
                 let rest_trimmed = rest.trim_start();
+
                 if let Some(val) = rest_trimmed.strip_prefix('=') {
                     let name = val.split('#').next().unwrap_or("").trim();
+
                     if name == "reset" {
                         *current_submap = None;
                     } else {
@@ -799,18 +853,25 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 let rest = rest.trim_start(); // could check flags here like 'e', 'l', etc.
 
                 // extract potential flags: take while alphanumeric
+
                 let flags;
+
                 let mut remaining = rest;
 
                 // Simple manual "take_while" for flags
+
                 // 'bind' is already stripped. "bindl =" -> "l ="
+
                 if let Some(eq_idx) = remaining.find('=') {
                     let potential_flags = remaining[..eq_idx].trim();
+
                     if potential_flags.chars().all(|c| c.is_alphabetic()) {
                         flags = potential_flags.to_string();
+
                         remaining = &remaining[eq_idx + 1..]; // skip '='
                     } else {
                         // malformed or no equals?
+
                         continue;
                     }
                 } else {
@@ -818,72 +879,97 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                 }
 
                 let raw_content = remaining.trim();
+
                 let mut description = None;
 
                 // Check inline
+
                 if let Some(idx) = line.find('#') {
                     let comment = line[idx + 1..].trim();
+
                     if !comment.is_empty() {
                         description = Some(Rc::from(comment));
                     }
                 }
 
                 // Check preceding line if no inline description found
+
                 if description.is_none() && index > 0 {
                     let prev_line = lines[index - 1].trim();
+
                     if prev_line.starts_with('#') {
                         let comment = prev_line.trim_start_matches('#').trim();
+
                         if !comment.is_empty() {
                             description = Some(Rc::from(comment));
                         }
                     }
                 }
 
-                let resolved_content = resolve_variables(raw_content, variables, sorted_keys);
+                let resolved_content =
+                    resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
+
                 let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
 
                 // Custom splitter to respect quotes (e.g. for bash -c "...")
+
                 let mut parts = Vec::with_capacity(5);
+
                 let mut current_part = String::with_capacity(32);
+
                 let mut in_quote = false;
+
                 let mut parts_count = 0;
 
                 let is_bindd = flags == "d";
+
                 let limit = if is_bindd { 4 } else { 3 };
 
                 for c in content_clean.chars() {
                     if parts_count < limit {
                         if c == '"' {
                             in_quote = !in_quote;
+
                             current_part.push(c);
                         } else if c == ',' && !in_quote {
                             parts.push(current_part.trim().to_string());
+
                             current_part.clear();
+
                             parts_count += 1;
                         } else {
                             current_part.push(c);
                         }
                     } else {
                         // For the last part (args), just take everything else
+
                         current_part.push(c);
                     }
                 }
+
                 if !current_part.trim().is_empty() || parts_count >= limit {
                     parts.push(current_part.trim().to_string());
                 }
 
                 if parts.len() >= 3 {
                     let mods: Rc<str>;
+
                     let key: Rc<str>;
+
                     let dispatcher: Rc<str>;
+
                     let args: Rc<str>;
 
                     if is_bindd {
                         mods = Rc::from(parts[0].as_str());
+
                         key = Rc::from(parts[1].as_str());
+
                         // parts[2] is description
+
                         if parts.len() > 2 {
                             let desc_str = parts[2].trim();
+
                             if !desc_str.is_empty() {
                                 description = Some(Rc::from(desc_str));
                             }
@@ -902,8 +988,11 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         }
                     } else {
                         mods = Rc::from(parts[0].as_str());
+
                         key = Rc::from(parts[1].as_str());
+
                         dispatcher = Rc::from(parts[2].as_str());
+
                         args = if parts.len() > 3 {
                             Rc::from(parts[3].as_str())
                         } else {
@@ -913,14 +1002,23 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
                     keybinds.push(Keybind {
                         mods: mods.clone(),
+
                         clean_mods: mods,
+
                         flags: Rc::from(flags.as_str()),
+
                         key,
+
                         dispatcher,
+
                         args,
+
                         description,
+
                         submap: current_submap.clone(),
+
                         line_number: index,
+
                         file_path: path.clone(),
                     });
                 }
@@ -928,6 +1026,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             // Check for source
             else if let Some(rest) = line_trimmed.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
+
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
                     let path_str = path_part
                         .split('#')
@@ -936,9 +1035,11 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                         .trim()
                         .trim_matches('"');
 
-                    let mut sourced_path = expand_path(path_str, &path, variables, sorted_keys);
+                    let mut sourced_path =
+                        expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
 
                     // Fallback: If path ends in /.conf and doesn't exist, try /*.conf
+
                     if !sourced_path.exists() && sourced_path.ends_with(".conf") {
                         if let Some(parent) = sourced_path.parent() {
                             sourced_path = parent.join("*.conf");
@@ -946,19 +1047,20 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     }
 
                     // --- Re-rooting Logic ---
-                    if system_root != active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
-                            let remapped = active_root.join(suffix);
+
+                    if ctx.system_root != ctx.active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
+                            let remapped = ctx.active_root.join(suffix);
+
                             // Check if remapped path exists or is a glob pattern that matches files
+
                             let remapped_str = remapped.to_string_lossy();
-                            let is_glob = remapped_str.contains('*')
-                                || remapped_str.contains('?')
-                                || remapped_str.contains('[');
+
+                            let is_glob = is_glob_pattern(&remapped_str);
 
                             if remapped.exists()
                                 || (is_glob
-                                    && glob(&remapped_str)
-                                        .map_or(false, |mut p| p.next().is_some()))
+                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
                             {
                                 sourced_path = remapped;
                             }
@@ -966,49 +1068,53 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
                     }
 
                     // Use glob to expand wildcards
+
                     let pattern = sourced_path.to_string_lossy();
-                    if let Ok(paths) = glob(&pattern) {
-                        for entry in paths {
-                            if let Ok(p) = entry {
-                                let _ = parse_recursive(
-                                    p,
-                                    keybinds,
-                                    variables,
-                                    sorted_keys,
-                                    visited,
-                                    current_submap,
-                                    file_cache,
-                                    system_root,
-                                    active_root,
-                                );
-                            }
+
+                    if !is_glob_pattern(&pattern) {
+                        let _ =
+                            parse_recursive(sourced_path, keybinds, ctx, visited, current_submap);
+                    } else if let Ok(paths) = glob(&pattern) {
+                        for p in paths.flatten() {
+                            let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
                         }
                     }
                 }
             }
         }
+
         Ok(())
     }
 
     let system_root = config_dir()
         .unwrap_or_default()
         .join(crate::config::constants::HYPR_DIR);
+
     let active_root = main_path
         .parent()
         .unwrap_or(&PathBuf::from("."))
         .to_path_buf();
 
+    let ctx = RecursiveParseContext {
+        variables: &variables,
+
+        sorted_keys: &sorted_keys,
+
+        file_cache: &file_cache,
+
+        system_root: &system_root,
+
+        active_root: &active_root,
+    };
+
     parse_recursive(
         main_path,
         &mut keybinds,
-        &variables,
-        &sorted_keys,
+        &ctx,
         &mut visited,
         &mut current_submap,
-        &file_cache,
-        &system_root,
-        &active_root,
     )?;
+
     Ok(keybinds)
 }
 

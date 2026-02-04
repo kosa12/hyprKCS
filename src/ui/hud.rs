@@ -325,7 +325,7 @@ pub fn run_hud() {
         let reload = reload_all.clone();
         manager.connect_notify_local(None, move |_, pspec| {
             let name = pspec.name();
-            if matches!(&*name, "dark" | "accent-color" | "color-scheme") {
+            if matches!(name, "dark" | "accent-color" | "color-scheme") {
                 reload();
             }
         });
@@ -335,7 +335,7 @@ pub fn run_hud() {
             settings.connect_notify_local(None, move |_, pspec| {
                 let name = pspec.name();
                 if matches!(
-                    &*name,
+                    name,
                     "gtk-theme-name" | "gtk-color-scheme" | "gtk-application-prefer-dark-theme"
                 ) {
                     reload();
@@ -355,7 +355,7 @@ pub fn run_hud() {
                 .join(crate::config::constants::HUD_CONF);
 
             // --- Theme Monitoring (File System) ---
-            let dirs_to_monitor = vec![config_dir.join("gtk-4.0"), config_dir.join("gtk-3.0")];
+            let dirs_to_monitor = [config_dir.join("gtk-4.0"), config_dir.join("gtk-3.0")];
 
             for (i, dir_path) in dirs_to_monitor.iter().enumerate() {
                 let dir_file = gio::File::for_path(dir_path);
