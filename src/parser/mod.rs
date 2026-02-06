@@ -1150,8 +1150,8 @@ pub fn update_line(
     let trimmed_start = &original_line[indent_len..];
 
     if let Some(after_bind) = trimmed_start.strip_prefix("bind") {
-        if let Some(eq_idx) = after_bind.find('=') {
-            let current_flags = after_bind[..eq_idx].trim();
+        if let Some(_eq_idx) = after_bind.find('=') {
+            let current_flags = after_bind[.._eq_idx].trim();
 
             let flags = new_flags.unwrap_or(current_flags);
             let is_bindd = flags == "d";

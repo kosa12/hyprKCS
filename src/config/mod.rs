@@ -25,6 +25,7 @@ pub struct StyleConfig {
     pub shadow_size: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
+    pub theme: String,
 
     // New fields
     pub auto_backup: bool,
@@ -57,6 +58,7 @@ impl Default for StyleConfig {
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,
+            theme: "Adwaita".to_string(),
 
             auto_backup: true,
             max_backups_enabled: false,
@@ -94,6 +96,7 @@ fontSize = 0.9rem
 borderSize = 1px
 borderRadius = 12px
 opacity = 1.0
+theme = Adwaita
 
 # UI Elements
 showSubmaps = false
@@ -212,6 +215,14 @@ rowPadding = 2px
                     if let Some(val) = vars.get("shadowSize") {
                         config.shadow_size = val.clone();
                     }
+                    if let Some(val) = vars.get("theme") {
+                        let trimmed = val.trim().to_lowercase();
+                        config.theme = if trimmed == "omarchy" {
+                            "Omarchy".to_string()
+                        } else {
+                            "Adwaita".to_string()
+                        };
+                    }
                     if let Some(val) = vars.get("monitorMargin") {
                         if let Some(num) = parse_pixels(val) {
                             if num < 0 {
@@ -294,6 +305,7 @@ fontSize = {}
 borderSize = {}
 borderRadius = {}
 opacity = {}
+theme = {}
 
 # UI Elements
 showSubmaps = {}
@@ -324,6 +336,7 @@ rowPadding = {}px
                 self.border_size.as_deref().unwrap_or("1px"),
                 self.border_radius.as_deref().unwrap_or("12px"),
                 self.opacity.unwrap_or(1.0),
+                self.theme,
                 self.show_submaps,
                 self.show_args,
                 self.show_favorites,

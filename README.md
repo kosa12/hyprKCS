@@ -59,6 +59,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Bulk Replace**: Find and replace modifiers, keys, or commands across multiple keybinds at once, with a live case-insensitive preview.
 - **Smart Autocomplete**: Suggests valid Hyprland dispatchers as you type.
 - **Macro Builder (Chain Actions)**: Visually create complex keybinds that execute multiple dispatchers in sequence (e.g., move window AND switch workspace).
+- **Omarchy Theme Support**: Integrates with Omarchy Linux by automatically detecting and applying your system colors from `colors.toml`. Support can be toggled in **Settings > Appearance**.
 - **hyprKCS HUD (Wallpaper Overlay)**: A lightweight, unmovable, and transparent overlay that displays your selected keybinds directly on your wallpaper. It runs as a separate process and stays active even when the main application is closed.
 - **Favorites**: Pin frequently used keybinds for quick access.
 - **Input Device Configuration**: Manage your `input { ... }` block (layout, sensitivity, repeat rate) directly from the settings.
@@ -157,6 +158,18 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
+</p>
+
+**Omarchy Theme Integration**
+
+For users of **Omarchy**, hyprKCS offers native color synchronization.
+1. Navigate to **Settings > Appearance**.
+2. Change the **Theme** dropdown to **Omarchy**.
+3. hyprKCS will automatically look for your `colors.toml` (in `~/.config/omarchy/` or `~/.config/hypr/`) and apply your system's background, foreground, and accent colors to the interface.
+4. If you haven't set up a `colors.toml` yet, the app will notify you and revert to the default Adwaita theme.
+
+<p align="center">
+    <img src="./assets/image_9.png" width="80%" />
 </p>
 
 **Input Configuration**
@@ -277,6 +290,7 @@ This tool verifies your Hyprland instance, config permissions, dependencies, and
 *   **Directory Support**: Both the CLI flag (`--config`) and the UI setting support pointing directly to a folder. If a folder is provided, hyprKCS will automatically look for `hyprland.conf` inside it.
 *   **Smart Source Resolution**: When loading from a custom directory, hyprKCS intelligently re-maps absolute source paths (e.g., `source = ~/.config/hypr/my-binds.conf`) to look inside your custom folder first. It also automatically defines a `$hypr` variable pointing to your config root to ensure common portable configurations work out of the box.
 *   **Permission Denied**: Ensure your config files are writable. If you use a symbolic link (e.g., from a dotfiles repo), ensure the target file is also writable.
+*   **Omarchy Users**: hyprKCS will attempt to modify any file it parses if you edit a keybind. If your configuration sources files from system-protected locations like `~/.local/share/omarchy/`, editing those keybinds will attempt to write directly to those files. It is recommended to **Override** system keybinds by adding them to your local `~/.config/hypr/hyprland.conf` instead of editing the source files in `.local`.
 *   **NixOS Users**: If your configuration is managed by Nix (read-only in `/nix/store`), hyprKCS will not be able to save changes directly. You should use the app as a viewer or export your changes to a markdown file.
 
 ### Submap Issues
