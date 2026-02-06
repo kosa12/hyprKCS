@@ -173,7 +173,7 @@ pub fn create_appearance_page(
             4 => "ABNT2",
             5 => "HUNGARIAN",
             6 => "ORTHOLINEAR",
-            _ => "Auto",
+            _ => "AUTO",
         };
         c.borrow_mut().keyboard_layout = val.to_string();
         let _ = c.borrow().save();

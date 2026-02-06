@@ -407,8 +407,14 @@ pub fn get_layout_rows(layout: &str) -> (&[KeyDef], &[KeyDef], &[KeyDef], &[KeyD
 }
 
 pub fn detect_layout(kb_layout: &str) -> &'static str {
-    let kb_layout = kb_layout.to_lowercase();
-    match kb_layout.as_str() {
+    let first_layout = kb_layout
+        .split(',')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+
+    match first_layout.as_str() {
         "jp" => "JIS",
         "br" => "ABNT2",
         "hu" => "HU",
