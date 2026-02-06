@@ -130,15 +130,7 @@ pub fn create_appearance_page(
     group_font.add(&b_rad_row);
 
     // Keyboard Layout
-    let layout_opts = [
-        "Auto",
-        "ANSI",
-        "ISO",
-        "JIS",
-        "ABNT2",
-        "Hungarian",
-        "Ortholinear",
-    ];
+    let layout_opts = ["Auto", "ANSI", "ISO", "JIS", "ABNT2", "Hungarian"];
     let layout_list = gtk::StringList::new(&layout_opts);
 
     // Map current string to index
@@ -149,7 +141,6 @@ pub fn create_appearance_page(
         "JIS" => 3,
         "ABNT2" => 4,
         "HU" | "HUNGARIAN" => 5,
-        "ORTHO" | "ORTHOLINEAR" => 6,
         _ => 0, // Auto
     };
 
@@ -172,7 +163,6 @@ pub fn create_appearance_page(
             3 => "JIS",
             4 => "ABNT2",
             5 => "HUNGARIAN",
-            6 => "ORTHOLINEAR",
             _ => "AUTO",
         };
         c.borrow_mut().keyboard_layout = val.to_string();

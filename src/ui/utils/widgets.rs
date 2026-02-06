@@ -178,8 +178,13 @@ fn gdk_to_hypr_key(key: gdk::Key) -> String {
     match key {
         gdk::Key::Return => "Return".to_string(),
         gdk::Key::Tab => "Tab".to_string(),
-        gdk::Key::space => "Space".to_string(),
+        gdk::Key::space => "space".to_string(),
         gdk::Key::Escape => "Escape".to_string(),
+        gdk::Key::BackSpace => "BackSpace".to_string(),
+        gdk::Key::Left => "Left".to_string(),
+        gdk::Key::Right => "Right".to_string(),
+        gdk::Key::Up => "Up".to_string(),
+        gdk::Key::Down => "Down".to_string(),
         _ => {
             if let Some(name) = key.name() {
                 name.to_string()
