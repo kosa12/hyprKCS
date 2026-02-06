@@ -71,8 +71,7 @@ pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
     entry.set_completion(Some(&completion));
 }
 
-#[allow(deprecated)]
-pub fn setup_key_completion(entry: &gtk::Entry) {
+pub fn get_all_key_names() -> Vec<String> {
     let mut keys = std::collections::HashSet::new();
 
     // Collect keys from all layouts
@@ -105,7 +104,7 @@ pub fn setup_key_completion(entry: &gtk::Entry) {
     for row in layouts {
         for key in row {
             if !key.hypr_name.is_empty() {
-                keys.insert(key.hypr_name);
+                keys.insert(key.hypr_name.to_string());
             }
         }
     }
@@ -131,11 +130,17 @@ pub fn setup_key_completion(entry: &gtk::Entry) {
         "XF86TouchpadToggle",
     ];
     for k in xf86_keys {
-        keys.insert(k);
+        keys.insert(k.to_string());
     }
 
-    let mut sorted_keys: Vec<&str> = keys.into_iter().collect();
+    let mut sorted_keys: Vec<String> = keys.into_iter().collect();
     sorted_keys.sort();
+    sorted_keys
+}
+
+#[allow(deprecated)]
+pub fn setup_key_completion(entry: &gtk::Entry) {
+    let sorted_keys = get_all_key_names();
 
     let list_store = gtk::ListStore::new(&[glib::Type::STRING]);
     for key in sorted_keys {

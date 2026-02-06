@@ -1,6 +1,32 @@
 use hyprKCS::ui::utils::execution::command_exists;
 use hyprKCS::ui::utils::keybinds::normalize;
 use hyprKCS::ui::utils::macro_builder::parse_macro;
+use hyprKCS::ui::utils::widgets::get_all_key_names;
+
+#[test]
+fn test_get_all_key_names() {
+    let keys = get_all_key_names();
+    assert!(!keys.is_empty());
+
+    // Check for some standard keys
+    assert!(keys.contains(&"BackSpace".to_string()));
+    assert!(keys.contains(&"Return".to_string()));
+    assert!(keys.contains(&"Escape".to_string()));
+    assert!(keys.contains(&"space".to_string()));
+
+    // Check for some layout-specific keys
+    assert!(keys.contains(&"Zenkaku_Hankaku".to_string())); // JIS
+    assert!(keys.contains(&"odiaeresis".to_string())); // Hungarian
+
+    // Check for media keys
+    assert!(keys.contains(&"XF86AudioRaiseVolume".to_string()));
+    assert!(keys.contains(&"XF86MonBrightnessDown".to_string()));
+
+    // Verify sorting
+    let mut sorted = keys.clone();
+    sorted.sort();
+    assert_eq!(keys, sorted);
+}
 
 #[test]
 fn test_command_exists() {
