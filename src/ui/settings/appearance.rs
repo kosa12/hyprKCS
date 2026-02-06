@@ -6,11 +6,67 @@ use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn create_appearance_page(config: Rc<RefCell<StyleConfig>>) -> adw::PreferencesPage {
+pub fn create_appearance_page(
+    config: Rc<RefCell<StyleConfig>>,
+    on_show_toast: Rc<dyn Fn(String)>,
+) -> adw::PreferencesPage {
     let page_app = adw::PreferencesPage::builder().build();
     let group_font = adw::PreferencesGroup::builder()
         .title("Typography and Borders")
         .build();
+
+    // Theme Selector
+    let theme_opts = ["Adwaita", "Omarchy"];
+    let theme_list = gtk::StringList::new(&theme_opts);
+    let current_theme = config.borrow().theme.clone();
+    let theme_idx = if current_theme == "Omarchy" { 1 } else { 0 };
+
+    let theme_drop = gtk::DropDown::builder()
+        .model(&theme_list)
+        .selected(theme_idx)
+        .valign(gtk::Align::Center)
+        .build();
+    let theme_row = adw::ActionRow::builder()
+        .title("Theme")
+        .subtitle("Application styling")
+        .build();
+    theme_row.add_suffix(&theme_drop);
+
+    let c = config.clone();
+    let toast = on_show_toast.clone();
+    theme_drop.connect_selected_notify(move |d| {
+        let is_omarchy = d.selected() == 1;
+        let new_theme = if is_omarchy { "Omarchy" } else { "Adwaita" };
+
+        if is_omarchy {
+            let mut found = false;
+            if let Some(config_dir) = dirs::config_dir() {
+                let paths = [
+                    config_dir.join("omarchy/colors.toml"),
+                    config_dir.join("hypr/colors.toml"),
+                ];
+                for path in &paths {
+                    if path.exists() {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                toast(
+                    "Omarchy colors.toml not found in ~/.config/omarchy/ or ~/.config/hypr/"
+                        .to_string(),
+                );
+                d.set_selected(0);
+                return;
+            }
+        }
+
+        c.borrow_mut().theme = new_theme.to_string();
+        let _ = c.borrow().save();
+        crate::ui::style::reload_style();
+    });
+    group_font.add(&theme_row);
 
     // Font Size
     let font_entry = gtk::Entry::builder()

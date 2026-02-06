@@ -218,7 +218,7 @@ pub fn create_settings_view(
         lazy_load!(
             appearance,
             "appearance",
-            appearance::create_appearance_page(config_c.clone())
+            appearance::create_appearance_page(config_c.clone(), on_show_toast_c.clone())
         );
 
         // HUD uses a slightly different return type (Widget instead of PreferencesPage), but upcast works for both if Widget

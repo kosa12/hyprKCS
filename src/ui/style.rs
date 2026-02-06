@@ -10,6 +10,37 @@ thread_local! {
     static THEME_PROVIDER: RefCell<Option<gtk::CssProvider>> = const { RefCell::new(None) };
 }
 
+fn parse_omarchy_colors() -> Option<std::collections::HashMap<String, String>> {
+    if let Some(config_dir) = dirs::config_dir() {
+        // Check both locations as fallback
+        let paths = [
+            config_dir.join("omarchy/colors.toml"),
+            config_dir.join("hypr/colors.toml"),
+        ];
+
+        for path in &paths {
+            if path.exists() {
+                if let Ok(content) = std::fs::read_to_string(path) {
+                    let mut map = std::collections::HashMap::new();
+                    for line in content.lines() {
+                        let line = line.trim();
+                        if line.is_empty() || line.starts_with('#') || line.starts_with('[') {
+                            continue;
+                        }
+                        if let Some((key, val)) = line.split_once('=') {
+                            let key = key.trim().replace('"', "").replace('\'', "");
+                            let val = val.trim().replace('"', "").replace('\'', "");
+                            map.insert(key, val);
+                        }
+                    }
+                    return Some(map);
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn cleanup() {
     THEME_MONITORS.with(|m| {
         for monitor in m.borrow_mut().drain(..) {
@@ -62,8 +93,34 @@ fn generate_css(config: &StyleConfig) -> String {
         ""
     };
 
+    let mut css_vars = String::new();
+    if config.theme == "Omarchy" {
+        if let Some(colors) = parse_omarchy_colors() {
+            if let Some(bg) = colors.get("bg").or(colors.get("background")) {
+                css_vars.push_str(&format!("@define-color window_bg_color {};\n", bg));
+                css_vars.push_str(&format!("@define-color theme_bg_color {};\n", bg));
+            }
+            if let Some(fg) = colors.get("fg").or(colors.get("foreground")) {
+                css_vars.push_str(&format!("@define-color window_fg_color {};\n", fg));
+                css_vars.push_str(&format!("@define-color theme_fg_color {};\n", fg));
+            }
+            if let Some(acc) = colors.get("accent").or(colors.get("primary")) {
+                css_vars.push_str(&format!("@define-color accent_color {};\n", acc));
+                css_vars.push_str(&format!("@define-color accent_bg_color {};\n", acc));
+            }
+            if let Some(acc_fg) = colors.get("accent_fg").or(colors.get("on_primary")) {
+                css_vars.push_str(&format!("@define-color accent_fg_color {};\n", acc_fg));
+            } else {
+                // Fallback for accent text if not provided
+                css_vars.push_str("@define-color accent_fg_color #ffffff;\n");
+            }
+        }
+    }
+
     format!(
         "
+        {css_vars}
+
         /* Modern Keycap Look */
         .key-label, .mod-label {{
             font-family: monospace;
