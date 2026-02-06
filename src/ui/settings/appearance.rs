@@ -19,7 +19,11 @@ pub fn create_appearance_page(
     let theme_opts = ["Adwaita", "Omarchy"];
     let theme_list = gtk::StringList::new(&theme_opts);
     let current_theme = config.borrow().theme.clone();
-    let theme_idx = if current_theme == "Omarchy" { 1 } else { 0 };
+    let theme_idx = if current_theme.eq_ignore_ascii_case("Omarchy") {
+        1
+    } else {
+        0
+    };
 
     let theme_drop = gtk::DropDown::builder()
         .model(&theme_list)

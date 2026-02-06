@@ -94,7 +94,7 @@ fn generate_css(config: &StyleConfig) -> String {
     };
 
     let mut css_vars = String::new();
-    if config.theme == "Omarchy" {
+    if config.theme.eq_ignore_ascii_case("Omarchy") {
         if let Some(colors) = parse_omarchy_colors() {
             if let Some(bg) = colors.get("bg").or(colors.get("background")) {
                 css_vars.push_str(&format!("@define-color window_bg_color {};\n", bg));

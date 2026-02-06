@@ -216,7 +216,12 @@ rowPadding = 2px
                         config.shadow_size = val.clone();
                     }
                     if let Some(val) = vars.get("theme") {
-                        config.theme = val.clone();
+                        let trimmed = val.trim().to_lowercase();
+                        config.theme = if trimmed == "omarchy" {
+                            "Omarchy".to_string()
+                        } else {
+                            "Adwaita".to_string()
+                        };
                     }
                     if let Some(val) = vars.get("monitorMargin") {
                         if let Some(num) = parse_pixels(val) {
