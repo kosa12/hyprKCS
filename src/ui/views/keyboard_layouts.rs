@@ -413,9 +413,8 @@ pub fn detect_layout(kb_layout: &str) -> &'static str {
         "br" => "ABNT2",
         "hu" => "HU",
         "us" => "ANSI",
-        "gb" | "uk" | "de" | "fr" | "it" | "es" | "pt" | "no" | "se" | "fi" | "dk" | "pl" | "cz" => {
-            "ISO"
-        }
+        "gb" | "uk" | "de" | "fr" | "it" | "es" | "pt" | "no" | "se" | "fi" | "dk" | "pl"
+        | "cz" => "ISO",
         _ => "ANSI",
     }
 }

@@ -3,7 +3,9 @@ use crate::keybind_object::KeybindObject;
 use crate::parser::input::load_input_config;
 use crate::ui::utils::components::{collect_submaps, create_close_button};
 use crate::ui::utils::normalize;
-use crate::ui::views::keyboard_layouts::{detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
+use crate::ui::views::keyboard_layouts::{
+    detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC,
+};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};

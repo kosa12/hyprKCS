@@ -78,12 +78,28 @@ pub fn setup_key_completion(entry: &gtk::Entry) {
     // Collect keys from all layouts
     use crate::ui::views::keyboard_layouts::*;
     let layouts = [
-        ANSI_ROW_1, ANSI_ROW_2, ANSI_ROW_3, ANSI_ROW_4, ANSI_ROW_5,
-        ISO_ROW_2, ISO_ROW_3, ISO_ROW_4,
-        JIS_ROW_1, JIS_ROW_2, JIS_ROW_3, JIS_ROW_4, JIS_ROW_5,
-        ABNT2_ROW_2, ABNT2_ROW_3, ABNT2_ROW_4,
-        HU_ROW_1, HU_ROW_2, HU_ROW_3, HU_ROW_4,
-        ROW_FUNC, ROW_ARROWS
+        ANSI_ROW_1,
+        ANSI_ROW_2,
+        ANSI_ROW_3,
+        ANSI_ROW_4,
+        ANSI_ROW_5,
+        ISO_ROW_2,
+        ISO_ROW_3,
+        ISO_ROW_4,
+        JIS_ROW_1,
+        JIS_ROW_2,
+        JIS_ROW_3,
+        JIS_ROW_4,
+        JIS_ROW_5,
+        ABNT2_ROW_2,
+        ABNT2_ROW_3,
+        ABNT2_ROW_4,
+        HU_ROW_1,
+        HU_ROW_2,
+        HU_ROW_3,
+        HU_ROW_4,
+        ROW_FUNC,
+        ROW_ARROWS,
     ];
 
     for row in layouts {
@@ -96,11 +112,23 @@ pub fn setup_key_completion(entry: &gtk::Entry) {
 
     // Add common XF86 keys
     let xf86_keys = [
-        "XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute", "XF86AudioMicMute",
-        "XF86MonBrightnessUp", "XF86MonBrightnessDown",
-        "XF86AudioPlay", "XF86AudioStop", "XF86AudioPrev", "XF86AudioNext",
-        "XF86Search", "XF86Mail", "XF86Calculator", "XF86Sleep",
-        "XF86WLAN", "XF86Bluetooth", "XF86TouchpadToggle",
+        "XF86AudioRaiseVolume",
+        "XF86AudioLowerVolume",
+        "XF86AudioMute",
+        "XF86AudioMicMute",
+        "XF86MonBrightnessUp",
+        "XF86MonBrightnessDown",
+        "XF86AudioPlay",
+        "XF86AudioStop",
+        "XF86AudioPrev",
+        "XF86AudioNext",
+        "XF86Search",
+        "XF86Mail",
+        "XF86Calculator",
+        "XF86Sleep",
+        "XF86WLAN",
+        "XF86Bluetooth",
+        "XF86TouchpadToggle",
     ];
     for k in xf86_keys {
         keys.insert(k);

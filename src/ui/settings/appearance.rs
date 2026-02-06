@@ -130,7 +130,15 @@ pub fn create_appearance_page(
     group_font.add(&b_rad_row);
 
     // Keyboard Layout
-    let layout_opts = ["Auto", "ANSI", "ISO", "JIS", "ABNT2", "Hungarian", "Ortholinear"];
+    let layout_opts = [
+        "Auto",
+        "ANSI",
+        "ISO",
+        "JIS",
+        "ABNT2",
+        "Hungarian",
+        "Ortholinear",
+    ];
     let layout_list = gtk::StringList::new(&layout_opts);
 
     // Map current string to index
