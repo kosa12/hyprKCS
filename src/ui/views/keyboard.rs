@@ -1,15 +1,28 @@
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
+use crate::parser::input::load_input_config;
 use crate::ui::utils::components::{collect_submaps, create_close_button};
 use crate::ui::utils::normalize;
-use crate::ui::views::keyboard_layouts::{get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
+use crate::ui::views::keyboard_layouts::{
+    detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC,
+};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
     let config = StyleConfig::load();
-    let layout = config.keyboard_layout.to_uppercase();
+    let layout_pref = config.keyboard_layout.to_uppercase();
+
+    let layout = if layout_pref == "AUTO" {
+        if let Ok((input_cfg, _)) = load_input_config() {
+            detect_layout(&input_cfg.kb_layout).to_string()
+        } else {
+            "ANSI".to_string()
+        }
+    } else {
+        layout_pref
+    };
 
     // Select Rows based on layout
     let (row1, row2, row3, row4, row5) = get_layout_rows(&layout);
@@ -165,27 +178,25 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     add_row(row5, row_idx, &grid);
     row_idx += 1;
 
-    // Arrow keys (Skip for Ortholinear as they are integrated)
-    if !layout.contains("ORTHO") {
-        // Total columns approx 60.
-        // Arrows are 4 keys = 4 width each = 16 cols.
-        // Centered start = (60 - 16) / 2 = 22.
-        let arrow_start_col = 22;
-        let mut arrow_col = arrow_start_col;
-        for k in ROW_ARROWS {
-            let width_cells = 4; // 1.0 * 4
-            let btn = gtk::Button::builder()
-                .label(k.label)
-                .css_classes(["keyboard-key"])
-                .hexpand(true)
-                .vexpand(true)
-                .build();
-            let (_, norm_key) = normalize("", k.hypr_name);
-            btn.set_widget_name(&norm_key);
+    // Arrow keys
+    // Total columns approx 60.
+    // Arrows are 4 keys = 4 width each = 16 cols.
+    // Centered start = (60 - 16) / 2 = 22.
+    let arrow_start_col = 22;
+    let mut arrow_col = arrow_start_col;
+    for k in ROW_ARROWS {
+        let width_cells = 4; // 1.0 * 4
+        let btn = gtk::Button::builder()
+            .label(k.label)
+            .css_classes(["keyboard-key"])
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+        let (_, norm_key) = normalize("", k.hypr_name);
+        btn.set_widget_name(&norm_key);
 
-            grid.attach(&btn, arrow_col, row_idx, width_cells, 1);
-            arrow_col += width_cells;
-        }
+        grid.attach(&btn, arrow_col, row_idx, width_cells, 1);
+        arrow_col += width_cells;
     }
 
     container.append(&grid);

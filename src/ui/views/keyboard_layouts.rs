@@ -405,3 +405,22 @@ pub fn get_layout_rows(layout: &str) -> (&[KeyDef], &[KeyDef], &[KeyDef], &[KeyD
         _ => (ANSI_ROW_1, ANSI_ROW_2, ANSI_ROW_3, ANSI_ROW_4, ANSI_ROW_5),
     }
 }
+
+pub fn detect_layout(kb_layout: &str) -> &'static str {
+    let first_layout = kb_layout
+        .split(',')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+
+    match first_layout.as_str() {
+        "jp" => "JIS",
+        "br" => "ABNT2",
+        "hu" => "HU",
+        "us" => "ANSI",
+        "gb" | "uk" | "de" | "fr" | "it" | "es" | "pt" | "no" | "se" | "fi" | "dk" | "pl"
+        | "cz" => "ISO",
+        _ => "ANSI",
+    }
+}

@@ -107,6 +107,7 @@ pub fn create_edit_view(
         .text(&current_key)
         .activates_default(true)
         .build();
+    crate::ui::utils::setup_key_completion(&entry_key);
 
     let mouse_dropdown = create_mouse_button_dropdown();
     let is_mouse_bind = current_key.starts_with("mouse:") || current_key.starts_with("mouse_");

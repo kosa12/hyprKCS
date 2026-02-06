@@ -72,6 +72,7 @@ pub fn create_add_view(
         .placeholder_text("e.g. Q")
         .activates_default(true)
         .build();
+    crate::ui::utils::setup_key_completion(&entry_key);
 
     let mouse_dropdown = create_mouse_button_dropdown();
     mouse_dropdown.set_visible(false);

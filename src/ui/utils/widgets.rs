@@ -71,6 +71,92 @@ pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
     entry.set_completion(Some(&completion));
 }
 
+pub fn get_all_key_names() -> Vec<String> {
+    let mut keys = std::collections::HashSet::new();
+
+    // Collect keys from all layouts
+    use crate::ui::views::keyboard_layouts::*;
+    let layouts = [
+        ANSI_ROW_1,
+        ANSI_ROW_2,
+        ANSI_ROW_3,
+        ANSI_ROW_4,
+        ANSI_ROW_5,
+        ISO_ROW_2,
+        ISO_ROW_3,
+        ISO_ROW_4,
+        JIS_ROW_1,
+        JIS_ROW_2,
+        JIS_ROW_3,
+        JIS_ROW_4,
+        JIS_ROW_5,
+        ABNT2_ROW_2,
+        ABNT2_ROW_3,
+        ABNT2_ROW_4,
+        HU_ROW_1,
+        HU_ROW_2,
+        HU_ROW_3,
+        HU_ROW_4,
+        ROW_FUNC,
+        ROW_ARROWS,
+    ];
+
+    for row in layouts {
+        for key in row {
+            if !key.hypr_name.is_empty() {
+                keys.insert(key.hypr_name.to_string());
+            }
+        }
+    }
+
+    // Add common XF86 keys
+    let xf86_keys = [
+        "XF86AudioRaiseVolume",
+        "XF86AudioLowerVolume",
+        "XF86AudioMute",
+        "XF86AudioMicMute",
+        "XF86MonBrightnessUp",
+        "XF86MonBrightnessDown",
+        "XF86AudioPlay",
+        "XF86AudioStop",
+        "XF86AudioPrev",
+        "XF86AudioNext",
+        "XF86Search",
+        "XF86Mail",
+        "XF86Calculator",
+        "XF86Sleep",
+        "XF86WLAN",
+        "XF86Bluetooth",
+        "XF86TouchpadToggle",
+    ];
+    for k in xf86_keys {
+        keys.insert(k.to_string());
+    }
+
+    let mut sorted_keys: Vec<String> = keys.into_iter().collect();
+    sorted_keys.sort();
+    sorted_keys
+}
+
+#[allow(deprecated)]
+pub fn setup_key_completion(entry: &gtk::Entry) {
+    let sorted_keys = get_all_key_names();
+
+    let list_store = gtk::ListStore::new(&[glib::Type::STRING]);
+    for key in sorted_keys {
+        list_store.set(&list_store.append(), &[(0, &key)]);
+    }
+
+    let completion = gtk::EntryCompletion::builder()
+        .model(&list_store)
+        .text_column(0)
+        .inline_completion(true)
+        .popup_completion(false)
+        .build();
+
+    entry.set_completion(Some(&completion));
+}
+
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
     if mods.contains(gdk::ModifierType::SUPER_MASK) {
@@ -92,8 +178,13 @@ fn gdk_to_hypr_key(key: gdk::Key) -> String {
     match key {
         gdk::Key::Return => "Return".to_string(),
         gdk::Key::Tab => "Tab".to_string(),
-        gdk::Key::space => "Space".to_string(),
+        gdk::Key::space => "space".to_string(),
         gdk::Key::Escape => "Escape".to_string(),
+        gdk::Key::BackSpace => "BackSpace".to_string(),
+        gdk::Key::Left => "Left".to_string(),
+        gdk::Key::Right => "Right".to_string(),
+        gdk::Key::Up => "Up".to_string(),
+        gdk::Key::Down => "Down".to_string(),
         _ => {
             if let Some(name) = key.name() {
                 name.to_string()
