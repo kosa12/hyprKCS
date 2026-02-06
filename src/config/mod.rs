@@ -5,6 +5,8 @@ pub mod hud;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone)]
 pub struct StyleConfig {
@@ -72,22 +74,41 @@ impl Default for StyleConfig {
     }
 }
 
+struct CachedConfig {
+    config: StyleConfig,
+    mtime: SystemTime,
+    size: u64,
+}
+
+static CONFIG_CACHE: Mutex<Option<CachedConfig>> = Mutex::new(None);
+
+fn get_config_path_internal() -> Option<PathBuf> {
+    dirs::config_dir().map(|dir| {
+        dir.join(constants::HYPRKCS_DIR)
+            .join(constants::HYPRKCS_CONF)
+    })
+}
+
 impl StyleConfig {
+    pub fn invalidate_cache() {
+        if let Ok(mut cache) = CONFIG_CACHE.lock() {
+            *cache = None;
+        }
+    }
+
     pub fn load() -> Self {
-        let mut config = StyleConfig::default();
+        let config_path = match get_config_path_internal() {
+            Some(p) => p,
+            None => return StyleConfig::default(),
+        };
 
-        if let Some(config_dir) = dirs::config_dir() {
-            let config_path: PathBuf = config_dir
-                .join(constants::HYPRKCS_DIR)
-                .join(constants::HYPRKCS_CONF);
+        // Check if config exists, if not create default
+        if !config_path.exists() {
+            if let Some(parent) = config_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
 
-            if !config_path.exists() {
-                // Create default config
-                if let Some(parent) = config_path.parent() {
-                    let _ = fs::create_dir_all(parent);
-                }
-
-                let default_content = r#"# Window dimensions
+            let default_content = r#"# Window dimensions
 width = 700px
 height = 500px
 
@@ -121,176 +142,195 @@ defaultSubmap =
 monitorMargin = 12px
 rowPadding = 2px
 "#;
-                if let Err(e) = fs::write(&config_path, default_content) {
-                    eprintln!("Failed to write default config: {}", e);
-                }
+            if let Err(e) = fs::write(&config_path, default_content) {
+                eprintln!("Failed to write default config: {}", e);
             }
+        }
 
-            if config_path.exists() {
-                if let Ok(content) = fs::read_to_string(config_path) {
-                    let vars = parse_ini_like(&content);
+        let (current_mtime, current_size) = match fs::metadata(&config_path) {
+            Ok(m) => (m.modified().unwrap_or(SystemTime::UNIX_EPOCH), m.len()),
+            Err(_) => (SystemTime::now(), 0),
+        };
 
-                    if let Some(val) = vars.get("fontSize") {
-                        config.font_size = Some(val.clone());
-                    }
-                    if let Some(val) = vars.get("borderSize") {
-                        config.border_size = Some(val.clone());
-                    }
-                    if let Some(val) = vars.get("borderRadius") {
-                        config.border_radius = Some(val.clone());
-                    }
-                    if let Some(val) = vars.get("opacity") {
-                        match val.parse::<f64>() {
-                            Ok(num) => {
-                                if !(0.0..=1.0).contains(&num) {
-                                    config.errors.push(format!(
-                                        "Opacity '{}' out of range (0.0 - 1.0). Using default.",
-                                        val
-                                    ));
-                                } else {
-                                    config.opacity = Some(num);
-                                }
-                            }
-                            Err(_) => config
-                                .errors
-                                .push(format!("Invalid opacity value '{}'. Using default.", val)),
-                        }
-                    }
-                    if let Some(val) = vars.get("width") {
-                        if let Some(num) = parse_pixels(val) {
-                            if num < 100 {
-                                config.errors.push(format!(
-                                    "Width '{}' is too small (min 100px). Using default.",
-                                    val
-                                ));
-                            } else {
-                                config.width = num;
-                            }
-                        } else {
-                            config
-                                .errors
-                                .push(format!("Invalid width value '{}'.", val));
-                        }
-                    }
-                    if let Some(val) = vars.get("height") {
-                        if let Some(num) = parse_pixels(val) {
-                            if num < 100 {
-                                config.errors.push(format!(
-                                    "Height '{}' is too small (min 100px). Using default.",
-                                    val
-                                ));
-                            } else {
-                                config.height = num;
-                            }
-                        } else {
-                            config
-                                .errors
-                                .push(format!("Invalid height value '{}'.", val));
-                        }
-                    }
-                    if let Some(val) = vars.get("showSubmaps") {
-                        config.show_submaps = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("showArgs") {
-                        config.show_args = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("showFavorites") {
-                        config.show_favorites = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("showDescription") {
-                        config.show_description = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("showCloseButton") {
-                        config.show_close_button = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("alternatingRowColors") {
-                        config.alternating_row_colors = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("defaultSort") {
-                        config.default_sort = val.to_lowercase();
-                    }
-                    if let Some(val) = vars.get("keyboardLayout") {
-                        config.keyboard_layout = val.to_uppercase();
-                    }
-                    if let Some(val) = vars.get("shadowSize") {
-                        config.shadow_size = val.clone();
-                    }
-                    if let Some(val) = vars.get("theme") {
-                        let trimmed = val.trim().to_lowercase();
-                        config.theme = if trimmed == "omarchy" {
-                            "Omarchy".to_string()
-                        } else {
-                            "Adwaita".to_string()
-                        };
-                    }
-                    if let Some(val) = vars.get("monitorMargin") {
-                        if let Some(num) = parse_pixels(val) {
-                            if num < 0 {
-                                config.errors.push(format!(
-                                    "Monitor margin '{}' cannot be negative. Using default.",
-                                    val
-                                ));
-                            } else {
-                                config.monitor_margin = num;
-                            }
-                        } else {
-                            config
-                                .errors
-                                .push(format!("Invalid monitorMargin '{}'.", val));
-                        }
-                    }
-                    if let Some(val) = vars.get("rowPadding") {
-                        if let Some(num) = parse_pixels(val) {
-                            if num < 0 {
-                                config.errors.push(format!(
-                                    "Row padding '{}' cannot be negative. Using default.",
-                                    val
-                                ));
-                            } else {
-                                config.row_padding = num;
-                            }
-                        } else {
-                            config.errors.push(format!("Invalid rowPadding '{}'.", val));
-                        }
-                    }
-
-                    // New Fields Parsing
-                    if let Some(val) = vars.get("autoBackup") {
-                        config.auto_backup = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("maxBackupsEnabled") {
-                        config.max_backups_enabled = val.to_lowercase() == "true";
-                    }
-                    if let Some(val) = vars.get("maxBackupsCount") {
-                        if let Ok(num) = val.parse::<i32>() {
-                            config.max_backups_count = num;
-                        }
-                    }
-                    if let Some(val) = vars.get("alternativeConfigPath") {
-                        if !val.is_empty() {
-                            config.alternative_config_path = Some(val.clone());
-                        }
-                    }
-                    if let Some(val) = vars.get("alternativeBackupPath") {
-                        if !val.is_empty() {
-                            config.alternative_backup_path = Some(val.clone());
-                        }
-                    }
-                    if let Some(val) = vars.get("defaultSubmap") {
-                        if !val.is_empty() {
-                            config.default_submap = Some(val.clone());
-                        }
-                    }
+        if let Ok(cache) = CONFIG_CACHE.lock() {
+            if let Some(cached) = cache.as_ref() {
+                if cached.mtime == current_mtime && cached.size == current_size {
+                    return cached.config.clone();
                 }
             }
         }
+
+        let mut config = StyleConfig::default();
+
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            let vars = parse_ini_like(&content);
+
+            if let Some(val) = vars.get("fontSize") {
+                config.font_size = Some(val.clone());
+            }
+            if let Some(val) = vars.get("borderSize") {
+                config.border_size = Some(val.clone());
+            }
+            if let Some(val) = vars.get("borderRadius") {
+                config.border_radius = Some(val.clone());
+            }
+            if let Some(val) = vars.get("opacity") {
+                match val.parse::<f64>() {
+                    Ok(num) => {
+                        if !(0.0..=1.0).contains(&num) {
+                            config.errors.push(format!(
+                                "Opacity '{}' out of range (0.0 - 1.0). Using default.",
+                                val
+                            ));
+                        } else {
+                            config.opacity = Some(num);
+                        }
+                    }
+                    Err(_) => config
+                        .errors
+                        .push(format!("Invalid opacity value '{}'. Using default.", val)),
+                }
+            }
+            if let Some(val) = vars.get("width") {
+                if let Some(num) = parse_pixels(val) {
+                    if num < 100 {
+                        config.errors.push(format!(
+                            "Width '{}' is too small (min 100px). Using default.",
+                            val
+                        ));
+                    } else {
+                        config.width = num;
+                    }
+                } else {
+                    config
+                        .errors
+                        .push(format!("Invalid width value '{}'.", val));
+                }
+            }
+            if let Some(val) = vars.get("height") {
+                if let Some(num) = parse_pixels(val) {
+                    if num < 100 {
+                        config.errors.push(format!(
+                            "Height '{}' is too small (min 100px). Using default.",
+                            val
+                        ));
+                    } else {
+                        config.height = num;
+                    }
+                } else {
+                    config
+                        .errors
+                        .push(format!("Invalid height value '{}'.", val));
+                }
+            }
+            if let Some(val) = vars.get("showSubmaps") {
+                config.show_submaps = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("showArgs") {
+                config.show_args = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("showFavorites") {
+                config.show_favorites = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("showDescription") {
+                config.show_description = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("showCloseButton") {
+                config.show_close_button = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("alternatingRowColors") {
+                config.alternating_row_colors = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("defaultSort") {
+                config.default_sort = val.to_lowercase();
+            }
+            if let Some(val) = vars.get("keyboardLayout") {
+                config.keyboard_layout = val.to_uppercase();
+            }
+            if let Some(val) = vars.get("shadowSize") {
+                config.shadow_size = val.clone();
+            }
+            if let Some(val) = vars.get("theme") {
+                let trimmed = val.trim().to_lowercase();
+                config.theme = if trimmed == "omarchy" {
+                    "Omarchy".to_string()
+                } else {
+                    "Adwaita".to_string()
+                };
+            }
+            if let Some(val) = vars.get("monitorMargin") {
+                if let Some(num) = parse_pixels(val) {
+                    if num < 0 {
+                        config.errors.push(format!(
+                            "Monitor margin '{}' cannot be negative. Using default.",
+                            val
+                        ));
+                    } else {
+                        config.monitor_margin = num;
+                    }
+                } else {
+                    config
+                        .errors
+                        .push(format!("Invalid monitorMargin '{}'.", val));
+                }
+            }
+            if let Some(val) = vars.get("rowPadding") {
+                if let Some(num) = parse_pixels(val) {
+                    if num < 0 {
+                        config.errors.push(format!(
+                            "Row padding '{}' cannot be negative. Using default.",
+                            val
+                        ));
+                    } else {
+                        config.row_padding = num;
+                    }
+                } else {
+                    config.errors.push(format!("Invalid rowPadding '{}'.", val));
+                }
+            }
+
+            // New Fields Parsing
+            if let Some(val) = vars.get("autoBackup") {
+                config.auto_backup = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("maxBackupsEnabled") {
+                config.max_backups_enabled = val.to_lowercase() == "true";
+            }
+            if let Some(val) = vars.get("maxBackupsCount") {
+                if let Ok(num) = val.parse::<i32>() {
+                    config.max_backups_count = num;
+                }
+            }
+            if let Some(val) = vars.get("alternativeConfigPath") {
+                if !val.is_empty() {
+                    config.alternative_config_path = Some(val.clone());
+                }
+            }
+            if let Some(val) = vars.get("alternativeBackupPath") {
+                if !val.is_empty() {
+                    config.alternative_backup_path = Some(val.clone());
+                }
+            }
+            if let Some(val) = vars.get("defaultSubmap") {
+                if !val.is_empty() {
+                    config.default_submap = Some(val.clone());
+                }
+            }
+        }
+
+        if let Ok(mut cache) = CONFIG_CACHE.lock() {
+            *cache = Some(CachedConfig {
+                config: config.clone(),
+                mtime: current_mtime,
+                size: current_size,
+            });
+        }
+
         config
     }
+
     pub fn save(&self) -> Result<(), std::io::Error> {
-        if let Some(config_dir) = dirs::config_dir() {
-            let config_path: PathBuf = config_dir
-                .join(constants::HYPRKCS_DIR)
-                .join(constants::HYPRKCS_CONF);
+        if let Some(config_path) = get_config_path_internal() {
             if let Some(parent) = config_path.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -356,7 +396,8 @@ rowPadding = {}px
                 self.row_padding
             );
 
-            fs::write(config_path, content)?;
+            fs::write(&config_path, content)?;
+            Self::invalidate_cache();
         }
         Ok(())
     }

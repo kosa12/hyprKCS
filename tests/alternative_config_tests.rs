@@ -16,6 +16,9 @@ where
     // Acquire lock to ensure serial execution
     let _guard = TEST_LOCK.lock().unwrap();
 
+    // Invalidate cache since we are switching XDG_CONFIG_HOME
+    StyleConfig::invalidate_cache();
+
     // Use a unique path for each test to avoid collisions
     let mut temp_config_dir = env::temp_dir();
     temp_config_dir.push("hyprkcs_test_config");

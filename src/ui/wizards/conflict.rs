@@ -9,10 +9,10 @@ use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use libadwaita as adw;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn get_conflict_groups(model: &gio::ListStore) -> Vec<Vec<KeybindObject>> {
-    let mut map: HashMap<(String, String, Rc<str>), Vec<KeybindObject>> = HashMap::new();
+    let mut map: HashMap<(String, String, Arc<str>), Vec<KeybindObject>> = HashMap::new();
 
     for i in 0..model.n_items() {
         if let Some(obj) = model.item(i).and_downcast::<KeybindObject>() {

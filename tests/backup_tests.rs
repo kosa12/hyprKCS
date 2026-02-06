@@ -30,6 +30,7 @@ impl TempConfigDir {
         path.push(dirname);
         fs::create_dir_all(&path).expect("Failed to create temp config dir");
         std::env::set_var("XDG_CONFIG_HOME", &path);
+        hyprKCS::config::StyleConfig::invalidate_cache();
         Self { path }
     }
 

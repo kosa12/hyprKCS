@@ -31,6 +31,7 @@ impl TempFile {
         let mut file = std::fs::File::create(&path).expect("Failed to create temp file");
         file.write_all(content.as_bytes())
             .expect("Failed to write temp content");
+        invalidate_parser_cache();
         Self { path }
     }
 }
@@ -79,6 +80,7 @@ fn test_args_with_commas_no_quotes() {
     let content_simple = "bind = SUPER, P, exec, notify-send \"Hello, World\", extra args";
     let mut file = std::fs::File::create(&temp.path).expect("Recreate");
     file.write_all(content_simple.as_bytes()).expect("Write");
+    invalidate_parser_cache();
 
     let binds = parse_config().expect("Parse simple");
     assert_eq!(
@@ -209,6 +211,8 @@ fn test_circular_source() {
         ),
     )
     .unwrap();
+
+    invalidate_parser_cache();
 
     std::env::set_var("HYPRKCS_CONFIG", &temp1_path);
 

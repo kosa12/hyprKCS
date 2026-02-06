@@ -152,5 +152,10 @@ fn main() -> glib::ExitCode {
         ui::style::cleanup();
     });
 
+    // Start parsing config in background as early as possible to warm up cache
+    std::thread::spawn(|| {
+        let _ = parser::parse_config();
+    });
+
     app.run_with_args(&Vec::<String>::new())
 }
