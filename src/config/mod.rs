@@ -54,7 +54,7 @@ impl Default for StyleConfig {
             show_close_button: true,
             alternating_row_colors: true,
             default_sort: "key".to_string(),
-            keyboard_layout: "ANSI".to_string(),
+            keyboard_layout: "Auto".to_string(),
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,

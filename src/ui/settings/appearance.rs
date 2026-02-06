@@ -130,18 +130,19 @@ pub fn create_appearance_page(
     group_font.add(&b_rad_row);
 
     // Keyboard Layout
-    let layout_opts = ["ANSI", "ISO", "JIS", "ABNT2", "Hungarian", "Ortholinear"];
+    let layout_opts = ["Auto", "ANSI", "ISO", "JIS", "ABNT2", "Hungarian", "Ortholinear"];
     let layout_list = gtk::StringList::new(&layout_opts);
 
     // Map current string to index
     let current_layout = config.borrow().keyboard_layout.to_uppercase();
     let layout_idx = match current_layout.as_str() {
-        "ISO" => 1,
-        "JIS" => 2,
-        "ABNT2" => 3,
-        "HU" | "HUNGARIAN" => 4,
-        "ORTHO" | "ORTHOLINEAR" => 5,
-        _ => 0,
+        "ANSI" => 1,
+        "ISO" => 2,
+        "JIS" => 3,
+        "ABNT2" => 4,
+        "HU" | "HUNGARIAN" => 5,
+        "ORTHO" | "ORTHOLINEAR" => 6,
+        _ => 0, // Auto
     };
 
     let layout_drop = gtk::DropDown::builder()
@@ -158,12 +159,13 @@ pub fn create_appearance_page(
     let c = config.clone();
     layout_drop.connect_selected_notify(move |d| {
         let val = match d.selected() {
-            1 => "ISO",
-            2 => "JIS",
-            3 => "ABNT2",
-            4 => "HUNGARIAN",
-            5 => "ORTHOLINEAR",
-            _ => "ANSI",
+            1 => "ANSI",
+            2 => "ISO",
+            3 => "JIS",
+            4 => "ABNT2",
+            5 => "HUNGARIAN",
+            6 => "ORTHOLINEAR",
+            _ => "Auto",
         };
         c.borrow_mut().keyboard_layout = val.to_string();
         let _ = c.borrow().save();

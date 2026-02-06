@@ -1,15 +1,26 @@
 use crate::config::StyleConfig;
 use crate::keybind_object::KeybindObject;
+use crate::parser::input::load_input_config;
 use crate::ui::utils::components::{collect_submaps, create_close_button};
 use crate::ui::utils::normalize;
-use crate::ui::views::keyboard_layouts::{get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
+use crate::ui::views::keyboard_layouts::{detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC};
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
     let config = StyleConfig::load();
-    let layout = config.keyboard_layout.to_uppercase();
+    let layout_pref = config.keyboard_layout.to_uppercase();
+
+    let layout = if layout_pref == "AUTO" {
+        if let Ok((input_cfg, _)) = load_input_config() {
+            detect_layout(&input_cfg.kb_layout).to_string()
+        } else {
+            "ANSI".to_string()
+        }
+    } else {
+        layout_pref
+    };
 
     // Select Rows based on layout
     let (row1, row2, row3, row4, row5) = get_layout_rows(&layout);

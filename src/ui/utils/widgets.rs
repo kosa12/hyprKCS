@@ -71,6 +71,59 @@ pub fn setup_dispatcher_completion(entry: &gtk::Entry) {
     entry.set_completion(Some(&completion));
 }
 
+#[allow(deprecated)]
+pub fn setup_key_completion(entry: &gtk::Entry) {
+    let mut keys = std::collections::HashSet::new();
+
+    // Collect keys from all layouts
+    use crate::ui::views::keyboard_layouts::*;
+    let layouts = [
+        ANSI_ROW_1, ANSI_ROW_2, ANSI_ROW_3, ANSI_ROW_4, ANSI_ROW_5,
+        ISO_ROW_2, ISO_ROW_3, ISO_ROW_4,
+        JIS_ROW_1, JIS_ROW_2, JIS_ROW_3, JIS_ROW_4, JIS_ROW_5,
+        ABNT2_ROW_2, ABNT2_ROW_3, ABNT2_ROW_4,
+        HU_ROW_1, HU_ROW_2, HU_ROW_3, HU_ROW_4,
+        ROW_FUNC, ROW_ARROWS
+    ];
+
+    for row in layouts {
+        for key in row {
+            if !key.hypr_name.is_empty() {
+                keys.insert(key.hypr_name);
+            }
+        }
+    }
+
+    // Add common XF86 keys
+    let xf86_keys = [
+        "XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute", "XF86AudioMicMute",
+        "XF86MonBrightnessUp", "XF86MonBrightnessDown",
+        "XF86AudioPlay", "XF86AudioStop", "XF86AudioPrev", "XF86AudioNext",
+        "XF86Search", "XF86Mail", "XF86Calculator", "XF86Sleep",
+        "XF86WLAN", "XF86Bluetooth", "XF86TouchpadToggle",
+    ];
+    for k in xf86_keys {
+        keys.insert(k);
+    }
+
+    let mut sorted_keys: Vec<&str> = keys.into_iter().collect();
+    sorted_keys.sort();
+
+    let list_store = gtk::ListStore::new(&[glib::Type::STRING]);
+    for key in sorted_keys {
+        list_store.set(&list_store.append(), &[(0, &key)]);
+    }
+
+    let completion = gtk::EntryCompletion::builder()
+        .model(&list_store)
+        .text_column(0)
+        .inline_completion(true)
+        .popup_completion(true)
+        .build();
+
+    entry.set_completion(Some(&completion));
+}
+
 fn gdk_to_hypr_mods(mods: gdk::ModifierType) -> String {
     let mut res = Vec::new();
     if mods.contains(gdk::ModifierType::SUPER_MASK) {
