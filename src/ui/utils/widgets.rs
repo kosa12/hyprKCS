@@ -118,7 +118,7 @@ pub fn setup_key_completion(entry: &gtk::Entry) {
         .model(&list_store)
         .text_column(0)
         .inline_completion(true)
-        .popup_completion(true)
+        .popup_completion(false)
         .build();
 
     entry.set_completion(Some(&completion));
