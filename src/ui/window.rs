@@ -320,15 +320,6 @@ pub fn build_ui(app: &adw::Application) {
         column_view.sort_by_column(Some(&col), gtk::SortType::Ascending);
     }
 
-    // Ensure the first row is selected/focused after sorting
-    selection_model.set_selected(0);
-    column_view.scroll_to(
-        0,
-        None::<&gtk::ColumnViewColumn>,
-        gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
-        None::<gtk::ScrollInfo>,
-    );
-
     // Compact Top Bar Layout
     let search_entry = gtk::SearchEntry::builder()
         .placeholder_text("Search keybinds...")

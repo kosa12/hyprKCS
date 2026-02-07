@@ -31,6 +31,7 @@ impl TempFile {
         let mut file = std::fs::File::create(&path).expect("Failed to create temp file");
         file.write_all(content.as_bytes())
             .expect("Failed to write temp content");
+        invalidate_parser_cache();
         Self { path }
     }
 }

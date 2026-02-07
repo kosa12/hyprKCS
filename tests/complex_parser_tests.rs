@@ -29,6 +29,7 @@ impl TempConfig {
         );
         path.push(dirname);
         std::fs::create_dir_all(&path).expect("Failed to create temp dir");
+        invalidate_parser_cache();
         Self { root: path }
     }
 

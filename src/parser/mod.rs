@@ -3,28 +3,28 @@ use dirs::config_dir;
 use glob::glob;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub mod input;
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
-    pub mods: Rc<str>,
-    pub clean_mods: Rc<str>,
-    pub flags: Rc<str>,
-    pub key: Rc<str>,
-    pub dispatcher: Rc<str>,
-    pub args: Rc<str>,
-    pub description: Option<Rc<str>>,
-    pub submap: Option<Rc<str>>,
+    pub mods: Arc<str>,
+    pub clean_mods: Arc<str>,
+    pub flags: Arc<str>,
+    pub key: Arc<str>,
+    pub dispatcher: Arc<str>,
+    pub args: Arc<str>,
+    pub description: Option<Arc<str>>,
+    pub submap: Option<Arc<str>>,
     pub line_number: usize,
     pub file_path: PathBuf,
 }
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub name: Rc<str>,
-    pub value: Rc<str>,
+    pub name: Arc<str>,
+    pub value: Arc<str>,
     pub line_number: usize,
     pub file_path: PathBuf,
 }
@@ -188,7 +188,9 @@ impl ParserContext {
 struct ConfigData {
     variables: HashMap<String, String>,
     defined_variables: Vec<Variable>,
-    file_cache: HashMap<PathBuf, Rc<String>>,
+    file_cache: HashMap<PathBuf, Arc<String>>,
+    mtimes: HashMap<PathBuf, std::time::SystemTime>,
+    sizes: HashMap<PathBuf, u64>,
 }
 
 fn load_config_data() -> Result<ConfigData> {
@@ -196,9 +198,6 @@ fn load_config_data() -> Result<ConfigData> {
     let mut ctx = ParserContext::new();
 
     // Inject $hypr variable pointing to the config root
-    // This supports the common convention of using $hypr to refer to the config dir,
-    // which is especially useful when loading from a custom directory where the
-    // user's actual environment variable might not match the test context.
     let active_root = main_path
         .parent()
         .unwrap_or(Path::new("."))
@@ -211,36 +210,45 @@ fn load_config_data() -> Result<ConfigData> {
     );
     ctx.mark_dirty();
 
-    let mut file_cache: HashMap<PathBuf, Rc<String>> = HashMap::new();
-    let mut path_cache: HashMap<PathBuf, Rc<PathBuf>> = HashMap::new();
+    let mut file_cache: HashMap<PathBuf, Arc<String>> = HashMap::new();
+    let mut path_cache: HashMap<PathBuf, Arc<PathBuf>> = HashMap::new();
     let mut defined_variables = Vec::new();
+    let mut mtimes: HashMap<PathBuf, std::time::SystemTime> = HashMap::new();
+    let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
 
     fn collect_recursive(
         path: PathBuf,
         ctx: &mut ParserContext,
-        file_cache: &mut HashMap<PathBuf, Rc<String>>,
-        path_cache: &mut HashMap<PathBuf, Rc<PathBuf>>,
+        file_cache: &mut HashMap<PathBuf, Arc<String>>,
+        path_cache: &mut HashMap<PathBuf, Arc<PathBuf>>,
         defined_variables: &mut Vec<Variable>,
+        mtimes: &mut HashMap<PathBuf, std::time::SystemTime>,
+        sizes: &mut HashMap<PathBuf, u64>,
         system_root: &Path,
         active_root: &Path,
     ) -> Result<()> {
         if ctx.visited.contains(&path) {
             return Ok(());
         }
-        // If path doesn't exist, we can't read it.
-        // However, we might have reached here via a re-rooted path that DOES exist.
-        // If it still doesn't exist, we skip.
         if !path.exists() {
             return Ok(());
         }
 
         ctx.visited.insert(path.clone());
 
-        // Support for directory sourcing (Hyprland feature)
         if path.is_dir() {
+            // Track directory mtime/size to detect additions/removals
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let mtime = metadata
+                    .modified()
+                    .unwrap_or_else(|_| std::time::SystemTime::now());
+                mtimes.insert(path.clone(), mtime);
+                sizes.insert(path.clone(), metadata.len());
+            }
+
             if let Ok(entries) = std::fs::read_dir(&path) {
                 let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
-                paths.sort(); // Alphabetical order
+                paths.sort();
                 for sub_path in paths {
                     let _ = collect_recursive(
                         sub_path,
@@ -248,6 +256,8 @@ fn load_config_data() -> Result<ConfigData> {
                         file_cache,
                         path_cache,
                         defined_variables,
+                        mtimes,
+                        sizes,
                         system_root,
                         active_root,
                     );
@@ -256,17 +266,23 @@ fn load_config_data() -> Result<ConfigData> {
             return Ok(());
         }
 
-        // Get or create shared path reference
         let shared_path = path_cache
             .entry(path.clone())
-            .or_insert_with(|| Rc::new(path.clone()))
+            .or_insert_with(|| Arc::new(path.clone()))
             .clone();
 
         let content = if let Some(cached) = file_cache.get(&path) {
             cached.clone()
         } else {
+            let metadata = std::fs::metadata(&path)?;
+            let mtime = metadata
+                .modified()
+                .unwrap_or_else(|_| std::time::SystemTime::now());
+            mtimes.insert(path.clone(), mtime);
+            sizes.insert(path.clone(), metadata.len());
+
             let s = std::fs::read_to_string(&path).unwrap_or_default();
-            let rc = Rc::new(s);
+            let rc = Arc::new(s);
             file_cache.insert(path.clone(), rc.clone());
             rc
         };
@@ -277,7 +293,6 @@ fn load_config_data() -> Result<ConfigData> {
                 continue;
             }
 
-            // Variable parsing: $name = value
             if line.starts_with('$') {
                 if let Some((name_part, value_part)) = line.split_once('=') {
                     let name = name_part.trim().to_string();
@@ -285,15 +300,13 @@ fn load_config_data() -> Result<ConfigData> {
                     let raw_value = raw_value_part.trim();
 
                     if !name.is_empty() {
-                        // Store the definition for UI management (use shared path)
                         defined_variables.push(Variable {
-                            name: Rc::from(name.as_str()),
-                            value: Rc::from(raw_value), // Store raw value for editing
+                            name: Arc::from(name.as_str()),
+                            value: Arc::from(raw_value),
                             line_number: line_idx,
                             file_path: (*shared_path).clone(),
                         });
 
-                        // Resolve for parser usage - only if value contains variables
                         let value = if raw_value.contains('$') {
                             ctx.ensure_sorted();
                             resolve_variables(raw_value, &ctx.variables, &ctx.sorted_keys)
@@ -305,9 +318,7 @@ fn load_config_data() -> Result<ConfigData> {
                         ctx.mark_dirty();
                     }
                 }
-            }
-            // Source parsing: source = path
-            else if let Some(rest) = line.strip_prefix("source") {
+            } else if let Some(rest) = line.strip_prefix("source") {
                 let trimmed_rest = rest.trim_start();
                 if let Some(path_part) = trimmed_rest.strip_prefix('=') {
                     let path_str = path_part
@@ -317,7 +328,6 @@ fn load_config_data() -> Result<ConfigData> {
                         .trim()
                         .trim_matches('"');
 
-                    // Only get sorted keys if path contains variables
                     let mut sourced_path = if path_str.contains('$') {
                         ctx.ensure_sorted();
                         expand_path(path_str, &path, &ctx.variables, &ctx.sorted_keys)
@@ -325,19 +335,15 @@ fn load_config_data() -> Result<ConfigData> {
                         expand_path(path_str, &path, &ctx.variables, &[])
                     };
 
-                    // Fallback: If path ends in /.conf and doesn't exist, try /*.conf
-                    // This handles potential typos or specific user patterns where .conf implies *.conf
                     if !sourced_path.exists() && sourced_path.ends_with(".conf") {
                         if let Some(parent) = sourced_path.parent() {
                             sourced_path = parent.join("*.conf");
                         }
                     }
 
-                    // --- Re-rooting Logic ---
                     if system_root != active_root {
                         if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
                             let remapped = active_root.join(suffix);
-                            // Check if remapped path exists or is a glob pattern that matches files
                             let remapped_str = remapped.to_string_lossy();
                             let is_glob = is_glob_pattern(&remapped_str);
 
@@ -350,7 +356,6 @@ fn load_config_data() -> Result<ConfigData> {
                         }
                     }
 
-                    // Use glob to expand wildcards
                     let pattern = sourced_path.to_string_lossy();
                     if !is_glob_pattern(&pattern) {
                         let _ = collect_recursive(
@@ -359,10 +364,25 @@ fn load_config_data() -> Result<ConfigData> {
                             file_cache,
                             path_cache,
                             defined_variables,
+                            mtimes,
+                            sizes,
                             system_root,
                             active_root,
                         );
                     } else if let Ok(paths) = glob(&pattern) {
+                        // Track the parent directory so new files matching
+                        // the glob pattern will invalidate the cache.
+                        if let Some(parent) = sourced_path.parent() {
+                            if parent.is_dir() {
+                                if let Ok(dir_meta) = std::fs::metadata(parent) {
+                                    let dir_mtime = dir_meta
+                                        .modified()
+                                        .unwrap_or_else(|_| std::time::SystemTime::now());
+                                    mtimes.insert(parent.to_path_buf(), dir_mtime);
+                                    sizes.insert(parent.to_path_buf(), dir_meta.len());
+                                }
+                            }
+                        }
                         for p in paths.flatten() {
                             let _ = collect_recursive(
                                 p,
@@ -370,6 +390,8 @@ fn load_config_data() -> Result<ConfigData> {
                                 file_cache,
                                 path_cache,
                                 defined_variables,
+                                mtimes,
+                                sizes,
                                 system_root,
                                 active_root,
                             );
@@ -392,6 +414,8 @@ fn load_config_data() -> Result<ConfigData> {
         &mut file_cache,
         &mut path_cache,
         &mut defined_variables,
+        &mut mtimes,
+        &mut sizes,
         &system_root,
         &active_root,
     )?;
@@ -399,20 +423,364 @@ fn load_config_data() -> Result<ConfigData> {
         variables: ctx.variables,
         defined_variables,
         file_cache,
+        mtimes,
+        sizes,
     })
 }
 
+struct CacheState {
+    keybinds: Vec<Keybind>,
+    variables: HashMap<String, String>,
+    defined_variables: Vec<Variable>,
+    loaded_files: Vec<PathBuf>,
+    mtimes: HashMap<PathBuf, std::time::SystemTime>,
+    sizes: HashMap<PathBuf, u64>,
+    main_path: PathBuf,
+}
+
+static GLOBAL_CACHE: Mutex<Option<Arc<CacheState>>> = Mutex::new(None);
+
+pub fn invalidate_parser_cache() {
+    if let Ok(mut cache) = GLOBAL_CACHE.lock() {
+        *cache = None;
+    }
+}
+
+fn get_valid_cache() -> Result<Option<Arc<CacheState>>> {
+    let main_path = get_config_path()?;
+
+    // 1. Grab a cheap Arc clone under lock — no deep copy of keybinds/variables
+    let snapshot = {
+        if let Ok(guard) = GLOBAL_CACHE.lock() {
+            if let Some(cache) = guard.as_ref() {
+                if cache.main_path != main_path {
+                    return Ok(None);
+                }
+                Arc::clone(cache)
+            } else {
+                return Ok(None);
+            }
+        } else {
+            return Ok(None);
+        }
+    };
+
+    // 2. Validate mtimes/sizes without holding the lock
+    for (path, last_mtime) in &snapshot.mtimes {
+        let last_size = snapshot.sizes.get(path).copied().unwrap_or(0);
+        match std::fs::metadata(path) {
+            Ok(m) => {
+                let mtime = m.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                if mtime != *last_mtime || m.len() != last_size {
+                    return Ok(None);
+                }
+            }
+            _ => return Ok(None),
+        }
+    }
+
+    Ok(Some(snapshot))
+}
+
+pub fn parse_config() -> Result<Vec<Keybind>> {
+    if let Some(cache) = get_valid_cache()? {
+        return Ok(cache.keybinds.clone());
+    }
+
+    let main_path = get_config_path()?;
+    let data = load_config_data()?;
+    let variables = data.variables;
+    let file_cache = data.file_cache;
+    let mtimes = data.mtimes;
+    let sizes = data.sizes;
+    let defined_variables = data.defined_variables;
+
+    let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
+    sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
+
+    let mut keybinds = Vec::new();
+    let mut visited = HashSet::new();
+    let mut current_submap: Option<Arc<str>> = None;
+
+    fn parse_recursive(
+        path: PathBuf,
+        keybinds: &mut Vec<Keybind>,
+        ctx: &RecursiveParseContext,
+        visited: &mut HashSet<PathBuf>,
+        current_submap: &mut Option<Arc<str>>,
+    ) -> Result<()> {
+        if visited.contains(&path) {
+            return Ok(());
+        }
+        if !path.exists() {
+            return Ok(());
+        }
+        visited.insert(path.clone());
+
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&path) {
+                let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+                paths.sort();
+                for sub_path in paths {
+                    let _ = parse_recursive(sub_path, keybinds, ctx, visited, current_submap);
+                }
+            }
+            return Ok(());
+        }
+
+        let content = if let Some(cached) = ctx.file_cache.get(&path) {
+            cached.clone()
+        } else {
+            Arc::new(std::fs::read_to_string(&path).unwrap_or_default())
+        };
+
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (index, line) in lines.iter().enumerate() {
+            let line_trimmed = line.trim();
+            if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
+                continue;
+            }
+
+            if let Some(rest) = line_trimmed.strip_prefix("submap") {
+                let rest_trimmed = rest.trim_start();
+                if let Some(val) = rest_trimmed.strip_prefix('=') {
+                    let name = val.split('#').next().unwrap_or("").trim();
+                    if name == "reset" {
+                        *current_submap = None;
+                    } else {
+                        *current_submap = Some(Arc::from(name));
+                    }
+                }
+            } else if let Some(rest) = line_trimmed.strip_prefix("bind") {
+                let rest = rest.trim_start();
+                let flags;
+                let mut remaining = rest;
+
+                if let Some(eq_idx) = remaining.find('=') {
+                    let potential_flags = remaining[..eq_idx].trim();
+                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
+                        flags = potential_flags.to_string();
+                        remaining = &remaining[eq_idx + 1..];
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+
+                let raw_content = remaining.trim();
+                let mut description = None;
+
+                if let Some(idx) = line.find('#') {
+                    let comment = line[idx + 1..].trim();
+                    if !comment.is_empty() {
+                        description = Some(Arc::from(comment));
+                    }
+                }
+
+                if description.is_none() && index > 0 {
+                    let prev_line = lines[index - 1].trim();
+                    if prev_line.starts_with('#') {
+                        let comment = prev_line.trim_start_matches('#').trim();
+                        if !comment.is_empty() {
+                            description = Some(Arc::from(comment));
+                        }
+                    }
+                }
+
+                let resolved_content =
+                    resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
+                let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
+
+                let mut parts = Vec::with_capacity(5);
+                let mut current_part = String::with_capacity(32);
+                let mut in_quote = false;
+                let mut parts_count = 0;
+                let is_bindd = flags == "d";
+                let limit = if is_bindd { 4 } else { 3 };
+
+                for c in content_clean.chars() {
+                    if parts_count < limit {
+                        if c == '"' {
+                            in_quote = !in_quote;
+                            current_part.push(c);
+                        } else if c == ',' && !in_quote {
+                            parts.push(current_part.trim().to_string());
+                            current_part.clear();
+                            parts_count += 1;
+                        } else {
+                            current_part.push(c);
+                        }
+                    } else {
+                        current_part.push(c);
+                    }
+                }
+
+                if !current_part.trim().is_empty() || parts_count >= limit {
+                    parts.push(current_part.trim().to_string());
+                }
+
+                if parts.len() >= 3 {
+                    let mods: Arc<str>;
+                    let key: Arc<str>;
+                    let dispatcher: Arc<str>;
+                    let args: Arc<str>;
+
+                    if is_bindd {
+                        mods = Arc::from(parts[0].as_str());
+                        key = Arc::from(parts[1].as_str());
+                        if parts.len() > 2 {
+                            let desc_str = parts[2].trim();
+                            if !desc_str.is_empty() {
+                                description = Some(Arc::from(desc_str));
+                            }
+                        }
+                        dispatcher = if parts.len() > 3 {
+                            Arc::from(parts[3].as_str())
+                        } else {
+                            Arc::from("")
+                        };
+                        args = if parts.len() > 4 {
+                            Arc::from(parts[4].as_str())
+                        } else {
+                            Arc::from("")
+                        };
+                    } else {
+                        mods = Arc::from(parts[0].as_str());
+                        key = Arc::from(parts[1].as_str());
+                        dispatcher = Arc::from(parts[2].as_str());
+                        args = if parts.len() > 3 {
+                            Arc::from(parts[3].as_str())
+                        } else {
+                            Arc::from("")
+                        };
+                    }
+
+                    keybinds.push(Keybind {
+                        mods: mods.clone(),
+                        clean_mods: mods,
+                        flags: Arc::from(flags.as_str()),
+                        key,
+                        dispatcher,
+                        args,
+                        description,
+                        submap: current_submap.clone(),
+                        line_number: index,
+                        file_path: path.clone(),
+                    });
+                }
+            } else if let Some(rest) = line_trimmed.strip_prefix("source") {
+                let trimmed_rest = rest.trim_start();
+                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
+                    let path_str = path_part
+                        .split('#')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .trim_matches('"');
+
+                    let mut sourced_path =
+                        expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
+
+                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
+                        if let Some(parent) = sourced_path.parent() {
+                            sourced_path = parent.join("*.conf");
+                        }
+                    }
+
+                    if ctx.system_root != ctx.active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
+                            let remapped = ctx.active_root.join(suffix);
+                            let remapped_str = remapped.to_string_lossy();
+                            let is_glob = is_glob_pattern(&remapped_str);
+
+                            if remapped.exists()
+                                || (is_glob
+                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
+                            {
+                                sourced_path = remapped;
+                            }
+                        }
+                    }
+
+                    let pattern = sourced_path.to_string_lossy();
+                    if !is_glob_pattern(&pattern) {
+                        let _ =
+                            parse_recursive(sourced_path, keybinds, ctx, visited, current_submap);
+                    } else if let Ok(paths) = glob(&pattern) {
+                        for p in paths.flatten() {
+                            let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    let system_root = config_dir()
+        .unwrap_or_default()
+        .join(crate::config::constants::HYPR_DIR);
+    let active_root = main_path
+        .parent()
+        .unwrap_or(&PathBuf::from("."))
+        .to_path_buf();
+
+    let ctx = RecursiveParseContext {
+        variables: &variables,
+        sorted_keys: &sorted_keys,
+        file_cache: &file_cache,
+        system_root: &system_root,
+        active_root: &active_root,
+    };
+
+    parse_recursive(
+        main_path.clone(),
+        &mut keybinds,
+        &ctx,
+        &mut visited,
+        &mut current_submap,
+    )?;
+
+    let loaded_files = file_cache.keys().cloned().collect();
+    let cache_state = Arc::new(CacheState {
+        keybinds: keybinds.clone(),
+        variables: variables.clone(),
+        defined_variables,
+        loaded_files,
+        mtimes,
+        sizes,
+        main_path,
+    });
+
+    if let Ok(mut guard) = GLOBAL_CACHE.lock() {
+        *guard = Some(cache_state);
+    }
+
+    Ok(keybinds)
+}
+
 pub fn get_variables() -> Result<HashMap<String, String>> {
+    if let Some(cache) = get_valid_cache()? {
+        return Ok(cache.variables.clone());
+    }
     let data = load_config_data()?;
     Ok(data.variables)
 }
 
 pub fn get_defined_variables() -> Result<Vec<Variable>> {
+    if let Some(cache) = get_valid_cache()? {
+        return Ok(cache.defined_variables.clone());
+    }
     let data = load_config_data()?;
     Ok(data.defined_variables)
 }
 
 pub fn get_loaded_files() -> Result<Vec<PathBuf>> {
+    if let Some(cache) = get_valid_cache()? {
+        return Ok(cache.loaded_files.clone());
+    }
     let data = load_config_data()?;
     Ok(data.file_cache.keys().cloned().collect())
 }
@@ -468,6 +836,7 @@ pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usiz
 
         if modified {
             std::fs::write(&path, new_content)?;
+            invalidate_parser_cache();
             count += 1;
         }
     }
@@ -582,6 +951,7 @@ pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
 
         if modified {
             std::fs::write(&path, new_content)?;
+            invalidate_parser_cache();
             count += 1;
         }
     }
@@ -671,7 +1041,9 @@ pub fn write_lines<P: AsRef<Path>>(path: P, lines: &[String]) -> Result<()> {
     if !content.is_empty() {
         content.push('\n');
     }
-    std::fs::write(path, content).context("Failed to write to file")
+    std::fs::write(path, content).context("Failed to write to file")?;
+    invalidate_parser_cache();
+    Ok(())
 }
 
 pub fn add_variable(path: PathBuf, name: &str, value: &str) -> Result<()> {
@@ -748,374 +1120,10 @@ pub fn delete_variable(path: PathBuf, line_number: usize) -> Result<()> {
 
 struct RecursiveParseContext<'a> {
     variables: &'a HashMap<String, String>,
-
     sorted_keys: &'a [String],
-
-    file_cache: &'a HashMap<PathBuf, Rc<String>>,
-
+    file_cache: &'a HashMap<PathBuf, Arc<String>>,
     system_root: &'a Path,
-
     active_root: &'a Path,
-}
-
-pub fn parse_config() -> Result<Vec<Keybind>> {
-    let main_path = get_config_path()?;
-
-    let data = load_config_data()?;
-
-    let variables = data.variables;
-
-    let file_cache = data.file_cache;
-
-    let mut sorted_keys: Vec<_> = variables.keys().cloned().collect();
-
-    sorted_keys.sort_by_key(|b: &String| std::cmp::Reverse(b.len()));
-
-    let mut keybinds = Vec::new();
-
-    let mut visited = HashSet::new();
-
-    let mut current_submap: Option<Rc<str>> = None;
-
-    fn parse_recursive(
-        path: PathBuf,
-
-        keybinds: &mut Vec<Keybind>,
-
-        ctx: &RecursiveParseContext,
-
-        visited: &mut HashSet<PathBuf>,
-
-        current_submap: &mut Option<Rc<str>>,
-    ) -> Result<()> {
-        if visited.contains(&path) {
-            return Ok(());
-        }
-
-        // Skip if path doesn't exist, unless we find it via re-rooting logic which we do BEFORE calling this function recursively
-
-        if !path.exists() {
-            return Ok(());
-        }
-
-        visited.insert(path.clone());
-
-        // Support for directory sourcing (Hyprland feature)
-
-        if path.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&path) {
-                let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
-
-                paths.sort(); // Alphabetical order
-
-                for sub_path in paths {
-                    let _ = parse_recursive(sub_path, keybinds, ctx, visited, current_submap);
-                }
-            }
-
-            return Ok(());
-        }
-
-        // Use cached content or read if missing (should be in cache from load_config_data, but fallback)
-
-        let content = if let Some(cached) = ctx.file_cache.get(&path) {
-            cached.clone()
-        } else {
-            Rc::new(std::fs::read_to_string(&path).unwrap_or_default())
-        };
-
-        let lines: Vec<&str> = content.lines().collect();
-
-        for (index, line) in lines.iter().enumerate() {
-            let line_trimmed = line.trim();
-
-            if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
-                continue;
-            }
-
-            // Check for submap
-
-            if let Some(rest) = line_trimmed.strip_prefix("submap") {
-                let rest_trimmed = rest.trim_start();
-
-                if let Some(val) = rest_trimmed.strip_prefix('=') {
-                    let name = val.split('#').next().unwrap_or("").trim();
-
-                    if name == "reset" {
-                        *current_submap = None;
-                    } else {
-                        *current_submap = Some(name.into());
-                    }
-                }
-            }
-            // Check for bind
-            else if let Some(rest) = line_trimmed.strip_prefix("bind") {
-                let rest = rest.trim_start(); // could check flags here like 'e', 'l', etc.
-
-                // extract potential flags: take while alphanumeric
-
-                let flags;
-
-                let mut remaining = rest;
-
-                // Simple manual "take_while" for flags
-
-                // 'bind' is already stripped. "bindl =" -> "l ="
-
-                if let Some(eq_idx) = remaining.find('=') {
-                    let potential_flags = remaining[..eq_idx].trim();
-
-                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
-                        flags = potential_flags.to_string();
-
-                        remaining = &remaining[eq_idx + 1..]; // skip '='
-                    } else {
-                        // malformed or no equals?
-
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
-
-                let raw_content = remaining.trim();
-
-                let mut description = None;
-
-                // Check inline
-
-                if let Some(idx) = line.find('#') {
-                    let comment = line[idx + 1..].trim();
-
-                    if !comment.is_empty() {
-                        description = Some(Rc::from(comment));
-                    }
-                }
-
-                // Check preceding line if no inline description found
-
-                if description.is_none() && index > 0 {
-                    let prev_line = lines[index - 1].trim();
-
-                    if prev_line.starts_with('#') {
-                        let comment = prev_line.trim_start_matches('#').trim();
-
-                        if !comment.is_empty() {
-                            description = Some(Rc::from(comment));
-                        }
-                    }
-                }
-
-                let resolved_content =
-                    resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
-
-                let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
-
-                // Custom splitter to respect quotes (e.g. for bash -c "...")
-
-                let mut parts = Vec::with_capacity(5);
-
-                let mut current_part = String::with_capacity(32);
-
-                let mut in_quote = false;
-
-                let mut parts_count = 0;
-
-                let is_bindd = flags == "d";
-
-                let limit = if is_bindd { 4 } else { 3 };
-
-                for c in content_clean.chars() {
-                    if parts_count < limit {
-                        if c == '"' {
-                            in_quote = !in_quote;
-
-                            current_part.push(c);
-                        } else if c == ',' && !in_quote {
-                            parts.push(current_part.trim().to_string());
-
-                            current_part.clear();
-
-                            parts_count += 1;
-                        } else {
-                            current_part.push(c);
-                        }
-                    } else {
-                        // For the last part (args), just take everything else
-
-                        current_part.push(c);
-                    }
-                }
-
-                if !current_part.trim().is_empty() || parts_count >= limit {
-                    parts.push(current_part.trim().to_string());
-                }
-
-                if parts.len() >= 3 {
-                    let mods: Rc<str>;
-
-                    let key: Rc<str>;
-
-                    let dispatcher: Rc<str>;
-
-                    let args: Rc<str>;
-
-                    if is_bindd {
-                        mods = Rc::from(parts[0].as_str());
-
-                        key = Rc::from(parts[1].as_str());
-
-                        // parts[2] is description
-
-                        if parts.len() > 2 {
-                            let desc_str = parts[2].trim();
-
-                            if !desc_str.is_empty() {
-                                description = Some(Rc::from(desc_str));
-                            }
-                        }
-
-                        if parts.len() > 3 {
-                            dispatcher = Rc::from(parts[3].as_str());
-                        } else {
-                            dispatcher = Rc::from("");
-                        }
-
-                        if parts.len() > 4 {
-                            args = Rc::from(parts[4].as_str());
-                        } else {
-                            args = Rc::from("");
-                        }
-                    } else {
-                        mods = Rc::from(parts[0].as_str());
-
-                        key = Rc::from(parts[1].as_str());
-
-                        dispatcher = Rc::from(parts[2].as_str());
-
-                        args = if parts.len() > 3 {
-                            Rc::from(parts[3].as_str())
-                        } else {
-                            Rc::from("")
-                        };
-                    }
-
-                    keybinds.push(Keybind {
-                        mods: mods.clone(),
-
-                        clean_mods: mods,
-
-                        flags: Rc::from(flags.as_str()),
-
-                        key,
-
-                        dispatcher,
-
-                        args,
-
-                        description,
-
-                        submap: current_submap.clone(),
-
-                        line_number: index,
-
-                        file_path: path.clone(),
-                    });
-                }
-            }
-            // Check for source
-            else if let Some(rest) = line_trimmed.strip_prefix("source") {
-                let trimmed_rest = rest.trim_start();
-
-                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                    let path_str = path_part
-                        .split('#')
-                        .next()
-                        .unwrap_or("")
-                        .trim()
-                        .trim_matches('"');
-
-                    let mut sourced_path =
-                        expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
-
-                    // Fallback: If path ends in /.conf and doesn't exist, try /*.conf
-
-                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
-                        if let Some(parent) = sourced_path.parent() {
-                            sourced_path = parent.join("*.conf");
-                        }
-                    }
-
-                    // --- Re-rooting Logic ---
-
-                    if ctx.system_root != ctx.active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
-                            let remapped = ctx.active_root.join(suffix);
-
-                            // Check if remapped path exists or is a glob pattern that matches files
-
-                            let remapped_str = remapped.to_string_lossy();
-
-                            let is_glob = is_glob_pattern(&remapped_str);
-
-                            if remapped.exists()
-                                || (is_glob
-                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
-                            {
-                                sourced_path = remapped;
-                            }
-                        }
-                    }
-
-                    // Use glob to expand wildcards
-
-                    let pattern = sourced_path.to_string_lossy();
-
-                    if !is_glob_pattern(&pattern) {
-                        let _ =
-                            parse_recursive(sourced_path, keybinds, ctx, visited, current_submap);
-                    } else if let Ok(paths) = glob(&pattern) {
-                        for p in paths.flatten() {
-                            let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    let system_root = config_dir()
-        .unwrap_or_default()
-        .join(crate::config::constants::HYPR_DIR);
-
-    let active_root = main_path
-        .parent()
-        .unwrap_or(&PathBuf::from("."))
-        .to_path_buf();
-
-    let ctx = RecursiveParseContext {
-        variables: &variables,
-
-        sorted_keys: &sorted_keys,
-
-        file_cache: &file_cache,
-
-        system_root: &system_root,
-
-        active_root: &active_root,
-    };
-
-    parse_recursive(
-        main_path,
-        &mut keybinds,
-        &ctx,
-        &mut visited,
-        &mut current_submap,
-    )?;
-
-    Ok(keybinds)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1137,11 +1145,6 @@ pub fn update_line(
     }
 
     let original_line = &lines[line_number];
-    // Manual parsing for update_line logic
-    // We want to preserve indentation and the 'bind' part
-    // regex was: r"^(\s*)bind([a-zA-Z]*)(\s*=\s*)([^"]*)"
-
-    // 1. Indent
     let indent_len = original_line
         .chars()
         .take_while(|c| c.is_whitespace())
@@ -1152,12 +1155,8 @@ pub fn update_line(
     if let Some(after_bind) = trimmed_start.strip_prefix("bind") {
         if let Some(_eq_idx) = after_bind.find('=') {
             let current_flags = after_bind[.._eq_idx].trim();
-
             let flags = new_flags.unwrap_or(current_flags);
             let is_bindd = flags == "d";
-
-            // preserve existing spacing around equals if possible, or just standard " = "
-            // The original code reconstructed the line completely anyway.
 
             let mut new_line = if is_bindd {
                 let desc_str = description.as_deref().unwrap_or("");
@@ -1190,7 +1189,6 @@ pub fn update_line(
                         new_line = format!("{} # {}", new_line, desc.trim());
                     }
                 } else {
-                    // Preserve existing comment if no new description provided
                     if let Some(idx) = original_line.find('#') {
                         new_line = format!("{} {}", new_line, &original_line[idx..]);
                     }
@@ -1200,14 +1198,10 @@ pub fn update_line(
             lines[line_number] = new_line;
             write_lines(&path, &lines)
         } else {
-            Err(anyhow::anyhow!(
-                "Could not parse original line structure (missing =)"
-            ))
+            Err(anyhow::anyhow!("Could not parse original line structure"))
         }
     } else {
-        Err(anyhow::anyhow!(
-            "Could not parse original line structure (not a bind)"
-        ))
+        Err(anyhow::anyhow!("Not a bind line"))
     }
 }
 
@@ -1224,7 +1218,6 @@ pub fn create_submap_block(
         content.lines().map(|s| s.to_string()).collect()
     };
 
-    // Ensure we are in global scope before adding new block
     let needs_reset = lines
         .iter()
         .rev()
@@ -1246,7 +1239,6 @@ pub fn create_submap_block(
     }
 
     lines.push("submap = reset".to_string());
-
     write_lines(&path, &lines)
 }
 
@@ -1277,7 +1269,6 @@ pub fn add_keybind(
 
     let mut new_line = if is_bindd {
         let desc_str = description.as_deref().unwrap_or("");
-
         if args.trim().is_empty() {
             format!(
                 "{} = {}, {}, {}, {}",
@@ -1312,17 +1303,14 @@ pub fn add_keybind(
             let trimmed = line.trim();
             if trimmed == submap_decl {
                 found_submap = true;
-                // Look ahead for the end of this submap
                 for (j, line_j) in lines.iter().enumerate().skip(i + 1) {
                     let next_trimmed = line_j.trim();
                     if next_trimmed.starts_with("submap =") {
-                        // Found end of block (either reset or another submap start)
                         insert_index = Some(j);
                         break;
                     }
                 }
                 if insert_index.is_none() {
-                    // Submap exists but no closing 'submap =' found, append to end
                     insert_index = Some(lines.len());
                 }
                 break;
@@ -1334,22 +1322,18 @@ pub fn add_keybind(
             write_lines(&path, &lines)?;
             Ok(idx)
         } else if found_submap {
-            // Should have been handled above, but fallback
             lines.push(new_line);
             write_lines(&path, &lines)?;
             Ok(lines.len() - 1)
         } else {
-            // Submap doesn't exist, create it
-            lines.push(String::new()); // spacer
+            lines.push(String::new());
             lines.push(submap_decl);
             lines.push(new_line);
             lines.push("submap = reset".to_string());
-
             write_lines(&path, &lines)?;
-            Ok(lines.len() - 2) // Index of the new bind
+            Ok(lines.len() - 2)
         }
     } else {
-        // Global map
         lines.push(new_line);
         write_lines(&path, &lines)?;
         Ok(lines.len() - 1)
@@ -1359,11 +1343,9 @@ pub fn add_keybind(
 pub fn delete_keybind(path: PathBuf, line_number: usize) -> Result<()> {
     let content = std::fs::read_to_string(&path)?;
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-
     if line_number >= lines.len() {
         return Err(anyhow::anyhow!("Line number out of bounds"));
     }
-
     lines.remove(line_number);
     write_lines(&path, &lines)
 }
@@ -1383,12 +1365,9 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
 
     for update in updates {
         if update.line_number >= lines.len() {
-            continue; // Skip out of bounds
+            continue;
         }
-
         let original_line = &lines[update.line_number];
-
-        // 1. Indent
         let indent_len = original_line
             .chars()
             .take_while(|c| c.is_whitespace())
@@ -1400,7 +1379,6 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
             if let Some(eq_idx) = after_bind.find('=') {
                 let flags = after_bind[..eq_idx].trim();
                 let is_bindd = flags == "d";
-
                 let mut new_line = if is_bindd {
                     let desc_str = update.description.as_deref().unwrap_or("");
                     if update.new_args.trim().is_empty() {
@@ -1447,18 +1425,13 @@ pub fn update_multiple_lines(path: PathBuf, updates: Vec<BatchUpdate>) -> Result
                         if !desc.trim().is_empty() {
                             new_line = format!("{} # {}", new_line, desc.trim());
                         }
-                    } else {
-                        // Preserve existing comment if no new description provided
-                        if let Some(idx) = original_line.find('#') {
-                            new_line = format!("{} {}", new_line, &original_line[idx..]);
-                        }
+                    } else if let Some(idx) = original_line.find('#') {
+                        new_line = format!("{} {}", new_line, &original_line[idx..]);
                     }
                 }
-
                 lines[update.line_number] = new_line;
             }
         }
     }
-
     write_lines(&path, &lines)
 }

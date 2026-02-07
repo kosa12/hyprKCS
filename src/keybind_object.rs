@@ -4,7 +4,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use glib::subclass::prelude::*;
 use gtk::glib;
 use gtk4 as gtk;
-use std::rc::Rc;
+use std::sync::Arc;
 
 glib::wrapper! {
     pub struct KeybindObject(ObjectSubclass<imp::KeybindObject>);
@@ -17,13 +17,13 @@ impl KeybindObject {
         conflict_reason: Option<String>,
         broken_reason: Option<String>,
         is_favorite: bool,
-        mods_lower: Rc<str>,
-        clean_mods_lower: Rc<str>,
-        key_lower: Rc<str>,
-        dispatcher_lower: Rc<str>,
-        args_lower: Option<Rc<str>>,
-        description_lower: Option<Rc<str>>,
-        flags: Rc<str>,
+        mods_lower: Arc<str>,
+        clean_mods_lower: Arc<str>,
+        key_lower: Arc<str>,
+        dispatcher_lower: Arc<str>,
+        args_lower: Option<Arc<str>>,
+        description_lower: Option<Arc<str>>,
+        flags: Arc<str>,
     ) -> Self {
         let obj: Self = glib::Object::new();
 
@@ -32,7 +32,6 @@ impl KeybindObject {
             let mut data = imp.data.borrow_mut();
 
             data.mods = keybind.mods;
-            // Share Rc if mods and clean_mods are the same
             if data.mods.as_ref() == keybind.clean_mods.as_ref() {
                 data.clean_mods = data.mods.clone();
             } else {
@@ -102,7 +101,7 @@ impl KeybindObject {
         let key_lower = &data.key_lower;
 
         let category_match = match category {
-            0 => true, // All
+            0 => true,
             1 => {
                 dispatcher_lower.contains("workspace")
                     || dispatcher_lower.contains("movetoworkspace")
@@ -121,7 +120,7 @@ impl KeybindObject {
                     a.contains("volume") || a.contains("brightness") || a.contains("playerctl")
                 }) || dispatcher_lower.contains("audio")
             }
-            4 => dispatcher_lower.as_ref() == "exec", // Custom/Script
+            4 => dispatcher_lower.as_ref() == "exec",
             5 => key_lower.contains("mouse"),
             6 => data.is_favorite,
             _ => true,
@@ -131,9 +130,7 @@ impl KeybindObject {
             return false;
         }
 
-        // Advanced Search Filters - Query parts are already lowercased in SearchQuery::parse
         if let Some(ref q_mods) = query.mods {
-            // Match against both raw and clean mods for user convenience
             if !data.mods_lower.contains(q_mods) && !data.clean_mods_lower.contains(q_mods) {
                 return false;
             }
@@ -214,32 +211,32 @@ pub mod imp {
     use gtk::subclass::prelude::*;
     use gtk4 as gtk;
     use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[derive(Default, Clone)]
     pub struct KeybindData {
-        pub mods: Rc<str>,
-        pub clean_mods: Rc<str>,
-        pub flags: Rc<str>,
-        pub key: Rc<str>,
-        pub dispatcher: Rc<str>,
-        pub args: Option<Rc<str>>,
-        pub description: Option<Rc<str>>,
-        pub submap: Option<Rc<str>>,
+        pub mods: Arc<str>,
+        pub clean_mods: Arc<str>,
+        pub flags: Arc<str>,
+        pub key: Arc<str>,
+        pub dispatcher: Arc<str>,
+        pub args: Option<Arc<str>>,
+        pub description: Option<Arc<str>>,
+        pub submap: Option<Arc<str>>,
         pub line_number: u64,
-        pub file_path: Rc<str>,
+        pub file_path: Arc<str>,
         pub is_conflicted: bool,
-        pub conflict_reason: Option<Rc<str>>,
+        pub conflict_reason: Option<Arc<str>>,
         pub is_favorite: bool,
         pub is_broken: bool,
-        pub broken_reason: Option<Rc<str>>,
+        pub broken_reason: Option<Arc<str>>,
 
-        pub mods_lower: Rc<str>,
-        pub clean_mods_lower: Rc<str>,
-        pub key_lower: Rc<str>,
-        pub dispatcher_lower: Rc<str>,
-        pub args_lower: Option<Rc<str>>,
-        pub description_lower: Option<Rc<str>>,
+        pub mods_lower: Arc<str>,
+        pub clean_mods_lower: Arc<str>,
+        pub key_lower: Arc<str>,
+        pub dispatcher_lower: Arc<str>,
+        pub args_lower: Option<Arc<str>>,
+        pub description_lower: Option<Arc<str>>,
     }
 
     #[derive(Default)]
@@ -253,12 +250,12 @@ pub mod imp {
         type Type = super::KeybindObject;
     }
 
-    fn to_lower_rc(s: &str) -> Rc<str> {
+    fn to_lower_arc(s: &str) -> Arc<str> {
         let lower = s.to_lowercase();
         if lower == s {
-            Rc::from(s)
+            Arc::from(s)
         } else {
-            Rc::from(lower)
+            Arc::from(lower)
         }
     }
 
@@ -293,12 +290,12 @@ pub mod imp {
             match pspec.name() {
                 "mods" => {
                     let v: String = value.get().unwrap();
-                    data.mods_lower = to_lower_rc(&v);
+                    data.mods_lower = to_lower_arc(&v);
                     data.mods = v.into();
                 }
                 "clean-mods" => {
                     let v: String = value.get().unwrap();
-                    data.clean_mods_lower = to_lower_rc(&v);
+                    data.clean_mods_lower = to_lower_arc(&v);
                     data.clean_mods = v.into();
                 }
                 "flags" => {
@@ -307,12 +304,12 @@ pub mod imp {
                 }
                 "key" => {
                     let v: String = value.get().unwrap();
-                    data.key_lower = to_lower_rc(&v);
+                    data.key_lower = to_lower_arc(&v);
                     data.key = v.into();
                 }
                 "dispatcher" => {
                     let v: String = value.get().unwrap();
-                    data.dispatcher_lower = to_lower_rc(&v);
+                    data.dispatcher_lower = to_lower_arc(&v);
                     data.dispatcher = v.into();
                 }
                 "args" => {
@@ -320,7 +317,7 @@ pub mod imp {
                     data.args_lower = if v.is_empty() {
                         None
                     } else {
-                        Some(to_lower_rc(&v))
+                        Some(to_lower_arc(&v))
                     };
                     data.args = if v.is_empty() { None } else { Some(v.into()) };
                 }
@@ -329,7 +326,7 @@ pub mod imp {
                     data.description_lower = if v.is_empty() {
                         None
                     } else {
-                        Some(to_lower_rc(&v))
+                        Some(to_lower_arc(&v))
                     };
                     data.description = if v.is_empty() { None } else { Some(v.into()) };
                 }

@@ -3,7 +3,7 @@ use hyprKCS::keybind_object::KeybindObject;
 use hyprKCS::parser::Keybind;
 use hyprKCS::ui::utils::export::export_keybinds_to_markdown;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[test]
 fn test_export_markdown() {
@@ -19,13 +19,13 @@ fn test_export_markdown() {
     let model = gio::ListStore::new::<KeybindObject>();
 
     let kb_data = Keybind {
-        mods: Rc::from("SUPER"),
-        clean_mods: Rc::from("SUPER"),
-        flags: Rc::from(""),
-        key: Rc::from("Q"),
-        dispatcher: Rc::from("exec"),
-        args: Rc::from("kitty"),
-        description: Some(Rc::from("Terminal")),
+        mods: Arc::from("SUPER"),
+        clean_mods: Arc::from("SUPER"),
+        flags: Arc::from(""),
+        key: Arc::from("Q"),
+        dispatcher: Arc::from("exec"),
+        args: Arc::from("kitty"),
+        description: Some(Arc::from("Terminal")),
         submap: None,
         line_number: 10,
         file_path: PathBuf::from("hyprland.conf"),
@@ -36,13 +36,13 @@ fn test_export_markdown() {
         None,
         None,
         false,
-        Rc::from("super"),
-        Rc::from("super"),
-        Rc::from("q"),
-        Rc::from("exec"),
-        Some(Rc::from("kitty")),
-        Some(Rc::from("terminal")),
-        Rc::from(""),
+        Arc::from("super"),
+        Arc::from("super"),
+        Arc::from("q"),
+        Arc::from("exec"),
+        Some(Arc::from("kitty")),
+        Some(Arc::from("terminal")),
+        Arc::from(""),
     );
 
     model.append(&obj);
