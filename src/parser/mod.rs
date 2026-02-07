@@ -370,6 +370,19 @@ fn load_config_data() -> Result<ConfigData> {
                             active_root,
                         );
                     } else if let Ok(paths) = glob(&pattern) {
+                        // Track the parent directory so new files matching
+                        // the glob pattern will invalidate the cache.
+                        if let Some(parent) = sourced_path.parent() {
+                            if parent.is_dir() {
+                                if let Ok(dir_meta) = std::fs::metadata(parent) {
+                                    let dir_mtime = dir_meta
+                                        .modified()
+                                        .unwrap_or_else(|_| std::time::SystemTime::now());
+                                    mtimes.insert(parent.to_path_buf(), dir_mtime);
+                                    sizes.insert(parent.to_path_buf(), dir_meta.len());
+                                }
+                            }
+                        }
                         for p in paths.flatten() {
                             let _ = collect_recursive(
                                 p,

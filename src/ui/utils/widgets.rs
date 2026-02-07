@@ -240,9 +240,10 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
         btn.add_css_class("suggested-action");
         btn.grab_focus(); // Ensure we catch keys
 
-        // Define the submap with a dummy bind to ensure it's created and recognized
-        execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset"]);
-        execute_hyprctl(&["dispatch", "submap", "hyprkcs_blocking"]);
+        // Define the submap with a dummy bind and immediately dispatch to it.
+        // Combined into a single --batch call to avoid a race condition since
+        // execute_hyprctl runs asynchronously in a background thread.
+        execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset ; dispatch submap hyprkcs_blocking"]);
     };
 
     record_btn.connect_clicked(on_click);
