@@ -1,4 +1,4 @@
-use crate::ui::utils::execution::execute_hyprctl;
+use crate::ui::utils::execution::{execute_hyprctl, execute_hyprctl_sync};
 use gtk::{gdk, glib, prelude::*};
 use gtk4 as gtk;
 
@@ -236,14 +236,14 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
             return;
         }
 
+        // Define the submap with a dummy bind and immediately dispatch to it.
+        // Uses the synchronous variant so the submap is guaranteed active
+        // before we show "Listening..." and start accepting key input.
+        execute_hyprctl_sync(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset ; dispatch submap hyprkcs_blocking"]);
+
         btn.set_label("Listening...");
         btn.add_css_class("suggested-action");
         btn.grab_focus(); // Ensure we catch keys
-
-        // Define the submap with a dummy bind and immediately dispatch to it.
-        // Combined into a single --batch call to avoid a race condition since
-        // execute_hyprctl runs asynchronously in a background thread.
-        execute_hyprctl(&["--batch", "keyword submap hyprkcs_blocking ; keyword bind , code:248, exec, true ; keyword submap reset ; dispatch submap hyprkcs_blocking"]);
     };
 
     record_btn.connect_clicked(on_click);

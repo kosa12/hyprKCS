@@ -27,37 +27,47 @@ pub fn execute_keybind(dispatcher: &str, args: &str) {
 }
 
 pub fn execute_hyprctl(args: &[&str]) {
-    use std::io::Write;
-
     let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
 
     std::thread::spawn(move || {
-        let output = std::process::Command::new("hyprctl")
-            .args(&args_owned)
-            .output();
+        run_hyprctl_inner(&args_owned);
+    });
+}
 
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("/tmp/hyprkcs-debug.log")
-        {
-            let _ = writeln!(file, "Executing: hyprctl {:?}", args_owned);
-            match &output {
-                Ok(out) => {
-                    let _ = writeln!(file, "Status: {}", out.status);
-                    let _ = writeln!(file, "Stdout: {}", String::from_utf8_lossy(&out.stdout));
-                    let _ = writeln!(file, "Stderr: {}", String::from_utf8_lossy(&out.stderr));
-                }
-                Err(e) => {
-                    let _ = writeln!(file, "Failed to execute: {}", e);
-                }
+/// Synchronous variant — blocks until hyprctl exits.
+/// Use this when subsequent logic depends on the command having taken effect
+/// (e.g. activating a submap before listening for key input).
+pub fn execute_hyprctl_sync(args: &[&str]) {
+    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    run_hyprctl_inner(&args_owned);
+}
+
+fn run_hyprctl_inner(args: &[String]) {
+    use std::io::Write;
+
+    let output = std::process::Command::new("hyprctl").args(args).output();
+
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/hyprkcs-debug.log")
+    {
+        let _ = writeln!(file, "Executing: hyprctl {:?}", args);
+        match &output {
+            Ok(out) => {
+                let _ = writeln!(file, "Status: {}", out.status);
+                let _ = writeln!(file, "Stdout: {}", String::from_utf8_lossy(&out.stdout));
+                let _ = writeln!(file, "Stderr: {}", String::from_utf8_lossy(&out.stderr));
+            }
+            Err(e) => {
+                let _ = writeln!(file, "Failed to execute: {}", e);
             }
         }
+    }
 
-        if let Err(e) = output {
-            eprintln!("Failed to execute hyprctl: {}", e);
-        }
-    });
+    if let Err(e) = output {
+        eprintln!("Failed to execute hyprctl: {}", e);
+    }
 }
 
 use std::collections::HashMap;

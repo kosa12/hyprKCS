@@ -428,7 +428,6 @@ fn load_config_data() -> Result<ConfigData> {
     })
 }
 
-#[derive(Clone)]
 struct CacheState {
     keybinds: Vec<Keybind>,
     variables: HashMap<String, String>,
@@ -439,7 +438,7 @@ struct CacheState {
     main_path: PathBuf,
 }
 
-static GLOBAL_CACHE: Mutex<Option<CacheState>> = Mutex::new(None);
+static GLOBAL_CACHE: Mutex<Option<Arc<CacheState>>> = Mutex::new(None);
 
 pub fn invalidate_parser_cache() {
     if let Ok(mut cache) = GLOBAL_CACHE.lock() {
@@ -447,17 +446,17 @@ pub fn invalidate_parser_cache() {
     }
 }
 
-fn get_valid_cache() -> Result<Option<CacheState>> {
+fn get_valid_cache() -> Result<Option<Arc<CacheState>>> {
     let main_path = get_config_path()?;
 
-    // 1. Get snapshot of validation data under lock to minimize lock contention
-    let (mtimes, sizes, cache) = {
+    // 1. Grab a cheap Arc clone under lock — no deep copy of keybinds/variables
+    let snapshot = {
         if let Ok(guard) = GLOBAL_CACHE.lock() {
             if let Some(cache) = guard.as_ref() {
                 if cache.main_path != main_path {
                     return Ok(None);
                 }
-                (cache.mtimes.clone(), cache.sizes.clone(), cache.clone())
+                Arc::clone(cache)
             } else {
                 return Ok(None);
             }
@@ -466,35 +465,26 @@ fn get_valid_cache() -> Result<Option<CacheState>> {
         }
     };
 
-    // 2. Perform slow I/O without holding the lock
-    let mut valid = true;
-    for (path, last_mtime) in &mtimes {
-        let last_size = sizes.get(path).cloned().unwrap_or(0);
+    // 2. Validate mtimes/sizes without holding the lock
+    for (path, last_mtime) in &snapshot.mtimes {
+        let last_size = snapshot.sizes.get(path).copied().unwrap_or(0);
         match std::fs::metadata(path) {
             Ok(m) => {
                 let mtime = m.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
                 if mtime != *last_mtime || m.len() != last_size {
-                    valid = false;
-                    break;
+                    return Ok(None);
                 }
             }
-            _ => {
-                valid = false;
-                break;
-            }
+            _ => return Ok(None),
         }
     }
 
-    if valid {
-        Ok(Some(cache))
-    } else {
-        Ok(None)
-    }
+    Ok(Some(snapshot))
 }
 
 pub fn parse_config() -> Result<Vec<Keybind>> {
     if let Some(cache) = get_valid_cache()? {
-        return Ok(cache.keybinds);
+        return Ok(cache.keybinds.clone());
     }
 
     let main_path = get_config_path()?;
@@ -754,7 +744,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
     )?;
 
     let loaded_files = file_cache.keys().cloned().collect();
-    let cache_state = CacheState {
+    let cache_state = Arc::new(CacheState {
         keybinds: keybinds.clone(),
         variables: variables.clone(),
         defined_variables,
@@ -762,7 +752,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
         mtimes,
         sizes,
         main_path,
-    };
+    });
 
     if let Ok(mut guard) = GLOBAL_CACHE.lock() {
         *guard = Some(cache_state);
@@ -773,7 +763,7 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
 
 pub fn get_variables() -> Result<HashMap<String, String>> {
     if let Some(cache) = get_valid_cache()? {
-        return Ok(cache.variables);
+        return Ok(cache.variables.clone());
     }
     let data = load_config_data()?;
     Ok(data.variables)
@@ -781,7 +771,7 @@ pub fn get_variables() -> Result<HashMap<String, String>> {
 
 pub fn get_defined_variables() -> Result<Vec<Variable>> {
     if let Some(cache) = get_valid_cache()? {
-        return Ok(cache.defined_variables);
+        return Ok(cache.defined_variables.clone());
     }
     let data = load_config_data()?;
     Ok(data.defined_variables)
@@ -789,7 +779,7 @@ pub fn get_defined_variables() -> Result<Vec<Variable>> {
 
 pub fn get_loaded_files() -> Result<Vec<PathBuf>> {
     if let Some(cache) = get_valid_cache()? {
-        return Ok(cache.loaded_files);
+        return Ok(cache.loaded_files.clone());
     }
     let data = load_config_data()?;
     Ok(data.file_cache.keys().cloned().collect())
