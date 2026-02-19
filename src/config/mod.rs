@@ -24,6 +24,7 @@ pub struct StyleConfig {
     pub alternating_row_colors: bool,
     pub default_sort: String,
     pub keyboard_layout: String,
+    pub custom_xkb_file: Option<String>,
     pub shadow_size: String,
     pub monitor_margin: i32,
     pub row_padding: i32,
@@ -57,6 +58,7 @@ impl Default for StyleConfig {
             alternating_row_colors: true,
             default_sort: "key".to_string(),
             keyboard_layout: "AUTO".to_string(),
+            custom_xkb_file: None,
             shadow_size: "0 4px 24px rgba(0,0,0,0.4)".to_string(),
             monitor_margin: 12,
             row_padding: 2,
@@ -247,6 +249,18 @@ rowPadding = 2px
             if let Some(val) = vars.get("keyboardLayout") {
                 config.keyboard_layout = val.to_uppercase();
             }
+            if let Some(val) = vars.get("customXkbFile") {
+                if !val.is_empty() {
+                    if crate::xkb_handler::XkbHandler::from_file(val).is_some() {
+                        config.custom_xkb_file = Some(val.clone());
+                    } else {
+                        config.errors.push(format!(
+                            "Custom XKB file '{}' not found or is not a valid XKB keymap.",
+                            val
+                        ));
+                    }
+                }
+            }
             if let Some(val) = vars.get("shadowSize") {
                 config.shadow_size = val.clone();
             }
@@ -303,12 +317,28 @@ rowPadding = 2px
             }
             if let Some(val) = vars.get("alternativeConfigPath") {
                 if !val.is_empty() {
-                    config.alternative_config_path = Some(val.clone());
+                    let path = std::path::Path::new(val);
+                    if path.exists() && path.is_dir() {
+                        config.alternative_config_path = Some(val.clone());
+                    } else {
+                        config.errors.push(format!(
+                            "Alternative config path '{}' not found or is not a directory.",
+                            val
+                        ));
+                    }
                 }
             }
             if let Some(val) = vars.get("alternativeBackupPath") {
                 if !val.is_empty() {
-                    config.alternative_backup_path = Some(val.clone());
+                    let path = std::path::Path::new(val);
+                    if path.exists() && path.is_dir() {
+                        config.alternative_backup_path = Some(val.clone());
+                    } else {
+                        config.errors.push(format!(
+                            "Alternative backup path '{}' not found or is not a directory.",
+                            val
+                        ));
+                    }
                 }
             }
             if let Some(val) = vars.get("defaultSubmap") {
@@ -356,6 +386,7 @@ showCloseButton = {}
 alternatingRowColors = {}
 defaultSort = {}
 keyboardLayout = {}
+customXkbFile = {}
 shadowSize = {}
 
 # Behavior
@@ -385,6 +416,7 @@ rowPadding = {}px
                 self.alternating_row_colors,
                 self.default_sort,
                 self.keyboard_layout,
+                self.custom_xkb_file.as_deref().unwrap_or(""),
                 self.shadow_size,
                 self.auto_backup,
                 self.max_backups_enabled,

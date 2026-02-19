@@ -19,7 +19,7 @@
         {
           default = pkgs.rustPlatform.buildRustPackage {
             pname = "hyprkcs";
-            version = "1.24.2";
+            version = "1.25.0";
 
             src = let
               fs = pkgs.lib.fileset;
@@ -47,6 +47,7 @@
               pkgs.gtk4
               pkgs.libadwaita
               pkgs.gtk4-layer-shell
+              pkgs.libxkbcommon
             ];
 
             meta = with pkgs.lib; {
@@ -73,6 +74,7 @@
               gtk4
               libadwaita
               gtk4-layer-shell
+              libxkbcommon
             ];
           };
         });

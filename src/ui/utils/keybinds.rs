@@ -28,19 +28,53 @@ impl StringPool {
 }
 
 pub fn normalize(mods: &str, key: &str) -> (String, String) {
-    let mut mods_list: Vec<&str> = mods
+    let mut mods_list: Vec<String> = mods
         .split(|c: char| c == '+' || c.is_whitespace())
-        .map(|s| s.trim())
+        .map(|s| s.trim().to_uppercase())
         .filter(|s| !s.is_empty())
+        .map(|s| match s.as_str() {
+            "MOD4" | "SUPER" | "LOGO" | "WIN" => "SUPER".to_string(),
+            "MOD1" | "ALT" => "ALT".to_string(),
+            "CONTROL" | "CTRL" => "CTRL".to_string(),
+            "SHIFT" => "SHIFT".to_string(),
+            _ => s,
+        })
         .collect();
 
     mods_list.sort_unstable();
     mods_list.dedup();
 
-    (
-        mods_list.join(" ").to_uppercase(),
-        key.trim().to_lowercase(),
-    )
+    let mut clean_key = key.trim().to_lowercase();
+
+    // Map common aliases to canonical keysyms used by xkbcommon/Hyprland
+    clean_key = match clean_key.as_str() {
+        " " => "space".to_string(),
+        "\\" => "backslash".to_string(),
+        "|" => "bar".to_string(),
+        "[" => "bracketleft".to_string(),
+        "]" => "bracketright".to_string(),
+        "{" => "braceleft".to_string(),
+        "}" => "braceright".to_string(),
+        ";" => "semicolon".to_string(),
+        ":" => "colon".to_string(),
+        "'" => "apostrophe".to_string(),
+        "\"" => "quotedbl".to_string(),
+        "," => "comma".to_string(),
+        "<" => "less".to_string(),
+        "." => "period".to_string(),
+        ">" => "greater".to_string(),
+        "/" => "slash".to_string(),
+        "?" => "question".to_string(),
+        "-" => "minus".to_string(),
+        "_" => "underscore".to_string(),
+        "=" => "equal".to_string(),
+        "+" => "plus".to_string(),
+        "`" => "grave".to_string(),
+        "~" => "asciitilde".to_string(),
+        _ => clean_key,
+    };
+
+    (mods_list.join(" "), clean_key)
 }
 
 pub fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {

@@ -6,3 +6,4 @@ pub mod keybind_object;
 pub mod parser;
 pub mod ui;
 pub mod watcher;
+pub mod xkb_handler;

@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 pub fn create_appearance_page(
     config: Rc<RefCell<StyleConfig>>,
+    window: &adw::ApplicationWindow,
     on_show_toast: Rc<dyn Fn(String)>,
 ) -> adw::PreferencesPage {
     let page_app = adw::PreferencesPage::builder().build();
@@ -169,6 +170,92 @@ pub fn create_appearance_page(
         let _ = c.borrow().save();
     });
     group_font.add(&layout_row);
+
+    // Custom XKB File
+    let xkb_file_row = adw::ActionRow::builder()
+        .title("Custom XKB File")
+        .subtitle(
+            config
+                .borrow()
+                .custom_xkb_file
+                .as_deref()
+                .unwrap_or("None (Use System Layout)"),
+        )
+        .build();
+
+    let xkb_browse_btn = gtk::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Browse for .xkb file")
+        .build();
+
+    let xkb_clear_btn = gtk::Button::builder()
+        .icon_name("edit-clear-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text("Clear custom layout")
+        .visible(config.borrow().custom_xkb_file.is_some())
+        .build();
+
+    let window_weak = window.downgrade();
+    let config_c = config.clone();
+    let row_c = xkb_file_row.clone();
+    let clear_btn_c = xkb_clear_btn.clone();
+    let toast_cb = on_show_toast.clone();
+
+    xkb_browse_btn.connect_clicked(move |_| {
+        let dialog = gtk::FileDialog::builder()
+            .title("Select XKB Layout File")
+            .modal(true)
+            .build();
+
+        let window = window_weak.upgrade();
+        let c = config_c.clone();
+        let r = row_c.clone();
+        let cb = clear_btn_c.clone();
+        let t = toast_cb.clone();
+
+        dialog.open(
+            window.as_ref(),
+            None::<&gtk::gio::Cancellable>,
+            move |res| match res {
+                Ok(file) => {
+                    if let Some(path) = file.path() {
+                        let path_str = path.to_string_lossy().to_string();
+
+                        // Validate file
+                        if crate::xkb_handler::XkbHandler::from_file(&path_str).is_some() {
+                            c.borrow_mut().custom_xkb_file = Some(path_str.clone());
+                            let _ = c.borrow().save();
+                            r.set_subtitle(&path_str);
+                            cb.set_visible(true);
+                            t(format!("Custom layout set to: {}", path_str));
+                        } else {
+                            t("Invalid XKB file. Please select a valid .xkb keymap.".to_string());
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("File selection cancelled/error: {}", e);
+                }
+            },
+        );
+    });
+
+    let config_clear_c = config.clone();
+    let row_clear_c = xkb_file_row.clone();
+    let toast_clear_c = on_show_toast.clone();
+
+    xkb_clear_btn.connect_clicked(move |btn| {
+        config_clear_c.borrow_mut().custom_xkb_file = None;
+        let _ = config_clear_c.borrow().save();
+        row_clear_c.set_subtitle("None (Use System Layout)");
+        btn.set_visible(false);
+        toast_clear_c("Reset to system keyboard layout".to_string());
+    });
+
+    xkb_file_row.add_suffix(&xkb_browse_btn);
+    xkb_file_row.add_suffix(&xkb_clear_btn);
+    group_font.add(&xkb_file_row);
 
     // Alternating Colors
     let alt_switch = gtk::Switch::builder()

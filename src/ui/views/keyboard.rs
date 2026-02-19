@@ -6,20 +6,30 @@ use crate::ui::utils::normalize;
 use crate::ui::views::keyboard_layouts::{
     detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC,
 };
+use crate::xkb_handler::XkbHandler;
 use gtk::{gio, prelude::*};
 use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
     let config = StyleConfig::load();
+    let (input_cfg, _) = load_input_config().unwrap_or_default();
+
+    let xkb = if let Some(custom_file) = &config.custom_xkb_file {
+        XkbHandler::from_file(custom_file)
+    } else {
+        XkbHandler::new(
+            &input_cfg.kb_layout,
+            &input_cfg.kb_variant,
+            &input_cfg.kb_model,
+            &input_cfg.kb_options,
+        )
+    };
+
     let layout_pref = config.keyboard_layout.to_uppercase();
 
     let layout = if layout_pref == "AUTO" {
-        if let Ok((input_cfg, _)) = load_input_config() {
-            detect_layout(&input_cfg.kb_layout).to_string()
-        } else {
-            "ANSI".to_string()
-        }
+        detect_layout(&input_cfg.kb_layout).to_string()
     } else {
         layout_pref
     };
@@ -34,6 +44,8 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     container.set_margin_end(12);
     container.set_halign(gtk::Align::Fill);
     container.set_valign(gtk::Align::Fill);
+    container.set_vexpand(true);
+    container.set_hexpand(true);
 
     // Title / Back Button
     let header_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -53,11 +65,19 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     });
 
     let title = gtk::Label::builder()
-        .label(format!("Visual Keyboard Map ({})", layout))
+        .label("Visual Keyboard Map")
         .css_classes(["title-2"])
         .hexpand(true)
         .halign(gtk::Align::Center)
         .build();
+
+    if xkb.is_none() {
+        title.set_tooltip_text(Some(
+            "Notice: XKB layout resolution failed. Displaying fallback labels.",
+        ));
+        title.add_css_class("dim-label");
+        eprintln!("[Keyboard View] XKB initialization failed. Falling back to static labels.");
+    }
 
     let close_btn = create_close_button();
 
@@ -145,19 +165,35 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     let mut row_idx = 0;
 
-    let add_row = |keys: &[KeyDef], r_idx: i32, g: &gtk::Grid| {
+    let add_row = |keys: &[KeyDef], r_idx: i32, g: &gtk::Grid, xkb: &Option<XkbHandler>| {
         let mut col_idx = 0;
         for k in keys {
+            let (label_text, hypr_name) = if let Some(handler) = xkb {
+                let (l, n) = handler.get_key_info(k.keycode);
+                (l, n)
+            } else {
+                (k.label.to_string(), k.hypr_name.to_string())
+            };
+
             let width_cells = (k.width * 4.0).round() as i32;
+
+            let btn_label = gtk::Label::builder()
+                .label(&label_text)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .halign(gtk::Align::Center)
+                .valign(gtk::Align::Center)
+                .build();
+
             let btn = gtk::Button::builder()
-                .label(k.label)
+                .child(&btn_label)
                 .css_classes(["keyboard-key"])
                 .hexpand(true)
                 .vexpand(true)
+                .tooltip_text(&label_text) // Show full label on hover
                 .build();
 
             // Store normalized key name
-            let (_, norm_key) = normalize("", k.hypr_name);
+            let (_, norm_key) = normalize("", &hypr_name);
             btn.set_widget_name(&norm_key);
 
             g.attach(&btn, col_idx, r_idx, width_cells, 1);
@@ -165,17 +201,17 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         }
     };
 
-    add_row(ROW_FUNC, row_idx, &grid);
+    add_row(ROW_FUNC, row_idx, &grid, &xkb);
     row_idx += 1;
-    add_row(row1, row_idx, &grid);
+    add_row(row1, row_idx, &grid, &xkb);
     row_idx += 1;
-    add_row(row2, row_idx, &grid);
+    add_row(row2, row_idx, &grid, &xkb);
     row_idx += 1;
-    add_row(row3, row_idx, &grid);
+    add_row(row3, row_idx, &grid, &xkb);
     row_idx += 1;
-    add_row(row4, row_idx, &grid);
+    add_row(row4, row_idx, &grid, &xkb);
     row_idx += 1;
-    add_row(row5, row_idx, &grid);
+    add_row(row5, row_idx, &grid, &xkb);
     row_idx += 1;
 
     // Arrow keys
@@ -185,14 +221,30 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     let arrow_start_col = 22;
     let mut arrow_col = arrow_start_col;
     for k in ROW_ARROWS {
+        let (label_text, hypr_name) = if let Some(handler) = &xkb {
+            let (l, n) = handler.get_key_info(k.keycode);
+            (l, n)
+        } else {
+            (k.label.to_string(), k.hypr_name.to_string())
+        };
+
         let width_cells = 4; // 1.0 * 4
+
+        let btn_label = gtk::Label::builder()
+            .label(&label_text)
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .halign(gtk::Align::Center)
+            .valign(gtk::Align::Center)
+            .build();
+
         let btn = gtk::Button::builder()
-            .label(k.label)
+            .child(&btn_label)
             .css_classes(["keyboard-key"])
             .hexpand(true)
             .vexpand(true)
+            .tooltip_text(&label_text) // Show full label on hover
             .build();
-        let (_, norm_key) = normalize("", k.hypr_name);
+        let (_, norm_key) = normalize("", &hypr_name);
         btn.set_widget_name(&norm_key);
 
         grid.attach(&btn, arrow_col, row_idx, width_cells, 1);

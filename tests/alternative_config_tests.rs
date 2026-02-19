@@ -151,19 +151,20 @@ fn test_priority_order() {
 
 #[test]
 fn test_style_config_serialization() {
-    with_temp_config("style_serialization", |_| {
+    with_temp_config("style_serialization", |temp_dir| {
+        let valid_path = temp_dir.join("valid_config_path");
+        fs::create_dir_all(&valid_path).unwrap();
+        let path_str = valid_path.to_str().unwrap().to_string();
+
         let mut config = StyleConfig::default();
-        config.alternative_config_path = Some("/test/path".to_string());
+        config.alternative_config_path = Some(path_str.clone());
 
         // Save
         config.save().unwrap();
 
         // Load
         let loaded = StyleConfig::load();
-        assert_eq!(
-            loaded.alternative_config_path,
-            Some("/test/path".to_string())
-        );
+        assert_eq!(loaded.alternative_config_path, Some(path_str));
 
         // Clear
         let mut config2 = loaded;
