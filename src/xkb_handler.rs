@@ -60,11 +60,6 @@ impl XkbHandler {
             actual_variant
         };
 
-        eprintln!(
-            "[XKB] Initializing with: layout='{}' (from '{}'), variant='{}' (from '{}'), model='{}', options='{}'",
-            actual_layout, layout, effective_variant, variant, model_str, options
-        );
-
         let keymap = xkb::Keymap::new_from_names(
             &context,
             "evdev", // rules
@@ -73,14 +68,9 @@ impl XkbHandler {
             effective_variant,
             options_opt,
             xkb::KEYMAP_COMPILE_NO_FLAGS,
-        );
+        )?;
 
-        if keymap.is_none() {
-            eprintln!("[XKB] Failed to compile keymap with provided names.");
-            return None;
-        }
-
-        let state = xkb::State::new(&keymap.unwrap());
+        let state = xkb::State::new(&keymap);
         Some(Self { state })
     }
 
