@@ -26,7 +26,7 @@ impl Drop for TempFile {
 
 #[test]
 fn test_xkb_handler_creation() {
-    let handler = XkbHandler::new("us", "", "");
+    let handler = XkbHandler::new("us", "", "", "");
     assert!(handler.is_some(), "Should create handler for 'us' layout");
 
     let handler = handler.unwrap();
@@ -37,7 +37,7 @@ fn test_xkb_handler_creation() {
 
 #[test]
 fn test_xkb_handler_dvorak() {
-    let handler = XkbHandler::new("us", "dvorak", "");
+    let handler = XkbHandler::new("us", "dvorak", "", "");
     assert!(
         handler.is_some(),
         "Should create handler for 'us(dvorak)' layout"
@@ -82,7 +82,7 @@ fn test_xkb_invalid_file() {
 
 #[test]
 fn test_xkb_special_keys() {
-    let handler = XkbHandler::new("us", "", "").unwrap();
+    let handler = XkbHandler::new("us", "", "", "").unwrap();
 
     let (label_esc, sym_esc) = handler.get_key_info(1);
     assert_eq!(label_esc, "Esc");
@@ -108,7 +108,7 @@ fn test_xkb_special_keys() {
 #[test]
 fn test_iso_keycodes() {
     // UK ISO layout
-    let handler = XkbHandler::new("gb", "", "");
+    let handler = XkbHandler::new("gb", "", "", "");
     assert!(handler.is_some());
     let handler = handler.unwrap();
 
@@ -125,7 +125,7 @@ fn test_iso_keycodes() {
 
 #[test]
 fn test_utf8_safety() {
-    let handler = XkbHandler::new("us", "", "").unwrap();
+    let handler = XkbHandler::new("us", "", "", "").unwrap();
     // Test truncation logic with a dummy long name if we can't easily trigger it with real XKB
     // But since get_key_info is internal, we just trust it handles ASCII safely which is 99% of keysyms.
     // We can at least verify it doesn't crash on standard keys.

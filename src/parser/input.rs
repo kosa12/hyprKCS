@@ -4,6 +4,7 @@ use anyhow::Result;
 pub struct InputConfig {
     pub kb_layout: String,
     pub kb_variant: String,
+    pub kb_model: String,
     pub kb_options: String,
     pub follow_mouse: i32,
     pub sensitivity: f64,
@@ -33,6 +34,7 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
     let mut input_config = InputConfig {
         kb_layout: String::new(),
         kb_variant: String::new(),
+        kb_model: String::new(),
         kb_options: String::new(),
         follow_mouse: 1,
         sensitivity: 0.0,
@@ -108,6 +110,7 @@ pub fn load_input_config() -> Result<(InputConfig, GesturesConfig)> {
                     match key {
                         "kb_layout" => input_config.kb_layout = val.to_string(),
                         "kb_variant" => input_config.kb_variant = val.to_string(),
+                        "kb_model" => input_config.kb_model = val.to_string(),
                         "kb_options" => input_config.kb_options = val.to_string(),
                         "follow_mouse" => {
                             if let Ok(n) = val.parse() {
@@ -150,6 +153,7 @@ pub fn save_input_config(
     let input_updates = [
         ("kb_layout", input_config.kb_layout.as_str()),
         ("kb_variant", input_config.kb_variant.as_str()),
+        ("kb_model", input_config.kb_model.as_str()),
         ("kb_options", input_config.kb_options.as_str()),
         ("follow_mouse", &input_config.follow_mouse.to_string()),
         ("sensitivity", &input_config.sensitivity.to_string()),
@@ -334,7 +338,7 @@ pub fn save_input_config(
             let mut insert_pos = end;
             for (key, val) in &input_updates {
                 if !updated_keys.contains(*key) && !val.is_empty() {
-                    if (key == &"kb_variant" || key == &"kb_options") && val.is_empty() {
+                    if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options") && val.is_empty() {
                         continue;
                     }
                     lines.insert(insert_pos, format!("    {} = {}", key, val));
@@ -345,7 +349,7 @@ pub fn save_input_config(
             lines.push(String::new());
             lines.push(format!("{} {{ ", block_name));
             for (key, val) in &input_updates {
-                if (key == &"kb_variant" || key == &"kb_options") && val.is_empty() {
+                if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options") && val.is_empty() {
                     continue;
                 }
                 lines.push(format!("    {} = {}", key, val));

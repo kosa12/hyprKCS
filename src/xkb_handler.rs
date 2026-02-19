@@ -14,11 +14,12 @@ impl XkbHandler {
     /// # Parameters
     /// - `layout`: The keyboard layout code (e.g., "us", "de", "fr").
     /// - `variant`: The layout variant (e.g., "dvorak", "colemak"). Can be empty.
+    /// - `model`: The keyboard model (e.g., "pc105", "pc104", "apple"). Default "pc105".
     /// - `options`: XKB options (e.g., "caps:escape"). Can be empty.
     ///
     /// # Returns
     /// `Some(XkbHandler)` if the keymap could be compiled, otherwise `None`.
-    pub fn new(layout: &str, variant: &str, options: &str) -> Option<Self> {
+    pub fn new(layout: &str, variant: &str, model: &str, options: &str) -> Option<Self> {
         let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
         let options_opt = if options.is_empty() {
             None
@@ -26,10 +27,12 @@ impl XkbHandler {
             Some(options.to_string())
         };
 
+        let model_str = if model.is_empty() { "pc105" } else { model };
+
         let keymap = xkb::Keymap::new_from_names(
             &context,
             "evdev", // rules
-            "pc105", // model
+            model_str,
             layout,
             variant,
             options_opt,
@@ -100,10 +103,10 @@ impl XkbHandler {
             "space" => Some("Spc".to_string()),
             "Print" => Some("Prt".to_string()),
             "Delete" => Some("Del".to_string()),
-            "Left" => Some("<".to_string()),
-            "Right" => Some(">".to_string()),
-            "Up" => Some("^".to_string()),
-            "Down" => Some("v".to_string()),
+            "Left" => Some("←".to_string()),
+            "Right" => Some("→".to_string()),
+            "Up" => Some("↑".to_string()),
+            "Down" => Some("↓".to_string()),
             "bracketleft" => Some("[".to_string()),
             "bracketright" => Some("]".to_string()),
             "braceleft" => Some("{".to_string()),

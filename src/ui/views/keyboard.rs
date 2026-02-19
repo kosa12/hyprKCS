@@ -21,6 +21,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         XkbHandler::new(
             &input_cfg.kb_layout,
             &input_cfg.kb_variant,
+            &input_cfg.kb_model,
             &input_cfg.kb_options,
         )
     };
