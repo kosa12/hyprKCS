@@ -34,7 +34,7 @@ impl XkbHandler {
             "evdev", // rules
             model_str,
             layout,
-            variant,
+            variant, // xkbcommon-rs expects &str here, and treats empty as default
             options_opt,
             xkb::KEYMAP_COMPILE_NO_FLAGS,
         )?;

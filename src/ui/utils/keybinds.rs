@@ -28,17 +28,24 @@ impl StringPool {
 }
 
 pub fn normalize(mods: &str, key: &str) -> (String, String) {
-    let mut mods_list: Vec<&str> = mods
+    let mut mods_list: Vec<String> = mods
         .split(|c: char| c == '+' || c.is_whitespace())
-        .map(|s| s.trim())
+        .map(|s| s.trim().to_uppercase())
         .filter(|s| !s.is_empty())
+        .map(|s| match s.as_str() {
+            "MOD4" | "SUPER" | "LOGO" | "WIN" => "SUPER".to_string(),
+            "MOD1" | "ALT" => "ALT".to_string(),
+            "CONTROL" | "CTRL" => "CTRL".to_string(),
+            "SHIFT" => "SHIFT".to_string(),
+            _ => s,
+        })
         .collect();
 
     mods_list.sort_unstable();
     mods_list.dedup();
 
     (
-        mods_list.join(" ").to_uppercase(),
+        mods_list.join(" "),
         key.trim().to_lowercase(),
     )
 }
