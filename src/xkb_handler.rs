@@ -29,12 +29,19 @@ impl XkbHandler {
 
         let model_str = if model.is_empty() { "pc105" } else { model };
 
+        // Handle common configuration mistakes
+        let effective_variant = if layout == "us" && variant == "qwerty" {
+            ""
+        } else {
+            variant
+        };
+
         let keymap = xkb::Keymap::new_from_names(
             &context,
             "evdev", // rules
             model_str,
             layout,
-            variant, // xkbcommon-rs expects &str here, and treats empty as default
+            effective_variant,
             options_opt,
             xkb::KEYMAP_COMPILE_NO_FLAGS,
         )?;

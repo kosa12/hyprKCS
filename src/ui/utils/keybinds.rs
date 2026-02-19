@@ -44,9 +44,39 @@ pub fn normalize(mods: &str, key: &str) -> (String, String) {
     mods_list.sort_unstable();
     mods_list.dedup();
 
+    let mut clean_key = key.trim().to_lowercase();
+
+    // Map common aliases to canonical keysyms used by xkbcommon/Hyprland
+    clean_key = match clean_key.as_str() {
+        " " => "space".to_string(),
+        "\\" => "backslash".to_string(),
+        "|" => "bar".to_string(),
+        "[" => "bracketleft".to_string(),
+        "]" => "bracketright".to_string(),
+        "{" => "braceleft".to_string(),
+        "}" => "braceright".to_string(),
+        ";" => "semicolon".to_string(),
+        ":" => "colon".to_string(),
+        "'" => "apostrophe".to_string(),
+        "\"" => "quotedbl".to_string(),
+        "," => "comma".to_string(),
+        "<" => "less".to_string(),
+        "." => "period".to_string(),
+        ">" => "greater".to_string(),
+        "/" => "slash".to_string(),
+        "?" => "question".to_string(),
+        "-" => "minus".to_string(),
+        "_" => "underscore".to_string(),
+        "=" => "equal".to_string(),
+        "+" => "plus".to_string(),
+        "`" => "grave".to_string(),
+        "~" => "asciitilde" .to_string(),
+        _ => clean_key,
+    };
+
     (
         mods_list.join(" "),
-        key.trim().to_lowercase(),
+        clean_key,
     )
 }
 
