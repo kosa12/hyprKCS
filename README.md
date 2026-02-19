@@ -42,6 +42,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Native GTK4 Interface**: Integrates seamlessly with your system theme, supporting both light and dark modes via Libadwaita.
 - **Real-time Fuzzy Search**: Instantly find keybinds as you type.
 - **Advanced Search Syntax**: Use tags like `mod:`, `key:`, `action:`, or `desc:` to filter keybinds with precision.
+- **Native XKB Support & Dynamic Layouts**: The visual keyboard map now uses `libxkbcommon` to automatically resolve and display key labels based on your actual Hyprland configuration. It perfectly supports Dvorak, Colemak, Workman, AZERTY, and other non-QWERTY layouts with zero configuration.
 - **Visual Keyboard Map**: Interactive layout to visualize used and available keys for any modifier combination. Supports multiple physical layouts including ANSI, ISO, JIS, ABNT2, or Hungarian.
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables for accuracy.
@@ -154,7 +155,9 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 - **Select Modifiers**: Toggle SUPER, SHIFT, CTRL, or ALT to see which keys are bound to those modifiers.
 - **Color Coding**: Keys bound to actions are highlighted. Hover over them to see the exact dispatcher and arguments.
 - **Find Free Keys**: Easily spot unhighlighted keys to find available shortcuts for your configuration.
-- **Multiple Layouts**: Switch between ANSI, ISO, JIS, ABNT2, or Hungarian layouts in the Settings to match your physical hardware.
+- **Native Layout Resolution**: Powered by XKB, the map automatically reflects your active system layout (e.g., Dvorak) as defined in your Hyprland config.
+- **Multiple Physical Chassis**: Switch between ANSI, ISO, JIS, ABNT2, or Hungarian layouts in the Settings to match your physical hardware.
+- **Custom XKB Support**: Power users can provide a path to a standalone `.xkb` file in **Settings > Appearance** to force a specific layout on the visual map regardless of system settings.
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
