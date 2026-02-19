@@ -251,12 +251,11 @@ rowPadding = 2px
             }
             if let Some(val) = vars.get("customXkbFile") {
                 if !val.is_empty() {
-                    let path = std::path::Path::new(val);
-                    if path.exists() && path.is_file() {
+                    if crate::xkb_handler::XkbHandler::from_file(val).is_some() {
                         config.custom_xkb_file = Some(val.clone());
                     } else {
                         config.errors.push(format!(
-                            "Custom XKB file '{}' not found or is not a file.",
+                            "Custom XKB file '{}' not found or is not a valid XKB keymap.",
                             val
                         ));
                     }

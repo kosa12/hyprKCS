@@ -8,7 +8,6 @@ pub mod keybinds;
 pub mod macro_builder;
 pub mod search;
 pub mod widgets;
-pub mod xkb;
 
 pub use backup::*;
 pub use components::*;

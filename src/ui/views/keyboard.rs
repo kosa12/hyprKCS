@@ -3,7 +3,7 @@ use crate::keybind_object::KeybindObject;
 use crate::parser::input::load_input_config;
 use crate::ui::utils::components::{collect_submaps, create_close_button};
 use crate::ui::utils::normalize;
-use crate::ui::utils::xkb::XkbHandler;
+use crate::xkb_handler::XkbHandler;
 use crate::ui::views::keyboard_layouts::{
     detect_layout, get_layout_rows, KeyDef, ROW_ARROWS, ROW_FUNC,
 };

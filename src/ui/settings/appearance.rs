@@ -221,11 +221,17 @@ pub fn create_appearance_page(
                 Ok(file) => {
                     if let Some(path) = file.path() {
                         let path_str = path.to_string_lossy().to_string();
-                        c.borrow_mut().custom_xkb_file = Some(path_str.clone());
-                        let _ = c.borrow().save();
-                        r.set_subtitle(&path_str);
-                        cb.set_visible(true);
-                        t(format!("Custom layout set to: {}", path_str));
+
+                        // Validate file
+                        if crate::xkb_handler::XkbHandler::from_file(&path_str).is_some() {
+                            c.borrow_mut().custom_xkb_file = Some(path_str.clone());
+                            let _ = c.borrow().save();
+                            r.set_subtitle(&path_str);
+                            cb.set_visible(true);
+                            t(format!("Custom layout set to: {}", path_str));
+                        } else {
+                            t("Invalid XKB file. Please select a valid .xkb keymap.".to_string());
+                        }
                     }
                 }
                 Err(e) => {

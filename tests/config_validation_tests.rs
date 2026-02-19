@@ -67,10 +67,17 @@ customXkbFile = /non/existent/path.xkb
     assert!(config
         .errors
         .iter()
-        .any(|e| e.contains("not found or is not a file")));
+        .any(|e| e.contains("not found or is not a valid XKB keymap")));
 
     // 2. Test valid file
-    let xkb_path = temp.write_xkb("valid.xkb", "content");
+    let xkb_content = r#"xkb_keymap {
+    xkb_keycodes  { include "evdev+aliases(qwerty)" };
+    xkb_types     { include "complete" };
+    xkb_compat    { include "complete" };
+    xkb_symbols   { include "pc+us+inet(evdev)" };
+    xkb_geometry  { include "pc(pc105)" };
+};"#;
+    let xkb_path = temp.write_xkb("valid.xkb", xkb_content);
     temp.write_conf(&format!(
         r#"
 keyboardLayout = AUTO

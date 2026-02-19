@@ -1,4 +1,4 @@
-use hyprKCS::ui::utils::xkb::XkbHandler;
+use hyprKCS::xkb_handler::XkbHandler;
 use std::fs;
 use std::path::PathBuf;
 
