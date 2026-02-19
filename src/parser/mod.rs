@@ -1188,10 +1188,8 @@ pub fn update_line(
                     if !desc.trim().is_empty() {
                         new_line = format!("{} # {}", new_line, desc.trim());
                     }
-                } else {
-                    if let Some(idx) = original_line.find('#') {
-                        new_line = format!("{} {}", new_line, &original_line[idx..]);
-                    }
+                } else if let Some(idx) = original_line.find('#') {
+                    new_line = format!("{} {}", new_line, &original_line[idx..]);
                 }
             }
 

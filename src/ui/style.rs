@@ -28,8 +28,8 @@ fn parse_omarchy_colors() -> Option<std::collections::HashMap<String, String>> {
                             continue;
                         }
                         if let Some((key, val)) = line.split_once('=') {
-                            let key = key.trim().replace('"', "").replace('\'', "");
-                            let val = val.trim().replace('"', "").replace('\'', "");
+                            let key = key.trim().replace(['"', '\''], "");
+                            let val = val.trim().replace(['"', '\''], "");
                             map.insert(key, val);
                         }
                     }
