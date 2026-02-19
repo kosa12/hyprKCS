@@ -357,7 +357,7 @@ pub const HU_ROW_2: &[KeyDef] = &[
     KeyDef::new("P", "P", 1.0, 25),
     KeyDef::new("ő", "odoubleacute", 1.0, 26),
     KeyDef::new("ú", "uacute", 1.0, 27),
-    KeyDef::new("ű", "udoubleacute", 1.5, 28), // Often split, but mimicking ISO enter top... actually standard ISO has # here usually.
+    KeyDef::new("ű", "udoubleacute", 1.5, 43), // Often split, but mimicking ISO enter top... actually standard ISO has # here usually.
                                                // But HU has 'ű' on the BKSL key (ISO #).
 ];
 
