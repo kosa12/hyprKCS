@@ -70,14 +70,11 @@ pub fn normalize(mods: &str, key: &str) -> (String, String) {
         "=" => "equal".to_string(),
         "+" => "plus".to_string(),
         "`" => "grave".to_string(),
-        "~" => "asciitilde" .to_string(),
+        "~" => "asciitilde".to_string(),
         _ => clean_key,
     };
 
-    (
-        mods_list.join(" "),
-        clean_key,
-    )
+    (mods_list.join(" "), clean_key)
 }
 
 pub fn detect_conflicts(keybinds: &[crate::parser::Keybind]) -> Vec<Option<String>> {

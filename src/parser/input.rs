@@ -338,7 +338,9 @@ pub fn save_input_config(
             let mut insert_pos = end;
             for (key, val) in &input_updates {
                 if !updated_keys.contains(*key) && !val.is_empty() {
-                    if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options") && val.is_empty() {
+                    if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options")
+                        && val.is_empty()
+                    {
                         continue;
                     }
                     lines.insert(insert_pos, format!("    {} = {}", key, val));
@@ -349,7 +351,9 @@ pub fn save_input_config(
             lines.push(String::new());
             lines.push(format!("{} {{ ", block_name));
             for (key, val) in &input_updates {
-                if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options") && val.is_empty() {
+                if (key == &"kb_variant" || key == &"kb_model" || key == &"kb_options")
+                    && val.is_empty()
+                {
                     continue;
                 }
                 lines.push(format!("    {} = {}", key, val));

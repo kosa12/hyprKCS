@@ -29,24 +29,58 @@ impl XkbHandler {
 
         let model_str = if model.is_empty() { "pc105" } else { model };
 
+        // Handle multiple layouts: "us, hu" -> take only the first one "us"
+        let first_layout = layout.split(',').next().unwrap_or("").trim();
+        let first_variant = variant.split(',').next().unwrap_or("").trim();
+
+        // Robustly handle cases where layout might contain variant: "us(qwerty)"
+        let (actual_layout, actual_variant) = if let Some(start) = first_layout.find('(') {
+            if let Some(end) = first_layout.find(')') {
+                let l = &first_layout[..start];
+                let v = &first_layout[start + 1..end];
+                (
+                    l,
+                    if first_variant.is_empty() {
+                        v
+                    } else {
+                        first_variant
+                    },
+                )
+            } else {
+                (first_layout, first_variant)
+            }
+        } else {
+            (first_layout, first_variant)
+        };
+
         // Handle common configuration mistakes
-        let effective_variant = if layout == "us" && variant == "qwerty" {
+        let effective_variant = if actual_layout == "us" && actual_variant == "qwerty" {
             ""
         } else {
-            variant
+            actual_variant
         };
+
+        eprintln!(
+            "[XKB] Initializing with: layout='{}' (from '{}'), variant='{}' (from '{}'), model='{}', options='{}'",
+            actual_layout, layout, effective_variant, variant, model_str, options
+        );
 
         let keymap = xkb::Keymap::new_from_names(
             &context,
             "evdev", // rules
             model_str,
-            layout,
+            actual_layout,
             effective_variant,
             options_opt,
             xkb::KEYMAP_COMPILE_NO_FLAGS,
-        )?;
+        );
 
-        let state = xkb::State::new(&keymap);
+        if keymap.is_none() {
+            eprintln!("[XKB] Failed to compile keymap with provided names.");
+            return None;
+        }
+
+        let state = xkb::State::new(&keymap.unwrap());
         Some(Self { state })
     }
 
