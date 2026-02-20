@@ -326,10 +326,9 @@ pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Ent
     let completion = gtk::EntryCompletion::builder()
         .model(&store)
         .text_column(0)
-        .inline_completion(false)
-        .popup_completion(true)
+        .inline_completion(true)
+        .popup_completion(false)
         .minimum_key_length(1)
-        .popup_set_width(true)
         .build();
 
     let args_entry_weak = args_entry.downgrade();
