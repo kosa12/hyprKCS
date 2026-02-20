@@ -136,6 +136,7 @@ pub fn create_add_view(
         .placeholder_text("e.g. kitty")
         .activates_default(true)
         .build();
+    crate::ui::utils::setup_app_completion(&entry_dispatcher, &entry_args);
     simple_container.append(&create_form_group("Arguments:", &entry_args));
 
     form_box.append(&simple_container);

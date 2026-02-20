@@ -311,3 +311,57 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
 
     container.append(&record_btn);
 }
+
+#[allow(deprecated)]
+pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Entry) {
+    let apps = crate::ui::utils::apps::get_installed_apps();
+    // Column 0: Display Name (e.g. "Firefox Web Browser")
+    // Column 1: Exec Command (e.g. "firefox")
+    let store = gtk::ListStore::new(&[glib::Type::STRING, glib::Type::STRING]);
+
+    for app in apps {
+        store.set(&store.append(), &[(0, &app.name), (1, &app.exec)]);
+    }
+
+    let completion = gtk::EntryCompletion::builder()
+        .model(&store)
+        .text_column(0)
+        .inline_completion(false)
+        .popup_completion(true)
+        .minimum_key_length(1)
+        .popup_set_width(true)
+        .build();
+
+    let args_entry_weak = args_entry.downgrade();
+    completion.connect_match_selected(move |_, model, iter| {
+        let exec_cmd: String = model.get(iter, 1);
+        if let Some(entry) = args_entry_weak.upgrade() {
+            entry.set_text(&exec_cmd);
+            entry.set_position(-1);
+        }
+        glib::Propagation::Stop
+    });
+
+    args_entry.set_completion(Some(&completion));
+
+    let completion_strong = completion.clone();
+    let store_strong = store.clone();
+
+    // Initial check
+    let text = dispatcher_entry.text();
+    let is_exec = text == "exec" || text == "execr" || text == "exec-once";
+    if !is_exec {
+        completion.set_model(None::<&gtk::ListStore>);
+    }
+
+    dispatcher_entry.connect_changed(move |d_entry| {
+        let text = d_entry.text();
+        let is_exec = text == "exec" || text == "execr" || text == "exec-once";
+        
+        if is_exec {
+            completion_strong.set_model(Some(&store_strong));
+        } else {
+             completion_strong.set_model(None::<&gtk::ListStore>);
+        }
+    });
+}

@@ -1,3 +1,4 @@
+pub mod apps;
 pub mod backup;
 pub mod clone;
 pub mod components;
@@ -9,6 +10,7 @@ pub mod macro_builder;
 pub mod search;
 pub mod widgets;
 
+pub use apps::*;
 pub use backup::*;
 pub use components::*;
 pub use execution::*;
