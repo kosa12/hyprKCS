@@ -343,24 +343,24 @@ pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Ent
 
     args_entry.set_completion(Some(&completion));
 
-    let completion_strong = completion.clone();
-    let store_strong = store.clone();
-
-    // Initial check
-    let text = dispatcher_entry.text();
-    let is_exec = text == "exec" || text == "execr" || text == "exec-once";
-    if !is_exec {
-        completion.set_model(None::<&gtk::ListStore>);
-    }
-
-    dispatcher_entry.connect_changed(move |d_entry| {
-        let text = d_entry.text();
+    let dispatcher_entry_weak = dispatcher_entry.downgrade();
+    completion.set_match_func(move |completion, key, iter| {
+        let dispatcher_entry = match dispatcher_entry_weak.upgrade() {
+            Some(e) => e,
+            None => return false,
+        };
+        let text = dispatcher_entry.text();
         let is_exec = text == "exec" || text == "execr" || text == "exec-once";
-        
-        if is_exec {
-            completion_strong.set_model(Some(&store_strong));
+
+        if !is_exec {
+            return false;
+        }
+
+        if let Some(model) = completion.model() {
+            let value: String = model.get(iter, 0); // Column 0 is Name
+            value.to_lowercase().starts_with(&key.to_lowercase())
         } else {
-             completion_strong.set_model(None::<&gtk::ListStore>);
+            false
         }
     });
 }
