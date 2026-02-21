@@ -354,8 +354,8 @@ pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Ent
 
         if let Some(model) = completion.model() {
             let exec_cmd: String = model.get(iter, 0); 
-            // Case-insensitive starts_with for better UX
-            exec_cmd.to_lowercase().starts_with(&key.to_lowercase())
+            // Case-insensitive contains for better UX
+            exec_cmd.to_lowercase().contains(&key.to_lowercase())
         } else {
             false
         }
