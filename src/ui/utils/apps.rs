@@ -134,30 +134,18 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
 }
 
 fn clean_exec_cmd(cmd: &str) -> String {
-    // Remove field codes: %f, %F, %u, %U, %d, %D, %n, %N, %i, %c, %k, %v, %m
-    // Also usually quoted like "firefox %u" -> "firefox"
-    // Better strategy: Take the first part of the command if it's not a variable assignment?
-    // No, commands can be "foo --bar".
-    // We just want to remove the % placeholders.
-    
-    // Simple approach: split by space, keep parts that don't look like %X
-    // But we need to handle quotes.
-    // If we have "google-chrome-stable %U", splitting by space gives ["\"google-chrome-stable", "%U\""] if quoted?
-    // Actually desktop files usually don't quote the %U.
-    // Exec=/usr/bin/google-chrome-stable %U
-    
-    // Let's just remove any token starting with % and length 2.
     let parts: Vec<&str> = cmd.split_whitespace().collect();
-    let mut clean_parts = Vec::new();
-
-    for part in parts {
-        if part.starts_with('%') && part.len() == 2 {
-            continue;
-        }
-        clean_parts.push(part);
+    if let Some(first) = parts.first() {
+        // Extract just the binary name if it's a full path
+        let bin_name = if let Some(idx) = first.rfind('/') {
+            &first[idx + 1..]
+        } else {
+            first
+        };
+        bin_name.to_string()
+    } else {
+        cmd.to_string()
     }
-
-    clean_parts.join(" ")
 }
 
 #[cfg(test)]
