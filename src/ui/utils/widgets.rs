@@ -315,12 +315,17 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
 #[allow(deprecated)]
 pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Entry) {
     let apps = crate::ui::utils::apps::get_installed_apps();
-    // Column 0: Display Name (e.g. "Firefox Web Browser")
-    // Column 1: Exec Command (e.g. "firefox")
+    // Column 0: Exec Command (e.g. "firefox")
+    // Column 1: Display Name (e.g. "Firefox Web Browser") - kept for reference/future use
     let store = gtk::ListStore::new(&[glib::Type::STRING, glib::Type::STRING]);
 
+    let mut seen_execs = std::collections::HashSet::new();
+
     for app in apps {
-        store.set(&store.append(), &[(0, &app.name), (1, &app.exec)]);
+        if !seen_execs.contains(&app.exec) {
+            store.set(&store.append(), &[(0, &app.exec), (1, &app.name)]);
+            seen_execs.insert(app.exec);
+        }
     }
 
     let completion = gtk::EntryCompletion::builder()
@@ -331,16 +336,6 @@ pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Ent
         .minimum_key_length(1)
         .build();
 
-    let args_entry_weak = args_entry.downgrade();
-    completion.connect_match_selected(move |_, model, iter| {
-        let exec_cmd: String = model.get(iter, 1);
-        if let Some(entry) = args_entry_weak.upgrade() {
-            entry.set_text(&exec_cmd);
-            entry.set_position(-1);
-        }
-        glib::Propagation::Stop
-    });
-
     args_entry.set_completion(Some(&completion));
 
     let dispatcher_entry_weak = dispatcher_entry.downgrade();
@@ -350,15 +345,17 @@ pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Ent
             None => return false,
         };
         let text = dispatcher_entry.text();
-        let is_exec = text == "exec" || text == "execr" || text == "exec-once";
+        let trimmed = text.trim();
+        let is_exec = trimmed == "exec" || trimmed == "execr" || trimmed == "exec-once";
 
         if !is_exec {
             return false;
         }
 
         if let Some(model) = completion.model() {
-            let value: String = model.get(iter, 0); // Column 0 is Name
-            value.to_lowercase().starts_with(&key.to_lowercase())
+            let exec_cmd: String = model.get(iter, 0); 
+            // Case-insensitive starts_with for better UX
+            exec_cmd.to_lowercase().starts_with(&key.to_lowercase())
         } else {
             false
         }
