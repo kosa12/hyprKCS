@@ -311,3 +311,53 @@ pub fn setup_key_recorder(container: &gtk::Box, entry_mods: &gtk::Entry, entry_k
 
     container.append(&record_btn);
 }
+
+#[allow(deprecated)]
+pub fn setup_app_completion(dispatcher_entry: &gtk::Entry, args_entry: &gtk::Entry) {
+    let apps = crate::ui::utils::apps::get_installed_apps();
+    // Column 0: Exec Command (e.g. "firefox")
+    // Column 1: Display Name (e.g. "Firefox Web Browser") - kept for reference/future use
+    let store = gtk::ListStore::new(&[glib::Type::STRING, glib::Type::STRING]);
+
+    let mut seen_execs = std::collections::HashSet::new();
+
+    for app in apps {
+        if !seen_execs.contains(&app.exec) {
+            store.set(&store.append(), &[(0, &app.exec), (1, &app.name)]);
+            seen_execs.insert(app.exec);
+        }
+    }
+
+    let completion = gtk::EntryCompletion::builder()
+        .model(&store)
+        .text_column(0)
+        .inline_completion(true)
+        .popup_completion(false)
+        .minimum_key_length(1)
+        .build();
+
+    args_entry.set_completion(Some(&completion));
+
+    let dispatcher_entry_weak = dispatcher_entry.downgrade();
+    completion.set_match_func(move |completion, key, iter| {
+        let dispatcher_entry = match dispatcher_entry_weak.upgrade() {
+            Some(e) => e,
+            None => return false,
+        };
+        let text = dispatcher_entry.text();
+        let trimmed = text.trim();
+        let is_exec = trimmed == "exec" || trimmed == "execr" || trimmed == "exec-once";
+
+        if !is_exec {
+            return false;
+        }
+
+        if let Some(model) = completion.model() {
+            let exec_cmd: String = model.get(iter, 0);
+            // Case-insensitive contains for better UX
+            exec_cmd.to_lowercase().contains(&key.to_lowercase())
+        } else {
+            false
+        }
+    });
+}

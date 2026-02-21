@@ -189,6 +189,7 @@ pub fn create_edit_view(
     if args_had_prefix {
         entry_args.set_placeholder_text(Some("Variable '$' will be added automatically"));
     }
+    crate::ui::utils::setup_app_completion(&entry_dispatcher, &entry_args);
     simple_container.append(&create_form_group("Arguments:", &entry_args));
 
     form_box.append(&simple_container);
