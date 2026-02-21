@@ -22,7 +22,10 @@ pub fn get_installed_apps() -> Vec<AppInfo> {
 
     let mut result: Vec<AppInfo> = apps.into_values().collect();
     result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    println!("[hyprKCS] Found {} installed applications for autocomplete.", result.len());
+    println!(
+        "[hyprKCS] Found {} installed applications for autocomplete.",
+        result.len()
+    );
     result
 }
 
@@ -96,13 +99,13 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
         if line.starts_with('[') && line != "[Desktop Entry]" {
             break;
         }
-        
+
         // Handle Type=Application
         if line.starts_with("Type=") {
-             let type_val = line.trim_start_matches("Type=");
-             if type_val != "Application" {
-                 is_application = false;
-             }
+            let type_val = line.trim_start_matches("Type=");
+            if type_val != "Application" {
+                is_application = false;
+            }
         }
 
         if line.starts_with("Name=") && name.is_none() {
