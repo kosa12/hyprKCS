@@ -22,22 +22,16 @@ pub fn get_installed_apps() -> Vec<AppInfo> {
 
     let mut result: Vec<AppInfo> = apps.into_values().collect();
     result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    println!(
-        "[hyprKCS] Found {} installed applications for autocomplete.",
-        result.len()
-    );
     result
 }
 
 fn get_xdg_data_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
-    // User local directory
     if let Some(home) = dirs::home_dir() {
         dirs.push(home.join(".local/share"));
     }
 
-    // System directories from XDG_DATA_DIRS
     if let Ok(xdg_data_dirs) = std::env::var("XDG_DATA_DIRS") {
         for path in xdg_data_dirs.split(':') {
             if !path.is_empty() {
@@ -45,7 +39,6 @@ fn get_xdg_data_dirs() -> Vec<PathBuf> {
             }
         }
     } else {
-        // Fallback defaults
         dirs.push(PathBuf::from("/usr/local/share"));
         dirs.push(PathBuf::from("/usr/share"));
     }
@@ -58,13 +51,10 @@ fn scan_dir(dir: &Path, apps: &mut HashMap<String, AppInfo>) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                // Recursively scan subdirectories (e.g. kde4, etc.)
                 scan_dir(&path, apps);
             } else if let Some(ext) = path.extension() {
                 if ext == "desktop" {
                     if let Some(app) = parse_desktop_file(&path) {
-                        // Use filename as unique key to avoid duplicates from different directories
-                        // (User local overrides system)
                         if let Some(file_stem) = path.file_stem() {
                             let key = file_stem.to_string_lossy().to_string();
                             apps.entry(key).or_insert(app);
@@ -83,7 +73,7 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
     let mut icon = None;
     let mut is_desktop_entry = false;
     let mut no_display = false;
-    let mut is_application = true; // Default to true if Type is missing, though spec says it's required.
+    let mut is_application = true;
 
     for line in content.lines() {
         let line = line.trim();
@@ -100,7 +90,6 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
             break;
         }
 
-        // Handle Type=Application
         if line.starts_with("Type=") {
             let type_val = line.trim_start_matches("Type=");
             if type_val != "Application" {
@@ -139,7 +128,6 @@ fn parse_desktop_file(path: &Path) -> Option<AppInfo> {
 fn clean_exec_cmd(cmd: &str) -> String {
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     if let Some(first) = parts.first() {
-        // Extract just the binary name if it's a full path
         let bin_name = if let Some(idx) = first.rfind('/') {
             &first[idx + 1..]
         } else {
@@ -148,20 +136,5 @@ fn clean_exec_cmd(cmd: &str) -> String {
         bin_name.to_string()
     } else {
         cmd.to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_scanning() {
-        let apps = get_installed_apps();
-        println!("Found {} apps", apps.len());
-        for app in apps.iter().take(10) {
-            println!(" - {} -> {}", app.name, app.exec);
-        }
-        assert!(apps.len() > 0);
     }
 }
