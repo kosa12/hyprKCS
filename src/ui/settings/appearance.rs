@@ -47,7 +47,7 @@ pub fn create_appearance_page(
             let mut found = false;
             if let Some(config_dir) = dirs::config_dir() {
                 let paths = [
-                    config_dir.join("omarchy/colors.toml"),
+                    config_dir.join("omarchy/current/theme/colors.toml"),
                     config_dir.join("hypr/colors.toml"),
                 ];
                 for path in &paths {
@@ -59,7 +59,7 @@ pub fn create_appearance_page(
             }
             if !found {
                 toast(
-                    "Omarchy colors.toml not found in ~/.config/omarchy/ or ~/.config/hypr/"
+                    "Omarchy colors.toml not found in ~/.config/omarchy/current/theme/ or ~/.config/hypr/"
                         .to_string(),
                 );
                 d.set_selected(0);
