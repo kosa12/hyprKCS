@@ -114,8 +114,12 @@ pub fn run_doctor(fix: bool) {
                         if meta.permissions().readonly() {
                             println!("{} Permissions: Read-only (Saving will fail)", fail);
                             if fix {
-                                match fs::set_permissions(&path, fs::Permissions::from_mode(0o644)) {
-                                    Ok(_) => println!("{} Permissions: Automatically fixed (0644)", fixed),
+                                match fs::set_permissions(&path, fs::Permissions::from_mode(0o644))
+                                {
+                                    Ok(_) => println!(
+                                        "{} Permissions: Automatically fixed (0644)",
+                                        fixed
+                                    ),
                                     Err(e) => println!("{} Permissions: Fix failed ({})", fail, e),
                                 }
                             }
@@ -227,8 +231,14 @@ pub fn run_doctor(fix: bool) {
                     if meta.permissions().readonly() {
                         println!("{} Backups: Directory exists but is Read-Only", fail);
                         if fix {
-                             match fs::set_permissions(&backup_dir, fs::Permissions::from_mode(0o755)) {
-                                Ok(_) => println!("{} Backups: Permissions automatically fixed (0755)", fixed),
+                            match fs::set_permissions(
+                                &backup_dir,
+                                fs::Permissions::from_mode(0o755),
+                            ) {
+                                Ok(_) => println!(
+                                    "{} Backups: Permissions automatically fixed (0755)",
+                                    fixed
+                                ),
                                 Err(e) => println!("{} Backups: Fix failed ({})", fail, e),
                             }
                         }
