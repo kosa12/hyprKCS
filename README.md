@@ -168,7 +168,7 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 For users of **Omarchy**, hyprKCS offers native color synchronization.
 1. Navigate to **Settings > Appearance**.
 2. Change the **Theme** dropdown to **Omarchy**.
-3. hyprKCS will automatically look for your `colors.toml` (in `~/.config/omarchy/` or `~/.config/hypr/`) and apply your system's background, foreground, and accent colors to the interface.
+3. hyprKCS will automatically look for your `colors.toml` (in `~/.config/omarchy/current/theme/` or `~/.config/hypr/`) and apply your system's background, foreground, and accent colors to the interface.
 4. If you haven't set up a `colors.toml` yet, the app will notify you and revert to the default Adwaita theme.
 
 <p align="center">

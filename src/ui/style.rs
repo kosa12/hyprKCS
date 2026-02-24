@@ -14,7 +14,7 @@ fn parse_omarchy_colors() -> Option<std::collections::HashMap<String, String>> {
     if let Some(config_dir) = dirs::config_dir() {
         // Check both locations as fallback
         let paths = [
-            config_dir.join("omarchy/colors.toml"),
+            config_dir.join("omarchy/current/theme/colors.toml"),
             config_dir.join("hypr/colors.toml"),
         ];
 
