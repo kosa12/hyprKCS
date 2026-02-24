@@ -4,9 +4,10 @@ use gtk4 as gtk;
 use libadwaita as adw;
 use std::env;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 
-pub fn run_doctor() {
+pub fn run_doctor(fix: bool) {
     println!("hyprKCS Doctor Report");
     println!("=====================\n");
 
@@ -14,6 +15,7 @@ pub fn run_doctor() {
     let fail = "[\x1b[31mFAIL\x1b[0m]";
     let warn = "[\x1b[33mWARN\x1b[0m]";
     let info = "[\x1b[34mINFO\x1b[0m]";
+    let fixed = "[\x1b[32mFIXED\x1b[0m]";
 
     println!("1. System Information");
     println!("---------------------");
@@ -111,6 +113,12 @@ pub fn run_doctor() {
                     Ok(meta) => {
                         if meta.permissions().readonly() {
                             println!("{} Permissions: Read-only (Saving will fail)", fail);
+                            if fix {
+                                match fs::set_permissions(&path, fs::Permissions::from_mode(0o644)) {
+                                    Ok(_) => println!("{} Permissions: Automatically fixed (0644)", fixed),
+                                    Err(e) => println!("{} Permissions: Fix failed ({})", fail, e),
+                                }
+                            }
                         } else {
                             println!("{} Permissions: Writable", pass);
                         }
@@ -218,6 +226,12 @@ pub fn run_doctor() {
                 Ok(meta) => {
                     if meta.permissions().readonly() {
                         println!("{} Backups: Directory exists but is Read-Only", fail);
+                        if fix {
+                             match fs::set_permissions(&backup_dir, fs::Permissions::from_mode(0o755)) {
+                                Ok(_) => println!("{} Backups: Permissions automatically fixed (0755)", fixed),
+                                Err(e) => println!("{} Backups: Fix failed ({})", fail, e),
+                            }
+                        }
                     } else {
                         println!("{} Backups: Directory writable ({:?})", pass, backup_dir);
                     }
@@ -232,6 +246,12 @@ pub fn run_doctor() {
                 "{} Backups: Directory does not exist yet (Will be created)",
                 info
             );
+            if fix {
+                match fs::create_dir_all(&backup_dir) {
+                    Ok(_) => println!("{} Backups: Directory created successfully", fixed),
+                    Err(e) => println!("{} Backups: Creation failed ({})", fail, e),
+                }
+            }
         }
     }
 

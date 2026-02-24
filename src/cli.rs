@@ -7,6 +7,7 @@ pub struct Args {
     pub print: bool,
     pub search: Option<String>,
     pub doctor: bool,
+    pub fix: bool,
     pub hud: bool,
 }
 
@@ -25,11 +26,12 @@ impl Args {
         let mut print = false;
         let mut search = None;
         let mut doctor = false;
+        let mut fix = false;
         let mut hud = false;
 
         let mut args_iter = args.into_iter().skip(1);
         while let Some(arg) = args_iter.next() {
-            let arg_str = arg.into();
+            let arg_str: String = arg.into();
             match arg_str.as_str() {
                 "-c" | "--config" => {
                     if let Some(path) = args_iter.next() {
@@ -48,6 +50,7 @@ impl Args {
                     }
                 }
                 "--doctor" => doctor = true,
+                "--fix" => fix = true,
                 "--hud" => hud = true,
                 "-h" | "--help" => {
                     println!("hyprKCS - Hyprland Keybind Cheat Sheet");
@@ -66,6 +69,7 @@ impl Args {
                     println!(
                         "  --doctor                  Check system compatibility and report issues"
                     );
+                    println!("  --fix                     Attempt to automatically fix issues found by --doctor");
                     println!("  --hud                     Launch the Wallpaper HUD");
                     println!("  -h, --help                Print this help message");
                     std::process::exit(0);
@@ -84,6 +88,7 @@ impl Args {
             print,
             search,
             doctor,
+            fix,
             hud,
         }
     }

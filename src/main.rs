@@ -11,7 +11,7 @@ fn main() -> glib::ExitCode {
     let args = cli::Args::parse();
 
     if args.doctor {
-        hyprKCS::doctor::run_doctor();
+        hyprKCS::doctor::run_doctor(args.fix);
         return glib::ExitCode::SUCCESS;
     }
 
