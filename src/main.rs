@@ -10,6 +10,14 @@ const APP_ID: &str = "com.github.hyprkcs";
 fn main() -> glib::ExitCode {
     let args = cli::Args::parse();
 
+    if let Some(config_path) = args.config {
+        std::env::set_var("HYPRKCS_CONFIG", config_path);
+    }
+
+    if let Some(backup_path) = args.backup_path {
+        std::env::set_var("HYPRKCS_BACKUP_PATH", backup_path);
+    }
+
     if args.doctor {
         hyprKCS::doctor::run_doctor(args.fix);
         return glib::ExitCode::SUCCESS;
@@ -18,14 +26,6 @@ fn main() -> glib::ExitCode {
     if args.hud {
         ui::hud::run_hud();
         return glib::ExitCode::SUCCESS;
-    }
-
-    if let Some(config_path) = args.config {
-        std::env::set_var("HYPRKCS_CONFIG", config_path);
-    }
-
-    if let Some(backup_path) = args.backup_path {
-        std::env::set_var("HYPRKCS_BACKUP_PATH", backup_path);
     }
 
     if args.print || args.search.is_some() {
