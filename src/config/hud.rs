@@ -58,11 +58,27 @@ impl HudPosition {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct HudConfig {
     pub enabled: bool,
     pub position: HudPosition,
     pub keybinds: Vec<HudKeybind>,
+    pub opacity: f64,
+    pub border_radius: i32,
+    pub font_size: i32,
+}
+
+impl Default for HudConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            position: HudPosition::TopRight,
+            keybinds: Vec::new(),
+            opacity: 0.8,
+            border_radius: 12,
+            font_size: 14,
+        }
+    }
 }
 
 static HUD_CONFIG_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
@@ -88,11 +104,7 @@ pub fn load_hud_config() -> HudConfig {
         return HudConfig::default();
     };
 
-    let mut config = HudConfig {
-        enabled: false,
-        position: HudPosition::TopRight,
-        keybinds: Vec::with_capacity(8), // Pre-allocate for typical use
-    };
+    let mut config = HudConfig::default();
 
     for line in content.lines() {
         let line = line.trim();
@@ -104,6 +116,12 @@ pub fn load_hud_config() -> HudConfig {
             config.enabled = value == "true";
         } else if let Some(value) = line.strip_prefix("position=") {
             config.position = HudPosition::from_str(value).unwrap_or_default();
+        } else if let Some(value) = line.strip_prefix("opacity=") {
+            config.opacity = value.parse().unwrap_or(0.8);
+        } else if let Some(value) = line.strip_prefix("border_radius=") {
+            config.border_radius = value.parse().unwrap_or(12);
+        } else if let Some(value) = line.strip_prefix("font_size=") {
+            config.font_size = value.parse().unwrap_or(14);
         } else if line.contains('|') {
             let mut parts = line.splitn(4, '|');
             if let (Some(mods), Some(key), Some(disp), Some(args)) =
@@ -141,6 +159,15 @@ pub fn save_hud_config(config: &HudConfig) -> std::io::Result<()> {
     content.push('\n');
     content.push_str("position=");
     content.push_str(config.position.as_str());
+    content.push('\n');
+    content.push_str("opacity=");
+    content.push_str(&config.opacity.to_string());
+    content.push('\n');
+    content.push_str("border_radius=");
+    content.push_str(&config.border_radius.to_string());
+    content.push('\n');
+    content.push_str("font_size=");
+    content.push_str(&config.font_size.to_string());
     content.push('\n');
 
     for k in &config.keybinds {

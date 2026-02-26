@@ -134,6 +134,117 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
     main_box.append(&header_box);
     main_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
 
+    // --- Styling Section (Compact) ---
+    let styling_clamp = adw::Clamp::builder().maximum_size(800).build();
+    let styling_group = adw::PreferencesGroup::builder()
+        .margin_start(12)
+        .margin_end(12)
+        .margin_top(6)
+        .build();
+
+    let expander = adw::ExpanderRow::builder()
+        .title("HUD Appearance")
+        .subtitle("Customize opacity, corners, and font size")
+        .expanded(false)
+        .build();
+
+    // Opacity
+    let opacity_adj = gtk::Adjustment::new(config.borrow().opacity, 0.0, 1.0, 0.05, 0.1, 0.0);
+    let opacity_scale = gtk::Scale::builder()
+        .adjustment(&opacity_adj)
+        .digits(2)
+        .hexpand(true)
+        .valign(gtk::Align::Center)
+        .width_request(120)
+        .build();
+
+    let opacity_label = gtk::Label::builder()
+        .label(&format!("{}%", (config.borrow().opacity * 100.0) as i32))
+        .valign(gtk::Align::Center)
+        .css_classes(["caption", "dim-label"])
+        .width_request(40)
+        .build();
+
+    let opacity_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(8)
+        .build();
+    opacity_box.append(&opacity_scale);
+    opacity_box.append(&opacity_label);
+
+    let opacity_row = adw::ActionRow::builder().title("Opacity").build();
+    opacity_row.add_suffix(&opacity_box);
+
+    let config_opacity_ref = Rc::clone(&config);
+    let opacity_label_c = opacity_label.clone();
+    opacity_scale.connect_value_changed(move |s| {
+        let mut cfg = config_opacity_ref.borrow_mut();
+        cfg.opacity = s.value();
+        opacity_label_c.set_label(&format!("{}%", (s.value() * 100.0) as i32));
+        let _ = save_hud_config(&cfg);
+    });
+
+    // Border Radius
+    let radius_adj = gtk::Adjustment::new(
+        config.borrow().border_radius as f64,
+        0.0,
+        50.0,
+        1.0,
+        5.0,
+        0.0,
+    );
+    let radius_spin = gtk::SpinButton::builder()
+        .adjustment(&radius_adj)
+        .valign(gtk::Align::Center)
+        .build();
+
+    let radius_row = adw::ActionRow::builder()
+        .title("Border Radius (px)")
+        .build();
+    radius_row.add_suffix(&radius_spin);
+
+    let config_radius_ref = Rc::clone(&config);
+    radius_spin.connect_value_changed(move |s| {
+        let mut cfg = config_radius_ref.borrow_mut();
+        cfg.border_radius = s.value() as i32;
+        let _ = save_hud_config(&cfg);
+    });
+
+    // Font Size
+    let font_adj = gtk::Adjustment::new(config.borrow().font_size as f64, 8.0, 48.0, 1.0, 4.0, 0.0);
+    let font_spin = gtk::SpinButton::builder()
+        .adjustment(&font_adj)
+        .valign(gtk::Align::Center)
+        .build();
+
+    let font_row = adw::ActionRow::builder().title("Font Size (px)").build();
+    font_row.add_suffix(&font_spin);
+
+    let config_font_ref = Rc::clone(&config);
+    font_spin.connect_value_changed(move |s| {
+        let mut cfg = config_font_ref.borrow_mut();
+        cfg.font_size = s.value() as i32;
+        let _ = save_hud_config(&cfg);
+    });
+
+    expander.add_row(&opacity_row);
+    expander.add_row(&radius_row);
+    expander.add_row(&font_row);
+
+    styling_group.add(&expander);
+    styling_clamp.set_child(Some(&styling_group));
+    main_box.append(&styling_clamp);
+
+    let keybinds_label = gtk::Label::builder()
+        .label("Keybind Selection")
+        .halign(gtk::Align::Start)
+        .margin_start(24)
+        .margin_top(6)
+        .margin_bottom(6)
+        .css_classes(["heading"])
+        .build();
+    main_box.append(&keybinds_label);
+
     // --- List Content ---
     let scrolled = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
