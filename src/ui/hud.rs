@@ -1,5 +1,4 @@
 use crate::config::hud::{get_hud_pid_path, is_hud_running, load_hud_config, HudPosition};
-use crate::config::StyleConfig;
 use gtk::gio;
 use gtk::glib;
 use gtk::prelude::*;
@@ -37,90 +36,50 @@ fn update_window_position(window: &gtk::ApplicationWindow, position: HudPosition
     }
 }
 
-fn generate_hud_css(style: &StyleConfig) -> String {
-    let border_radius = style.border_radius.as_deref().unwrap_or("16px");
-
-    let font_size = style.font_size.as_deref().unwrap_or("0.9rem");
-
-    let opacity = style.opacity.unwrap_or(0.75);
+fn generate_hud_css(hud_config: &crate::config::hud::HudConfig) -> String {
+    let border_radius = format!("{}px", hud_config.border_radius);
+    let font_size = format!("{}px", hud_config.font_size);
+    let opacity = hud_config.opacity;
 
     format!(
         r#"
-
         window, .background, .main {{
-
             background-color: transparent;
-
             background-image: none;
-
             box-shadow: none;
-
         }}
-
         .hud-container {{
-
             background: alpha(@window_bg_color, {});
-
             padding: 24px;
-
             border-radius: {};
-
             border: 1px solid alpha(@window_fg_color, 0.1);
-
             color: @window_fg_color;
-
         }}
-
         .hud-title {{
-
             font-size: calc({} * 1.3);
-
             font-weight: 800;
-
             margin-bottom: 4px;
-
             color: @window_fg_color;
-
         }}
-
         .hud-keys {{
-
             font-size: {};
-
             font-weight: 600;
-
             color: @accent_color;
-
             font-family: monospace;
-
         }}
-
         .hud-action {{
-
             font-size: {};
-
             color: alpha(@window_fg_color, 0.8);
-
             font-style: italic;
-
         }}
-
         .hud-empty {{
-
             color: alpha(@window_fg_color, 0.4);
-
             padding: 10px;
-
         }}
-
         separator {{
-
             background-color: alpha(@window_fg_color, 0.1);
-
             margin-bottom: 8px;
-
         }}
-
     "#,
         opacity, border_radius, font_size, font_size, font_size
     )
@@ -235,9 +194,7 @@ pub fn run_hud() {
 
         let theme_provider = gtk::CssProvider::new();
 
-        let style = StyleConfig::load();
-
-        app_provider.load_from_string(&generate_hud_css(&style));
+        app_provider.load_from_string(&generate_hud_css(&config));
 
         if let Some(config_dir) = dirs::config_dir() {
             let gtk_css_path = config_dir.join("gtk-4.0/gtk.css");
@@ -318,8 +275,8 @@ pub fn run_hud() {
                 }
             }
 
-            let style = StyleConfig::load();
-            app_prov_c.load_from_string(&generate_hud_css(&style));
+            let hud_cfg = load_hud_config();
+            app_prov_c.load_from_string(&generate_hud_css(&hud_cfg));
         };
 
         let reload = reload_all.clone();
@@ -389,8 +346,10 @@ pub fn run_hud() {
                                                     } else {
                                                         tp.load_from_string("");
                                                     }
-                                                    let style = StyleConfig::load();
-                                                    ap.load_from_string(&generate_hud_css(&style));
+                                                    let hud_cfg = load_hud_config();
+                                                    ap.load_from_string(&generate_hud_css(
+                                                        &hud_cfg,
+                                                    ));
                                                     glib::ControlFlow::Break
                                                 },
                                             );
@@ -421,9 +380,9 @@ pub fn run_hud() {
                 let app_prov_f2 = app_prov_f.clone();
 
                 monitor.connect_changed(move |_, _, _, _| {
-                    let style = StyleConfig::load();
+                    let hud_cfg = load_hud_config();
 
-                    app_prov_f2.load_from_string(&generate_hud_css(&style));
+                    app_prov_f2.load_from_string(&generate_hud_css(&hud_cfg));
                 });
 
                 unsafe {
@@ -439,6 +398,7 @@ pub fn run_hud() {
                 file_hud.monitor(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
             {
                 let window_p = window.clone();
+                let app_prov_f3 = app_provider.clone();
 
                 monitor.connect_changed(move |_, _, _, _| {
                     let cfg = load_hud_config();
@@ -446,6 +406,7 @@ pub fn run_hud() {
                     update_keybind_list(&container_f);
 
                     update_window_position(&window_p, cfg.position);
+                    app_prov_f3.load_from_string(&generate_hud_css(&cfg));
                 });
 
                 unsafe {
