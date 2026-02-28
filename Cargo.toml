@@ -44,8 +44,18 @@ incremental = true
 opt-level = 2
 
 [profile.release]
-opt-level = "z"
-lto = "fat"
+opt-level = "s"
+lto = "thin"
 codegen-units = 1
 strip = true
 panic = "abort"
+
+[profile.size]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+
+[profile.perf]
+inherits = "release"
+opt-level = 3
+lto = "fat"

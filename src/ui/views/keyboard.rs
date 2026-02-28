@@ -12,6 +12,10 @@ use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
+    const DETAILS_DEFAULT: &str = "Hover over a highlighted key to see the action";
+    const DETAILS_DENSITY: &str =
+        "Density Map enabled: hotter keys have more modifier combinations in this submap";
+
     let config = StyleConfig::load();
     let (input_cfg, _) = load_input_config().unwrap_or_default();
 
@@ -264,7 +268,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     // Details Label
     let details_label = gtk::Label::builder()
-        .label("Hover over a highlighted key to see the action")
+        .label(DETAILS_DEFAULT)
         .css_classes(["dim-label"])
         .margin_top(12)
         .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -279,18 +283,21 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         let density_toggle = density_toggle.clone();
 
         let clear_density_classes = |btn: &gtk::Button| {
-            btn.remove_css_class("density-free");
-            btn.remove_css_class("density-cold");
-            btn.remove_css_class("density-warm");
-            btn.remove_css_class("density-hot");
-            btn.remove_css_class("density-max");
+            for class_name in [
+                "density-free",
+                "density-cold",
+                "density-warm",
+                "density-hot",
+                "density-max",
+            ] {
+                btn.remove_css_class(class_name);
+            }
         };
 
         move |active_mods: &[String]| {
             let (target_mods, _) = normalize(&active_mods.join(" "), "");
             let show_density = density_toggle.is_active();
 
-            let mut bound_keys: HashSet<String> = HashSet::new();
             let mut key_actions: HashMap<String, String> = HashMap::new();
             let mut key_mod_combos: HashMap<String, HashSet<String>> = HashMap::new();
 
@@ -333,7 +340,6 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                     if show_density {
                         key_mod_combos.entry(kb_key).or_default().insert(kb_mods);
                     } else if kb_mods == target_mods {
-                        bound_keys.insert(kb_key.clone());
                         let action = if args.is_empty() {
                             disp
                         } else {
@@ -376,11 +382,9 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                             format!("Used in {} modifier combinations", density)
                         };
                         btn.set_tooltip_text(Some(&tip));
-                    } else if bound_keys.contains(&key_name) {
+                    } else if let Some(action) = key_actions.get(&key_name) {
                         btn.add_css_class("accent");
-                        if let Some(action) = key_actions.get(&key_name) {
-                            btn.set_tooltip_text(Some(action));
-                        }
+                        btn.set_tooltip_text(Some(action));
                     } else {
                         btn.remove_css_class("accent");
                         btn.set_tooltip_text(None);
@@ -418,11 +422,9 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
             }
 
             if density_toggle.is_active() {
-                details_label.set_label(
-                    "Density Map enabled: hotter keys have more modifier combinations in this submap",
-                );
+                details_label.set_label(DETAILS_DENSITY);
             } else {
-                details_label.set_label("Hover over a highlighted key to see the action");
+                details_label.set_label(DETAILS_DEFAULT);
             }
 
             update_fn(&active);

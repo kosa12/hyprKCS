@@ -216,16 +216,20 @@ fn load_config_data() -> Result<ConfigData> {
     let mut mtimes: HashMap<PathBuf, std::time::SystemTime> = HashMap::new();
     let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
 
+    struct CollectState<'a> {
+        file_cache: &'a mut HashMap<PathBuf, Arc<String>>,
+        path_cache: &'a mut HashMap<PathBuf, Arc<PathBuf>>,
+        defined_variables: &'a mut Vec<Variable>,
+        mtimes: &'a mut HashMap<PathBuf, std::time::SystemTime>,
+        sizes: &'a mut HashMap<PathBuf, u64>,
+        system_root: &'a Path,
+        active_root: &'a Path,
+    }
+
     fn collect_recursive(
         path: PathBuf,
         ctx: &mut ParserContext,
-        file_cache: &mut HashMap<PathBuf, Arc<String>>,
-        path_cache: &mut HashMap<PathBuf, Arc<PathBuf>>,
-        defined_variables: &mut Vec<Variable>,
-        mtimes: &mut HashMap<PathBuf, std::time::SystemTime>,
-        sizes: &mut HashMap<PathBuf, u64>,
-        system_root: &Path,
-        active_root: &Path,
+        state: &mut CollectState<'_>,
     ) -> Result<()> {
         if ctx.visited.contains(&path) {
             return Ok(());
@@ -242,48 +246,39 @@ fn load_config_data() -> Result<ConfigData> {
                 let mtime = metadata
                     .modified()
                     .unwrap_or_else(|_| std::time::SystemTime::now());
-                mtimes.insert(path.clone(), mtime);
-                sizes.insert(path.clone(), metadata.len());
+                state.mtimes.insert(path.clone(), mtime);
+                state.sizes.insert(path.clone(), metadata.len());
             }
 
             if let Ok(entries) = std::fs::read_dir(&path) {
                 let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
                 paths.sort();
                 for sub_path in paths {
-                    let _ = collect_recursive(
-                        sub_path,
-                        ctx,
-                        file_cache,
-                        path_cache,
-                        defined_variables,
-                        mtimes,
-                        sizes,
-                        system_root,
-                        active_root,
-                    );
+                    let _ = collect_recursive(sub_path, ctx, state);
                 }
             }
             return Ok(());
         }
 
-        let shared_path = path_cache
+        let shared_path = state
+            .path_cache
             .entry(path.clone())
             .or_insert_with(|| Arc::new(path.clone()))
             .clone();
 
-        let content = if let Some(cached) = file_cache.get(&path) {
+        let content = if let Some(cached) = state.file_cache.get(&path) {
             cached.clone()
         } else {
             let metadata = std::fs::metadata(&path)?;
             let mtime = metadata
                 .modified()
                 .unwrap_or_else(|_| std::time::SystemTime::now());
-            mtimes.insert(path.clone(), mtime);
-            sizes.insert(path.clone(), metadata.len());
+            state.mtimes.insert(path.clone(), mtime);
+            state.sizes.insert(path.clone(), metadata.len());
 
             let s = std::fs::read_to_string(&path).unwrap_or_default();
             let rc = Arc::new(s);
-            file_cache.insert(path.clone(), rc.clone());
+            state.file_cache.insert(path.clone(), rc.clone());
             rc
         };
 
@@ -300,7 +295,7 @@ fn load_config_data() -> Result<ConfigData> {
                     let raw_value = raw_value_part.trim();
 
                     if !name.is_empty() {
-                        defined_variables.push(Variable {
+                        state.defined_variables.push(Variable {
                             name: Arc::from(name.as_str()),
                             value: Arc::from(raw_value),
                             line_number: line_idx,
@@ -341,9 +336,9 @@ fn load_config_data() -> Result<ConfigData> {
                         }
                     }
 
-                    if system_root != active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
-                            let remapped = active_root.join(suffix);
+                    if state.system_root != state.active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(state.system_root) {
+                            let remapped = state.active_root.join(suffix);
                             let remapped_str = remapped.to_string_lossy();
                             let is_glob = is_glob_pattern(&remapped_str);
 
@@ -358,17 +353,7 @@ fn load_config_data() -> Result<ConfigData> {
 
                     let pattern = sourced_path.to_string_lossy();
                     if !is_glob_pattern(&pattern) {
-                        let _ = collect_recursive(
-                            sourced_path,
-                            ctx,
-                            file_cache,
-                            path_cache,
-                            defined_variables,
-                            mtimes,
-                            sizes,
-                            system_root,
-                            active_root,
-                        );
+                        let _ = collect_recursive(sourced_path, ctx, state);
                     } else if let Ok(paths) = glob(&pattern) {
                         // Track the parent directory so new files matching
                         // the glob pattern will invalidate the cache.
@@ -378,23 +363,14 @@ fn load_config_data() -> Result<ConfigData> {
                                     let dir_mtime = dir_meta
                                         .modified()
                                         .unwrap_or_else(|_| std::time::SystemTime::now());
-                                    mtimes.insert(parent.to_path_buf(), dir_mtime);
-                                    sizes.insert(parent.to_path_buf(), dir_meta.len());
+                                    let parent_path = parent.to_path_buf();
+                                    state.mtimes.insert(parent_path.clone(), dir_mtime);
+                                    state.sizes.insert(parent_path, dir_meta.len());
                                 }
                             }
                         }
                         for p in paths.flatten() {
-                            let _ = collect_recursive(
-                                p,
-                                ctx,
-                                file_cache,
-                                path_cache,
-                                defined_variables,
-                                mtimes,
-                                sizes,
-                                system_root,
-                                active_root,
-                            );
+                            let _ = collect_recursive(p, ctx, state);
                         }
                     }
                 }
@@ -408,17 +384,17 @@ fn load_config_data() -> Result<ConfigData> {
         .join(crate::config::constants::HYPR_DIR);
     let active_root = main_path.parent().unwrap_or(Path::new(".")).to_path_buf();
 
-    collect_recursive(
-        main_path,
-        &mut ctx,
-        &mut file_cache,
-        &mut path_cache,
-        &mut defined_variables,
-        &mut mtimes,
-        &mut sizes,
-        &system_root,
-        &active_root,
-    )?;
+    let mut state = CollectState {
+        file_cache: &mut file_cache,
+        path_cache: &mut path_cache,
+        defined_variables: &mut defined_variables,
+        mtimes: &mut mtimes,
+        sizes: &mut sizes,
+        system_root: &system_root,
+        active_root: &active_root,
+    };
+
+    collect_recursive(main_path, &mut ctx, &mut state)?;
     Ok(ConfigData {
         variables: ctx.variables,
         defined_variables,

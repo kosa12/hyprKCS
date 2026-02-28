@@ -44,6 +44,7 @@ hyprKCS provides a simple and intuitive interface to view, edit, and manage your
 - **Advanced Search Syntax**: Use tags like `mod:`, `key:`, `action:`, or `desc:` to filter keybinds with precision.
 - **Native XKB Support & Dynamic Layouts**: The visual keyboard map now uses `libxkbcommon` to automatically resolve and display key labels based on your actual Hyprland configuration. It perfectly supports Dvorak, Colemak, Workman, AZERTY, and other non-QWERTY layouts with zero configuration.
 - **Visual Keyboard Map**: Interactive layout to visualize used and available keys for any modifier combination. Supports multiple physical layouts including ANSI, ISO, JIS, ABNT2, or Hungarian.
+- **Interactive Density Map Overlay**: In the Visual Keyboard Map, enable **Density Map** to color-code each key by how many different modifier combinations use it, making free/less-used areas instantly visible.
 - **Category Filtering**: Filter binds by common categories like Workspace, Window, Media, or Custom scripts.
 - **Conflict Detection**: Automatically identifies and highlights duplicate keybinds, resolving Hyprland variables for accuracy.
 - **Broken Bind Detection**: Automatically validates `exec` and `execr` commands, flagging keybinds that point to missing executables or scripts with a red exclamation mark.
@@ -161,6 +162,12 @@ Click the keyboard icon in the top toolbar to open an interactive keyboard layou
 
 <p align="center">
     <img src="./assets/image_4.png" width="80%" />
+</p>
+
+- **Density Map (Hot/Cold Overlay)**: Toggle **Density Map** to switch from single-modifier highlighting to a usage-intensity view. Keys are color-coded by how many unique modifier combinations are bound in the selected submap.
+
+<p align="center">
+    <img src="./assets/image_10.png" width="80%" />
 </p>
 
 **Omarchy Theme Integration**
