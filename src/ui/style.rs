@@ -189,6 +189,36 @@ fn generate_css(config: &StyleConfig) -> String {
             border-color: @accent_color;
         }}
 
+        .keyboard-key.density-free {{
+            background-color: alpha(@window_fg_color, 0.06);
+            color: alpha(@window_fg_color, 0.45);
+            border-color: alpha(@window_fg_color, 0.08);
+        }}
+
+        .keyboard-key.density-cold {{
+            background-color: alpha(@accent_color, 0.18);
+            color: @window_fg_color;
+            border-color: alpha(@accent_color, 0.28);
+        }}
+
+        .keyboard-key.density-warm {{
+            background-color: alpha(@accent_color, 0.32);
+            color: @window_fg_color;
+            border-color: alpha(@accent_color, 0.44);
+        }}
+
+        .keyboard-key.density-hot {{
+            background-color: alpha(@accent_color, 0.48);
+            color: @window_fg_color;
+            border-color: alpha(@accent_color, 0.62);
+        }}
+
+        .keyboard-key.density-max {{
+            background-color: alpha(@accent_color, 0.64);
+            color: @window_fg_color;
+            border-color: alpha(@accent_color, 0.78);
+        }}
+
         .dim-label {{
              opacity: 0.6;
         }}
