@@ -216,16 +216,20 @@ fn load_config_data() -> Result<ConfigData> {
     let mut mtimes: HashMap<PathBuf, std::time::SystemTime> = HashMap::new();
     let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
 
+    struct CollectState<'a> {
+        file_cache: &'a mut HashMap<PathBuf, Arc<String>>,
+        path_cache: &'a mut HashMap<PathBuf, Arc<PathBuf>>,
+        defined_variables: &'a mut Vec<Variable>,
+        mtimes: &'a mut HashMap<PathBuf, std::time::SystemTime>,
+        sizes: &'a mut HashMap<PathBuf, u64>,
+        system_root: &'a Path,
+        active_root: &'a Path,
+    }
+
     fn collect_recursive(
         path: PathBuf,
         ctx: &mut ParserContext,
-        file_cache: &mut HashMap<PathBuf, Arc<String>>,
-        path_cache: &mut HashMap<PathBuf, Arc<PathBuf>>,
-        defined_variables: &mut Vec<Variable>,
-        mtimes: &mut HashMap<PathBuf, std::time::SystemTime>,
-        sizes: &mut HashMap<PathBuf, u64>,
-        system_root: &Path,
-        active_root: &Path,
+        state: &mut CollectState<'_>,
     ) -> Result<()> {
         if ctx.visited.contains(&path) {
             return Ok(());
@@ -242,48 +246,39 @@ fn load_config_data() -> Result<ConfigData> {
                 let mtime = metadata
                     .modified()
                     .unwrap_or_else(|_| std::time::SystemTime::now());
-                mtimes.insert(path.clone(), mtime);
-                sizes.insert(path.clone(), metadata.len());
+                state.mtimes.insert(path.clone(), mtime);
+                state.sizes.insert(path.clone(), metadata.len());
             }
 
             if let Ok(entries) = std::fs::read_dir(&path) {
                 let mut paths: Vec<_> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
                 paths.sort();
                 for sub_path in paths {
-                    let _ = collect_recursive(
-                        sub_path,
-                        ctx,
-                        file_cache,
-                        path_cache,
-                        defined_variables,
-                        mtimes,
-                        sizes,
-                        system_root,
-                        active_root,
-                    );
+                    let _ = collect_recursive(sub_path, ctx, state);
                 }
             }
             return Ok(());
         }
 
-        let shared_path = path_cache
+        let shared_path = state
+            .path_cache
             .entry(path.clone())
             .or_insert_with(|| Arc::new(path.clone()))
             .clone();
 
-        let content = if let Some(cached) = file_cache.get(&path) {
+        let content = if let Some(cached) = state.file_cache.get(&path) {
             cached.clone()
         } else {
             let metadata = std::fs::metadata(&path)?;
             let mtime = metadata
                 .modified()
                 .unwrap_or_else(|_| std::time::SystemTime::now());
-            mtimes.insert(path.clone(), mtime);
-            sizes.insert(path.clone(), metadata.len());
+            state.mtimes.insert(path.clone(), mtime);
+            state.sizes.insert(path.clone(), metadata.len());
 
             let s = std::fs::read_to_string(&path).unwrap_or_default();
             let rc = Arc::new(s);
-            file_cache.insert(path.clone(), rc.clone());
+            state.file_cache.insert(path.clone(), rc.clone());
             rc
         };
 
@@ -300,7 +295,7 @@ fn load_config_data() -> Result<ConfigData> {
                     let raw_value = raw_value_part.trim();
 
                     if !name.is_empty() {
-                        defined_variables.push(Variable {
+                        state.defined_variables.push(Variable {
                             name: Arc::from(name.as_str()),
                             value: Arc::from(raw_value),
                             line_number: line_idx,
@@ -341,9 +336,9 @@ fn load_config_data() -> Result<ConfigData> {
                         }
                     }
 
-                    if system_root != active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(system_root) {
-                            let remapped = active_root.join(suffix);
+                    if state.system_root != state.active_root {
+                        if let Ok(suffix) = sourced_path.strip_prefix(state.system_root) {
+                            let remapped = state.active_root.join(suffix);
                             let remapped_str = remapped.to_string_lossy();
                             let is_glob = is_glob_pattern(&remapped_str);
 
@@ -358,17 +353,7 @@ fn load_config_data() -> Result<ConfigData> {
 
                     let pattern = sourced_path.to_string_lossy();
                     if !is_glob_pattern(&pattern) {
-                        let _ = collect_recursive(
-                            sourced_path,
-                            ctx,
-                            file_cache,
-                            path_cache,
-                            defined_variables,
-                            mtimes,
-                            sizes,
-                            system_root,
-                            active_root,
-                        );
+                        let _ = collect_recursive(sourced_path, ctx, state);
                     } else if let Ok(paths) = glob(&pattern) {
                         // Track the parent directory so new files matching
                         // the glob pattern will invalidate the cache.
@@ -378,23 +363,14 @@ fn load_config_data() -> Result<ConfigData> {
                                     let dir_mtime = dir_meta
                                         .modified()
                                         .unwrap_or_else(|_| std::time::SystemTime::now());
-                                    mtimes.insert(parent.to_path_buf(), dir_mtime);
-                                    sizes.insert(parent.to_path_buf(), dir_meta.len());
+                                    let parent_path = parent.to_path_buf();
+                                    state.mtimes.insert(parent_path.clone(), dir_mtime);
+                                    state.sizes.insert(parent_path, dir_meta.len());
                                 }
                             }
                         }
                         for p in paths.flatten() {
-                            let _ = collect_recursive(
-                                p,
-                                ctx,
-                                file_cache,
-                                path_cache,
-                                defined_variables,
-                                mtimes,
-                                sizes,
-                                system_root,
-                                active_root,
-                            );
+                            let _ = collect_recursive(p, ctx, state);
                         }
                     }
                 }
@@ -408,17 +384,17 @@ fn load_config_data() -> Result<ConfigData> {
         .join(crate::config::constants::HYPR_DIR);
     let active_root = main_path.parent().unwrap_or(Path::new(".")).to_path_buf();
 
-    collect_recursive(
-        main_path,
-        &mut ctx,
-        &mut file_cache,
-        &mut path_cache,
-        &mut defined_variables,
-        &mut mtimes,
-        &mut sizes,
-        &system_root,
-        &active_root,
-    )?;
+    let mut state = CollectState {
+        file_cache: &mut file_cache,
+        path_cache: &mut path_cache,
+        defined_variables: &mut defined_variables,
+        mtimes: &mut mtimes,
+        sizes: &mut sizes,
+        system_root: &system_root,
+        active_root: &active_root,
+    };
+
+    collect_recursive(main_path, &mut ctx, &mut state)?;
     Ok(ConfigData {
         variables: ctx.variables,
         defined_variables,
@@ -534,187 +510,196 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             Arc::new(std::fs::read_to_string(&path).unwrap_or_default())
         };
 
-        let lines: Vec<&str> = content.lines().collect();
+        let mut prev_line_trimmed: Option<&str> = None;
 
-        for (index, line) in lines.iter().enumerate() {
+        for (index, line) in content.lines().enumerate() {
             let line_trimmed = line.trim();
-            if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
-                continue;
-            }
 
-            if let Some(rest) = line_trimmed.strip_prefix("submap") {
-                let rest_trimmed = rest.trim_start();
-                if let Some(val) = rest_trimmed.strip_prefix('=') {
-                    let name = val.split('#').next().unwrap_or("").trim();
-                    if name == "reset" {
-                        *current_submap = None;
-                    } else {
-                        *current_submap = Some(Arc::from(name));
+            if !line_trimmed.is_empty() && !line_trimmed.starts_with('#') {
+                if let Some(rest) = line_trimmed.strip_prefix("submap") {
+                    let rest_trimmed = rest.trim_start();
+                    if let Some(val) = rest_trimmed.strip_prefix('=') {
+                        let name = val.split('#').next().unwrap_or("").trim();
+                        if name == "reset" {
+                            *current_submap = None;
+                        } else {
+                            *current_submap = Some(Arc::from(name));
+                        }
                     }
-                }
-            } else if let Some(rest) = line_trimmed.strip_prefix("bind") {
-                let rest = rest.trim_start();
-                let flags;
-                let mut remaining = rest;
+                } else if let Some(rest) = line_trimmed.strip_prefix("bind") {
+                    let rest = rest.trim_start();
+                    let flags: &str;
+                    let mut remaining = rest;
 
-                if let Some(eq_idx) = remaining.find('=') {
-                    let potential_flags = remaining[..eq_idx].trim();
-                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
-                        flags = potential_flags.to_string();
-                        remaining = &remaining[eq_idx + 1..];
+                    if let Some(eq_idx) = remaining.find('=') {
+                        let potential_flags = remaining[..eq_idx].trim();
+                        if potential_flags.chars().all(|c| c.is_alphabetic()) {
+                            flags = potential_flags;
+                            remaining = &remaining[eq_idx + 1..];
+                        } else {
+                            prev_line_trimmed = Some(line_trimmed);
+                            continue;
+                        }
                     } else {
+                        prev_line_trimmed = Some(line_trimmed);
                         continue;
                     }
-                } else {
-                    continue;
-                }
 
-                let raw_content = remaining.trim();
-                let mut description = None;
+                    let raw_content = remaining.trim();
+                    let mut description = None;
 
-                if let Some(idx) = line.find('#') {
-                    let comment = line[idx + 1..].trim();
-                    if !comment.is_empty() {
-                        description = Some(Arc::from(comment));
-                    }
-                }
-
-                if description.is_none() && index > 0 {
-                    let prev_line = lines[index - 1].trim();
-                    if prev_line.starts_with('#') {
-                        let comment = prev_line.trim_start_matches('#').trim();
+                    if let Some(idx) = line.find('#') {
+                        let comment = line[idx + 1..].trim();
                         if !comment.is_empty() {
                             description = Some(Arc::from(comment));
                         }
                     }
-                }
 
-                let resolved_content =
-                    resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
-                let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
-
-                let mut parts = Vec::with_capacity(5);
-                let mut current_part = String::with_capacity(32);
-                let mut in_quote = false;
-                let mut parts_count = 0;
-                let is_bindd = flags == "d";
-                let limit = if is_bindd { 4 } else { 3 };
-
-                for c in content_clean.chars() {
-                    if parts_count < limit {
-                        if c == '"' {
-                            in_quote = !in_quote;
-                            current_part.push(c);
-                        } else if c == ',' && !in_quote {
-                            parts.push(current_part.trim().to_string());
-                            current_part.clear();
-                            parts_count += 1;
-                        } else {
-                            current_part.push(c);
-                        }
-                    } else {
-                        current_part.push(c);
-                    }
-                }
-
-                if !current_part.trim().is_empty() || parts_count >= limit {
-                    parts.push(current_part.trim().to_string());
-                }
-
-                if parts.len() >= 3 {
-                    let mods: Arc<str>;
-                    let key: Arc<str>;
-                    let dispatcher: Arc<str>;
-                    let args: Arc<str>;
-
-                    if is_bindd {
-                        mods = Arc::from(parts[0].as_str());
-                        key = Arc::from(parts[1].as_str());
-                        if parts.len() > 2 {
-                            let desc_str = parts[2].trim();
-                            if !desc_str.is_empty() {
-                                description = Some(Arc::from(desc_str));
-                            }
-                        }
-                        dispatcher = if parts.len() > 3 {
-                            Arc::from(parts[3].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                        args = if parts.len() > 4 {
-                            Arc::from(parts[4].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                    } else {
-                        mods = Arc::from(parts[0].as_str());
-                        key = Arc::from(parts[1].as_str());
-                        dispatcher = Arc::from(parts[2].as_str());
-                        args = if parts.len() > 3 {
-                            Arc::from(parts[3].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                    }
-
-                    keybinds.push(Keybind {
-                        mods: mods.clone(),
-                        clean_mods: mods,
-                        flags: Arc::from(flags.as_str()),
-                        key,
-                        dispatcher,
-                        args,
-                        description,
-                        submap: current_submap.clone(),
-                        line_number: index,
-                        file_path: path.clone(),
-                    });
-                }
-            } else if let Some(rest) = line_trimmed.strip_prefix("source") {
-                let trimmed_rest = rest.trim_start();
-                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                    let path_str = path_part
-                        .split('#')
-                        .next()
-                        .unwrap_or("")
-                        .trim()
-                        .trim_matches('"');
-
-                    let mut sourced_path =
-                        expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
-
-                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
-                        if let Some(parent) = sourced_path.parent() {
-                            sourced_path = parent.join("*.conf");
-                        }
-                    }
-
-                    if ctx.system_root != ctx.active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
-                            let remapped = ctx.active_root.join(suffix);
-                            let remapped_str = remapped.to_string_lossy();
-                            let is_glob = is_glob_pattern(&remapped_str);
-
-                            if remapped.exists()
-                                || (is_glob
-                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
-                            {
-                                sourced_path = remapped;
+                    if description.is_none() && index > 0 {
+                        let prev_line = prev_line_trimmed.unwrap_or("");
+                        if prev_line.starts_with('#') {
+                            let comment = prev_line.trim_start_matches('#').trim();
+                            if !comment.is_empty() {
+                                description = Some(Arc::from(comment));
                             }
                         }
                     }
 
-                    let pattern = sourced_path.to_string_lossy();
-                    if !is_glob_pattern(&pattern) {
-                        let _ =
-                            parse_recursive(sourced_path, keybinds, ctx, visited, current_submap);
-                    } else if let Ok(paths) = glob(&pattern) {
-                        for p in paths.flatten() {
-                            let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
+                    let resolved_content =
+                        resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
+                    let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
+
+                    let mut parts = Vec::with_capacity(5);
+                    let mut current_part = String::with_capacity(32);
+                    let mut in_quote = false;
+                    let mut parts_count = 0;
+                    let is_bindd = flags == "d";
+                    let limit = if is_bindd { 4 } else { 3 };
+
+                    for c in content_clean.chars() {
+                        if parts_count < limit {
+                            if c == '"' {
+                                in_quote = !in_quote;
+                                current_part.push(c);
+                            } else if c == ',' && !in_quote {
+                                parts.push(current_part.trim().to_string());
+                                current_part.clear();
+                                parts_count += 1;
+                            } else {
+                                current_part.push(c);
+                            }
+                        } else {
+                            current_part.push(c);
+                        }
+                    }
+
+                    if !current_part.trim().is_empty() || parts_count >= limit {
+                        parts.push(current_part.trim().to_string());
+                    }
+
+                    if parts.len() >= 3 {
+                        let mods: Arc<str>;
+                        let key: Arc<str>;
+                        let dispatcher: Arc<str>;
+                        let args: Arc<str>;
+
+                        if is_bindd {
+                            mods = Arc::from(parts[0].as_str());
+                            key = Arc::from(parts[1].as_str());
+                            if parts.len() > 2 {
+                                let desc_str = parts[2].trim();
+                                if !desc_str.is_empty() {
+                                    description = Some(Arc::from(desc_str));
+                                }
+                            }
+                            dispatcher = if parts.len() > 3 {
+                                Arc::from(parts[3].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                            args = if parts.len() > 4 {
+                                Arc::from(parts[4].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                        } else {
+                            mods = Arc::from(parts[0].as_str());
+                            key = Arc::from(parts[1].as_str());
+                            dispatcher = Arc::from(parts[2].as_str());
+                            args = if parts.len() > 3 {
+                                Arc::from(parts[3].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                        }
+
+                        keybinds.push(Keybind {
+                            mods: mods.clone(),
+                            clean_mods: mods,
+                            flags: Arc::from(flags),
+                            key,
+                            dispatcher,
+                            args,
+                            description,
+                            submap: current_submap.clone(),
+                            line_number: index,
+                            file_path: path.clone(),
+                        });
+                    }
+                } else if let Some(rest) = line_trimmed.strip_prefix("source") {
+                    let trimmed_rest = rest.trim_start();
+                    if let Some(path_part) = trimmed_rest.strip_prefix('=') {
+                        let path_str = path_part
+                            .split('#')
+                            .next()
+                            .unwrap_or("")
+                            .trim()
+                            .trim_matches('"');
+
+                        let mut sourced_path =
+                            expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
+
+                        if !sourced_path.exists() && sourced_path.ends_with(".conf") {
+                            if let Some(parent) = sourced_path.parent() {
+                                sourced_path = parent.join("*.conf");
+                            }
+                        }
+
+                        if ctx.system_root != ctx.active_root {
+                            if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
+                                let remapped = ctx.active_root.join(suffix);
+                                let remapped_str = remapped.to_string_lossy();
+                                let is_glob = is_glob_pattern(&remapped_str);
+
+                                if remapped.exists()
+                                    || (is_glob
+                                        && glob(&remapped_str)
+                                            .is_ok_and(|mut p| p.next().is_some()))
+                                {
+                                    sourced_path = remapped;
+                                }
+                            }
+                        }
+
+                        let pattern = sourced_path.to_string_lossy();
+                        if !is_glob_pattern(&pattern) {
+                            let _ = parse_recursive(
+                                sourced_path,
+                                keybinds,
+                                ctx,
+                                visited,
+                                current_submap,
+                            );
+                        } else if let Ok(paths) = glob(&pattern) {
+                            for p in paths.flatten() {
+                                let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
+                            }
                         }
                     }
                 }
             }
+
+            prev_line_trimmed = Some(line_trimmed);
         }
         Ok(())
     }
@@ -785,6 +770,39 @@ pub fn get_loaded_files() -> Result<Vec<PathBuf>> {
     Ok(data.file_cache.keys().cloned().collect())
 }
 
+#[inline]
+fn is_var_boundary(content: &str, after_idx: usize) -> bool {
+    if after_idx >= content.len() {
+        true
+    } else {
+        content[after_idx..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '_')
+    }
+}
+
+#[inline]
+fn next_non_whitespace_is_equals(content: &str, start_idx: usize) -> bool {
+    let mut check_idx = start_idx;
+    while check_idx < content.len() {
+        let c = content[check_idx..].chars().next().unwrap_or(' ');
+        if !c.is_whitespace() {
+            return c == '=';
+        }
+        check_idx += c.len_utf8();
+    }
+    false
+}
+
+#[inline]
+fn iter_match_indices<'a>(
+    content: &'a str,
+    search_term: &'a str,
+) -> std::str::MatchIndices<'a, &'a str> {
+    content.match_indices(search_term)
+}
+
 fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) -> (String, bool) {
     let search_term = format!("${}", old_name);
     let replacement = format!("${}", new_name);
@@ -793,18 +811,11 @@ fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) ->
     let mut last_idx = 0;
     let mut modified = false;
 
-    let matches: Vec<_> = content.match_indices(&search_term).collect();
-
-    for (idx, _) in matches {
+    for (idx, _) in iter_match_indices(content, &search_term) {
         // Check word boundary
         let after_idx = idx + search_term.len();
 
-        let is_boundary = if after_idx >= content.len() {
-            true
-        } else {
-            let c = content[after_idx..].chars().next().unwrap();
-            !c.is_alphanumeric() && c != '_'
-        };
+        let is_boundary = is_var_boundary(content, after_idx);
 
         if is_boundary {
             // Append everything up to match
@@ -825,6 +836,7 @@ fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) ->
 pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usize> {
     let files = get_loaded_files()?;
     let mut count = 0;
+    let mut modified_any = false;
 
     for path in files {
         if !path.exists() {
@@ -836,9 +848,13 @@ pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usiz
 
         if modified {
             std::fs::write(&path, new_content)?;
-            invalidate_parser_cache();
             count += 1;
+            modified_any = true;
         }
+    }
+
+    if modified_any {
+        invalidate_parser_cache();
     }
     Ok(count)
 }
@@ -855,32 +871,12 @@ pub fn count_variable_references(name: &str) -> Result<usize> {
         }
 
         let content = std::fs::read_to_string(&path)?;
-        let matches: Vec<_> = content.match_indices(&search_term).collect();
 
-        for (idx, _) in matches {
+        for (idx, _) in iter_match_indices(&content, &search_term) {
             let after_idx = idx + search_term.len();
 
-            let is_boundary = if after_idx >= content.len() {
-                true
-            } else {
-                let c = content[after_idx..].chars().next().unwrap();
-                !c.is_alphanumeric() && c != '_'
-            };
-
-            let mut is_definition = false;
-            if is_boundary {
-                let mut check_idx = after_idx;
-                while check_idx < content.len() {
-                    let c = content[check_idx..].chars().next().unwrap();
-                    if !c.is_whitespace() {
-                        if c == '=' {
-                            is_definition = true;
-                        }
-                        break;
-                    }
-                    check_idx += c.len_utf8();
-                }
-            }
+            let is_boundary = is_var_boundary(&content, after_idx);
+            let is_definition = is_boundary && next_non_whitespace_is_equals(&content, after_idx);
 
             if is_boundary && !is_definition {
                 count += 1;
@@ -893,6 +889,7 @@ pub fn count_variable_references(name: &str) -> Result<usize> {
 pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
     let files = get_loaded_files()?;
     let mut count = 0;
+    let mut modified_any = false;
 
     // We are replacing $name with value
     let search_term = format!("${}", name.trim_start_matches('$'));
@@ -910,34 +907,14 @@ pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
         let mut last_idx = 0;
         let mut modified = false;
 
-        let matches: Vec<_> = content.match_indices(&search_term).collect();
-
-        for (idx, _) in matches {
+        for (idx, _) in iter_match_indices(&content, &search_term) {
             let after_idx = idx + search_term.len();
 
-            let is_boundary = if after_idx >= content.len() {
-                true
-            } else {
-                let c = content[after_idx..].chars().next().unwrap();
-                !c.is_alphanumeric() && c != '_'
-            };
+            let is_boundary = is_var_boundary(&content, after_idx);
 
             // Avoid replacing the definition itself: "$name ="
             // Quick heuristic: check if next non-whitespace char is '='
-            let mut is_definition = false;
-            if is_boundary {
-                let mut check_idx = after_idx;
-                while check_idx < content.len() {
-                    let c = content[check_idx..].chars().next().unwrap();
-                    if !c.is_whitespace() {
-                        if c == '=' {
-                            is_definition = true;
-                        }
-                        break;
-                    }
-                    check_idx += c.len_utf8();
-                }
-            }
+            let is_definition = is_boundary && next_non_whitespace_is_equals(&content, after_idx);
 
             if is_boundary && !is_definition {
                 new_content.push_str(&content[last_idx..idx]);
@@ -951,9 +928,13 @@ pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
 
         if modified {
             std::fs::write(&path, new_content)?;
-            invalidate_parser_cache();
             count += 1;
+            modified_any = true;
         }
+    }
+
+    if modified_any {
+        invalidate_parser_cache();
     }
     Ok(count)
 }
@@ -986,11 +967,10 @@ pub fn refactor_hardcoded_references(value: &str, variable_name: &str) -> Result
                 // Perform replacement on this line
                 let mut new_line = String::with_capacity(line.len());
                 let mut line_last_idx = 0;
-                let matches: Vec<_> = line.match_indices(search_term).collect();
 
                 let mut line_modified = false;
 
-                for (idx, _) in matches {
+                for (idx, _) in line.match_indices(search_term) {
                     let after_idx = idx + search_term.len();
 
                     // Word boundary check

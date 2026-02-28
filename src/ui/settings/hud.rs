@@ -159,7 +159,7 @@ pub fn create_hud_page(model: &gio::ListStore, on_show_toast: Rc<dyn Fn(String)>
         .build();
 
     let opacity_label = gtk::Label::builder()
-        .label(&format!("{}%", (config.borrow().opacity * 100.0) as i32))
+        .label(format!("{}%", (config.borrow().opacity * 100.0) as i32))
         .valign(gtk::Align::Center)
         .css_classes(["caption", "dim-label"])
         .width_request(40)

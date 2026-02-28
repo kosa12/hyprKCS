@@ -12,6 +12,10 @@ use gtk4 as gtk;
 use std::collections::{HashMap, HashSet};
 
 pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::Box {
+    const DETAILS_DEFAULT: &str = "Hover over a highlighted key to see the action";
+    const DETAILS_DENSITY: &str =
+        "Density Map enabled: hotter keys have more modifier combinations in this submap";
+
     let config = StyleConfig::load();
     let (input_cfg, _) = load_input_config().unwrap_or_default();
 
@@ -147,6 +151,15 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     mod_box.append(&submap_dropdown);
 
+    mod_box.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+
+    let density_toggle = gtk::ToggleButton::builder()
+        .label("Density Map")
+        .css_classes(["small", "mod-toggle"])
+        .tooltip_text("Color keys by how many modifier combinations are bound")
+        .build();
+    mod_box.append(&density_toggle);
+
     container.append(&mod_box);
 
     // Keyboard Grid
@@ -255,7 +268,7 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
     // Details Label
     let details_label = gtk::Label::builder()
-        .label("Hover over a highlighted key to see the action")
+        .label(DETAILS_DEFAULT)
         .css_classes(["dim-label"])
         .margin_top(12)
         .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -267,12 +280,26 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         let model = model.clone();
         let grid_ref = grid.clone();
         let submap_dropdown = submap_dropdown.clone();
+        let density_toggle = density_toggle.clone();
+
+        let clear_density_classes = |btn: &gtk::Button| {
+            for class_name in [
+                "density-free",
+                "density-cold",
+                "density-warm",
+                "density-hot",
+                "density-max",
+            ] {
+                btn.remove_css_class(class_name);
+            }
+        };
 
         move |active_mods: &[String]| {
-            let mut bound_keys: HashSet<String> = HashSet::new();
-            let mut key_actions: HashMap<String, String> = HashMap::new();
-
             let (target_mods, _) = normalize(&active_mods.join(" "), "");
+            let show_density = density_toggle.is_active();
+
+            let mut key_actions: HashMap<String, String> = HashMap::new();
+            let mut key_mod_combos: HashMap<String, HashSet<String>> = HashMap::new();
 
             // Get selected submap
             let idx = submap_dropdown.selected();
@@ -306,8 +333,13 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
 
                     let (kb_mods, kb_key) = normalize(&mods_str, &key_str);
 
-                    if kb_mods == target_mods {
-                        bound_keys.insert(kb_key.clone());
+                    if kb_key.is_empty() {
+                        continue;
+                    }
+
+                    if show_density {
+                        key_mod_combos.entry(kb_key).or_default().insert(kb_mods);
+                    } else if kb_mods == target_mods {
                         let action = if args.is_empty() {
                             disp
                         } else {
@@ -324,11 +356,35 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
                 if let Some(btn) = widget.downcast_ref::<gtk::Button>() {
                     let key_name = btn.widget_name().to_string();
 
-                    if bound_keys.contains(&key_name) {
+                    clear_density_classes(btn);
+
+                    if show_density {
+                        btn.remove_css_class("accent");
+                        let density = key_mod_combos
+                            .get(&key_name)
+                            .map(|mods| mods.len())
+                            .unwrap_or(0);
+
+                        let class_name = match density {
+                            0 => "density-free",
+                            1 => "density-cold",
+                            2 => "density-warm",
+                            3 => "density-hot",
+                            _ => "density-max",
+                        };
+                        btn.add_css_class(class_name);
+
+                        let tip = if density == 0 {
+                            "No bindings in this submap".to_string()
+                        } else if density == 1 {
+                            "Used in 1 modifier combination".to_string()
+                        } else {
+                            format!("Used in {} modifier combinations", density)
+                        };
+                        btn.set_tooltip_text(Some(&tip));
+                    } else if let Some(action) = key_actions.get(&key_name) {
                         btn.add_css_class("accent");
-                        if let Some(action) = key_actions.get(&key_name) {
-                            btn.set_tooltip_text(Some(action));
-                        }
+                        btn.set_tooltip_text(Some(action));
                     } else {
                         btn.remove_css_class("accent");
                         btn.set_tooltip_text(None);
@@ -346,6 +402,8 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
         let btn_shift = btn_shift.clone();
         let btn_ctrl = btn_ctrl.clone();
         let btn_alt = btn_alt.clone();
+        let density_toggle = density_toggle.clone();
+        let details_label = details_label.clone();
         let update_fn = update_rc.clone();
 
         move || {
@@ -362,6 +420,13 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
             if btn_alt.is_active() {
                 active.push("ALT".to_string());
             }
+
+            if density_toggle.is_active() {
+                details_label.set_label(DETAILS_DENSITY);
+            } else {
+                details_label.set_label(DETAILS_DEFAULT);
+            }
+
             update_fn(&active);
         }
     };
@@ -383,6 +448,9 @@ pub fn create_keyboard_view(stack: &gtk::Stack, model: &gio::ListStore) -> gtk::
     // Connect dropdown signal
     let ot5 = on_toggle.clone();
     submap_dropdown.connect_selected_notify(move |_| ot5());
+
+    let ot6 = on_toggle.clone();
+    density_toggle.connect_toggled(move |_| ot6());
 
     // Initial Trigger
     on_toggle();
