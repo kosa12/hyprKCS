@@ -761,6 +761,39 @@ pub fn get_loaded_files() -> Result<Vec<PathBuf>> {
     Ok(data.file_cache.keys().cloned().collect())
 }
 
+#[inline]
+fn is_var_boundary(content: &str, after_idx: usize) -> bool {
+    if after_idx >= content.len() {
+        true
+    } else {
+        content[after_idx..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '_')
+    }
+}
+
+#[inline]
+fn next_non_whitespace_is_equals(content: &str, start_idx: usize) -> bool {
+    let mut check_idx = start_idx;
+    while check_idx < content.len() {
+        let c = content[check_idx..].chars().next().unwrap_or(' ');
+        if !c.is_whitespace() {
+            return c == '=';
+        }
+        check_idx += c.len_utf8();
+    }
+    false
+}
+
+#[inline]
+fn iter_match_indices<'a>(
+    content: &'a str,
+    search_term: &'a str,
+) -> std::str::MatchIndices<'a, &'a str> {
+    content.match_indices(search_term)
+}
+
 fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) -> (String, bool) {
     let search_term = format!("${}", old_name);
     let replacement = format!("${}", new_name);
@@ -769,18 +802,11 @@ fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) ->
     let mut last_idx = 0;
     let mut modified = false;
 
-    let matches: Vec<_> = content.match_indices(&search_term).collect();
-
-    for (idx, _) in matches {
+    for (idx, _) in iter_match_indices(content, &search_term) {
         // Check word boundary
         let after_idx = idx + search_term.len();
 
-        let is_boundary = if after_idx >= content.len() {
-            true
-        } else {
-            let c = content[after_idx..].chars().next().unwrap();
-            !c.is_alphanumeric() && c != '_'
-        };
+        let is_boundary = is_var_boundary(content, after_idx);
 
         if is_boundary {
             // Append everything up to match
@@ -801,6 +827,7 @@ fn replace_variable_in_content(content: &str, old_name: &str, new_name: &str) ->
 pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usize> {
     let files = get_loaded_files()?;
     let mut count = 0;
+    let mut modified_any = false;
 
     for path in files {
         if !path.exists() {
@@ -812,9 +839,13 @@ pub fn rename_variable_references(old_name: &str, new_name: &str) -> Result<usiz
 
         if modified {
             std::fs::write(&path, new_content)?;
-            invalidate_parser_cache();
             count += 1;
+            modified_any = true;
         }
+    }
+
+    if modified_any {
+        invalidate_parser_cache();
     }
     Ok(count)
 }
@@ -831,32 +862,12 @@ pub fn count_variable_references(name: &str) -> Result<usize> {
         }
 
         let content = std::fs::read_to_string(&path)?;
-        let matches: Vec<_> = content.match_indices(&search_term).collect();
 
-        for (idx, _) in matches {
+        for (idx, _) in iter_match_indices(&content, &search_term) {
             let after_idx = idx + search_term.len();
 
-            let is_boundary = if after_idx >= content.len() {
-                true
-            } else {
-                let c = content[after_idx..].chars().next().unwrap();
-                !c.is_alphanumeric() && c != '_'
-            };
-
-            let mut is_definition = false;
-            if is_boundary {
-                let mut check_idx = after_idx;
-                while check_idx < content.len() {
-                    let c = content[check_idx..].chars().next().unwrap();
-                    if !c.is_whitespace() {
-                        if c == '=' {
-                            is_definition = true;
-                        }
-                        break;
-                    }
-                    check_idx += c.len_utf8();
-                }
-            }
+            let is_boundary = is_var_boundary(&content, after_idx);
+            let is_definition = is_boundary && next_non_whitespace_is_equals(&content, after_idx);
 
             if is_boundary && !is_definition {
                 count += 1;
@@ -869,6 +880,7 @@ pub fn count_variable_references(name: &str) -> Result<usize> {
 pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
     let files = get_loaded_files()?;
     let mut count = 0;
+    let mut modified_any = false;
 
     // We are replacing $name with value
     let search_term = format!("${}", name.trim_start_matches('$'));
@@ -886,34 +898,14 @@ pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
         let mut last_idx = 0;
         let mut modified = false;
 
-        let matches: Vec<_> = content.match_indices(&search_term).collect();
-
-        for (idx, _) in matches {
+        for (idx, _) in iter_match_indices(&content, &search_term) {
             let after_idx = idx + search_term.len();
 
-            let is_boundary = if after_idx >= content.len() {
-                true
-            } else {
-                let c = content[after_idx..].chars().next().unwrap();
-                !c.is_alphanumeric() && c != '_'
-            };
+            let is_boundary = is_var_boundary(&content, after_idx);
 
             // Avoid replacing the definition itself: "$name ="
             // Quick heuristic: check if next non-whitespace char is '='
-            let mut is_definition = false;
-            if is_boundary {
-                let mut check_idx = after_idx;
-                while check_idx < content.len() {
-                    let c = content[check_idx..].chars().next().unwrap();
-                    if !c.is_whitespace() {
-                        if c == '=' {
-                            is_definition = true;
-                        }
-                        break;
-                    }
-                    check_idx += c.len_utf8();
-                }
-            }
+            let is_definition = is_boundary && next_non_whitespace_is_equals(&content, after_idx);
 
             if is_boundary && !is_definition {
                 new_content.push_str(&content[last_idx..idx]);
@@ -927,9 +919,13 @@ pub fn inline_variable_references(name: &str, value: &str) -> Result<usize> {
 
         if modified {
             std::fs::write(&path, new_content)?;
-            invalidate_parser_cache();
             count += 1;
+            modified_any = true;
         }
+    }
+
+    if modified_any {
+        invalidate_parser_cache();
     }
     Ok(count)
 }
@@ -962,11 +958,10 @@ pub fn refactor_hardcoded_references(value: &str, variable_name: &str) -> Result
                 // Perform replacement on this line
                 let mut new_line = String::with_capacity(line.len());
                 let mut line_last_idx = 0;
-                let matches: Vec<_> = line.match_indices(search_term).collect();
 
                 let mut line_modified = false;
 
-                for (idx, _) in matches {
+                for (idx, _) in line.match_indices(search_term) {
                     let after_idx = idx + search_term.len();
 
                     // Word boundary check
