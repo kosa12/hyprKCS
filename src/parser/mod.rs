@@ -510,187 +510,196 @@ pub fn parse_config() -> Result<Vec<Keybind>> {
             Arc::new(std::fs::read_to_string(&path).unwrap_or_default())
         };
 
-        let lines: Vec<&str> = content.lines().collect();
+        let mut prev_line_trimmed: Option<&str> = None;
 
-        for (index, line) in lines.iter().enumerate() {
+        for (index, line) in content.lines().enumerate() {
             let line_trimmed = line.trim();
-            if line_trimmed.is_empty() || line_trimmed.starts_with('#') {
-                continue;
-            }
 
-            if let Some(rest) = line_trimmed.strip_prefix("submap") {
-                let rest_trimmed = rest.trim_start();
-                if let Some(val) = rest_trimmed.strip_prefix('=') {
-                    let name = val.split('#').next().unwrap_or("").trim();
-                    if name == "reset" {
-                        *current_submap = None;
-                    } else {
-                        *current_submap = Some(Arc::from(name));
+            if !line_trimmed.is_empty() && !line_trimmed.starts_with('#') {
+                if let Some(rest) = line_trimmed.strip_prefix("submap") {
+                    let rest_trimmed = rest.trim_start();
+                    if let Some(val) = rest_trimmed.strip_prefix('=') {
+                        let name = val.split('#').next().unwrap_or("").trim();
+                        if name == "reset" {
+                            *current_submap = None;
+                        } else {
+                            *current_submap = Some(Arc::from(name));
+                        }
                     }
-                }
-            } else if let Some(rest) = line_trimmed.strip_prefix("bind") {
-                let rest = rest.trim_start();
-                let flags;
-                let mut remaining = rest;
+                } else if let Some(rest) = line_trimmed.strip_prefix("bind") {
+                    let rest = rest.trim_start();
+                    let flags: &str;
+                    let mut remaining = rest;
 
-                if let Some(eq_idx) = remaining.find('=') {
-                    let potential_flags = remaining[..eq_idx].trim();
-                    if potential_flags.chars().all(|c| c.is_alphabetic()) {
-                        flags = potential_flags.to_string();
-                        remaining = &remaining[eq_idx + 1..];
+                    if let Some(eq_idx) = remaining.find('=') {
+                        let potential_flags = remaining[..eq_idx].trim();
+                        if potential_flags.chars().all(|c| c.is_alphabetic()) {
+                            flags = potential_flags;
+                            remaining = &remaining[eq_idx + 1..];
+                        } else {
+                            prev_line_trimmed = Some(line_trimmed);
+                            continue;
+                        }
                     } else {
+                        prev_line_trimmed = Some(line_trimmed);
                         continue;
                     }
-                } else {
-                    continue;
-                }
 
-                let raw_content = remaining.trim();
-                let mut description = None;
+                    let raw_content = remaining.trim();
+                    let mut description = None;
 
-                if let Some(idx) = line.find('#') {
-                    let comment = line[idx + 1..].trim();
-                    if !comment.is_empty() {
-                        description = Some(Arc::from(comment));
-                    }
-                }
-
-                if description.is_none() && index > 0 {
-                    let prev_line = lines[index - 1].trim();
-                    if prev_line.starts_with('#') {
-                        let comment = prev_line.trim_start_matches('#').trim();
+                    if let Some(idx) = line.find('#') {
+                        let comment = line[idx + 1..].trim();
                         if !comment.is_empty() {
                             description = Some(Arc::from(comment));
                         }
                     }
-                }
 
-                let resolved_content =
-                    resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
-                let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
-
-                let mut parts = Vec::with_capacity(5);
-                let mut current_part = String::with_capacity(32);
-                let mut in_quote = false;
-                let mut parts_count = 0;
-                let is_bindd = flags == "d";
-                let limit = if is_bindd { 4 } else { 3 };
-
-                for c in content_clean.chars() {
-                    if parts_count < limit {
-                        if c == '"' {
-                            in_quote = !in_quote;
-                            current_part.push(c);
-                        } else if c == ',' && !in_quote {
-                            parts.push(current_part.trim().to_string());
-                            current_part.clear();
-                            parts_count += 1;
-                        } else {
-                            current_part.push(c);
-                        }
-                    } else {
-                        current_part.push(c);
-                    }
-                }
-
-                if !current_part.trim().is_empty() || parts_count >= limit {
-                    parts.push(current_part.trim().to_string());
-                }
-
-                if parts.len() >= 3 {
-                    let mods: Arc<str>;
-                    let key: Arc<str>;
-                    let dispatcher: Arc<str>;
-                    let args: Arc<str>;
-
-                    if is_bindd {
-                        mods = Arc::from(parts[0].as_str());
-                        key = Arc::from(parts[1].as_str());
-                        if parts.len() > 2 {
-                            let desc_str = parts[2].trim();
-                            if !desc_str.is_empty() {
-                                description = Some(Arc::from(desc_str));
-                            }
-                        }
-                        dispatcher = if parts.len() > 3 {
-                            Arc::from(parts[3].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                        args = if parts.len() > 4 {
-                            Arc::from(parts[4].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                    } else {
-                        mods = Arc::from(parts[0].as_str());
-                        key = Arc::from(parts[1].as_str());
-                        dispatcher = Arc::from(parts[2].as_str());
-                        args = if parts.len() > 3 {
-                            Arc::from(parts[3].as_str())
-                        } else {
-                            Arc::from("")
-                        };
-                    }
-
-                    keybinds.push(Keybind {
-                        mods: mods.clone(),
-                        clean_mods: mods,
-                        flags: Arc::from(flags.as_str()),
-                        key,
-                        dispatcher,
-                        args,
-                        description,
-                        submap: current_submap.clone(),
-                        line_number: index,
-                        file_path: path.clone(),
-                    });
-                }
-            } else if let Some(rest) = line_trimmed.strip_prefix("source") {
-                let trimmed_rest = rest.trim_start();
-                if let Some(path_part) = trimmed_rest.strip_prefix('=') {
-                    let path_str = path_part
-                        .split('#')
-                        .next()
-                        .unwrap_or("")
-                        .trim()
-                        .trim_matches('"');
-
-                    let mut sourced_path =
-                        expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
-
-                    if !sourced_path.exists() && sourced_path.ends_with(".conf") {
-                        if let Some(parent) = sourced_path.parent() {
-                            sourced_path = parent.join("*.conf");
-                        }
-                    }
-
-                    if ctx.system_root != ctx.active_root {
-                        if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
-                            let remapped = ctx.active_root.join(suffix);
-                            let remapped_str = remapped.to_string_lossy();
-                            let is_glob = is_glob_pattern(&remapped_str);
-
-                            if remapped.exists()
-                                || (is_glob
-                                    && glob(&remapped_str).is_ok_and(|mut p| p.next().is_some()))
-                            {
-                                sourced_path = remapped;
+                    if description.is_none() && index > 0 {
+                        let prev_line = prev_line_trimmed.unwrap_or("");
+                        if prev_line.starts_with('#') {
+                            let comment = prev_line.trim_start_matches('#').trim();
+                            if !comment.is_empty() {
+                                description = Some(Arc::from(comment));
                             }
                         }
                     }
 
-                    let pattern = sourced_path.to_string_lossy();
-                    if !is_glob_pattern(&pattern) {
-                        let _ =
-                            parse_recursive(sourced_path, keybinds, ctx, visited, current_submap);
-                    } else if let Ok(paths) = glob(&pattern) {
-                        for p in paths.flatten() {
-                            let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
+                    let resolved_content =
+                        resolve_variables(raw_content, ctx.variables, ctx.sorted_keys);
+                    let content_clean = resolved_content.split('#').next().unwrap_or("").trim();
+
+                    let mut parts = Vec::with_capacity(5);
+                    let mut current_part = String::with_capacity(32);
+                    let mut in_quote = false;
+                    let mut parts_count = 0;
+                    let is_bindd = flags == "d";
+                    let limit = if is_bindd { 4 } else { 3 };
+
+                    for c in content_clean.chars() {
+                        if parts_count < limit {
+                            if c == '"' {
+                                in_quote = !in_quote;
+                                current_part.push(c);
+                            } else if c == ',' && !in_quote {
+                                parts.push(current_part.trim().to_string());
+                                current_part.clear();
+                                parts_count += 1;
+                            } else {
+                                current_part.push(c);
+                            }
+                        } else {
+                            current_part.push(c);
+                        }
+                    }
+
+                    if !current_part.trim().is_empty() || parts_count >= limit {
+                        parts.push(current_part.trim().to_string());
+                    }
+
+                    if parts.len() >= 3 {
+                        let mods: Arc<str>;
+                        let key: Arc<str>;
+                        let dispatcher: Arc<str>;
+                        let args: Arc<str>;
+
+                        if is_bindd {
+                            mods = Arc::from(parts[0].as_str());
+                            key = Arc::from(parts[1].as_str());
+                            if parts.len() > 2 {
+                                let desc_str = parts[2].trim();
+                                if !desc_str.is_empty() {
+                                    description = Some(Arc::from(desc_str));
+                                }
+                            }
+                            dispatcher = if parts.len() > 3 {
+                                Arc::from(parts[3].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                            args = if parts.len() > 4 {
+                                Arc::from(parts[4].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                        } else {
+                            mods = Arc::from(parts[0].as_str());
+                            key = Arc::from(parts[1].as_str());
+                            dispatcher = Arc::from(parts[2].as_str());
+                            args = if parts.len() > 3 {
+                                Arc::from(parts[3].as_str())
+                            } else {
+                                Arc::from("")
+                            };
+                        }
+
+                        keybinds.push(Keybind {
+                            mods: mods.clone(),
+                            clean_mods: mods,
+                            flags: Arc::from(flags),
+                            key,
+                            dispatcher,
+                            args,
+                            description,
+                            submap: current_submap.clone(),
+                            line_number: index,
+                            file_path: path.clone(),
+                        });
+                    }
+                } else if let Some(rest) = line_trimmed.strip_prefix("source") {
+                    let trimmed_rest = rest.trim_start();
+                    if let Some(path_part) = trimmed_rest.strip_prefix('=') {
+                        let path_str = path_part
+                            .split('#')
+                            .next()
+                            .unwrap_or("")
+                            .trim()
+                            .trim_matches('"');
+
+                        let mut sourced_path =
+                            expand_path(path_str, &path, ctx.variables, ctx.sorted_keys);
+
+                        if !sourced_path.exists() && sourced_path.ends_with(".conf") {
+                            if let Some(parent) = sourced_path.parent() {
+                                sourced_path = parent.join("*.conf");
+                            }
+                        }
+
+                        if ctx.system_root != ctx.active_root {
+                            if let Ok(suffix) = sourced_path.strip_prefix(ctx.system_root) {
+                                let remapped = ctx.active_root.join(suffix);
+                                let remapped_str = remapped.to_string_lossy();
+                                let is_glob = is_glob_pattern(&remapped_str);
+
+                                if remapped.exists()
+                                    || (is_glob
+                                        && glob(&remapped_str)
+                                            .is_ok_and(|mut p| p.next().is_some()))
+                                {
+                                    sourced_path = remapped;
+                                }
+                            }
+                        }
+
+                        let pattern = sourced_path.to_string_lossy();
+                        if !is_glob_pattern(&pattern) {
+                            let _ = parse_recursive(
+                                sourced_path,
+                                keybinds,
+                                ctx,
+                                visited,
+                                current_submap,
+                            );
+                        } else if let Ok(paths) = glob(&pattern) {
+                            for p in paths.flatten() {
+                                let _ = parse_recursive(p, keybinds, ctx, visited, current_submap);
+                            }
                         }
                     }
                 }
             }
+
+            prev_line_trimmed = Some(line_trimmed);
         }
         Ok(())
     }
