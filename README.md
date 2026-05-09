@@ -123,6 +123,8 @@ cargo build --release
 
 Launch `hyprkcs` from your application menu or terminal to open the main window. Because it runs as a **Layer-Shell Overlay**, it may not appear as a traditional window in your taskbar or overview, but it will always be on top of your windows for quick access.
 
+Launching `hyprkcs` again while it is already open will toggle the existing overlay closed. This provides a reliable keyboard-only way to dismiss it without depending on your compositor's `killactive` behavior for layer-shell surfaces.
+
 **Keyboard Shortcuts**
 | Key | Action |
 | --- | --- |

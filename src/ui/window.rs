@@ -13,9 +13,28 @@ use std::rc::Rc;
 
 type FilterCallback = std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn()>>>>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActivationAction {
+    BuildNewWindow,
+    CloseExistingWindow,
+}
+
+fn activation_action(has_active_window: bool) -> ActivationAction {
+    if has_active_window {
+        ActivationAction::CloseExistingWindow
+    } else {
+        ActivationAction::BuildNewWindow
+    }
+}
+
 pub fn build_ui(app: &adw::Application) {
-    if let Some(window) = app.active_window() {
-        window.present();
+    if matches!(
+        activation_action(app.active_window().is_some()),
+        ActivationAction::CloseExistingWindow
+    ) {
+        if let Some(window) = app.active_window() {
+            window.close();
+        }
         return;
     }
 
@@ -1286,4 +1305,22 @@ pub fn build_ui(app: &adw::Application) {
 
     window.present();
     search_entry.grab_focus();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{activation_action, ActivationAction};
+
+    #[test]
+    fn activation_builds_window_when_none_is_open() {
+        assert_eq!(activation_action(false), ActivationAction::BuildNewWindow);
+    }
+
+    #[test]
+    fn activation_toggles_existing_window_closed() {
+        assert_eq!(
+            activation_action(true),
+            ActivationAction::CloseExistingWindow
+        );
+    }
 }
