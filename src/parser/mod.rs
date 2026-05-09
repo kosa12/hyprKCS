@@ -70,6 +70,78 @@ fn expand_tilde(path_str: &str) -> PathBuf {
     PathBuf::from(path_str)
 }
 
+fn expand_env_vars(input: &str) -> String {
+    if !input.contains('$') {
+        return input.to_string();
+    }
+
+    let chars: Vec<char> = input.chars().collect();
+    let mut result = String::with_capacity(input.len());
+    let mut i = 0;
+
+    while i < chars.len() {
+        if chars[i] != '$' {
+            result.push(chars[i]);
+            i += 1;
+            continue;
+        }
+
+        if i + 1 >= chars.len() {
+            result.push('$');
+            break;
+        }
+
+        if chars[i + 1] == '{' {
+            let mut j = i + 2;
+            while j < chars.len() && chars[j] != '}' {
+                j += 1;
+            }
+
+            if j < chars.len() {
+                let name: String = chars[i + 2..j].iter().collect();
+                if !name.is_empty() {
+                    if let Ok(value) = std::env::var(&name) {
+                        result.push_str(&value);
+                    } else {
+                        result.push('$');
+                        result.push('{');
+                        result.push_str(&name);
+                        result.push('}');
+                    }
+                    i = j + 1;
+                    continue;
+                }
+            }
+
+            result.push('$');
+            i += 1;
+            continue;
+        }
+
+        if chars[i + 1].is_ascii_alphabetic() || chars[i + 1] == '_' {
+            let mut j = i + 2;
+            while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_') {
+                j += 1;
+            }
+
+            let name: String = chars[i + 1..j].iter().collect();
+            if let Ok(value) = std::env::var(&name) {
+                result.push_str(&value);
+            } else {
+                result.push('$');
+                result.push_str(&name);
+            }
+            i = j;
+            continue;
+        }
+
+        result.push('$');
+        i += 1;
+    }
+
+    result
+}
+
 fn is_glob_pattern(s: &str) -> bool {
     s.contains('*') || s.contains('?') || s.contains('[')
 }
@@ -138,7 +210,7 @@ fn expand_path(
     vars: &HashMap<String, String>,
     sorted_keys: &[String],
 ) -> PathBuf {
-    let resolved_path_str = resolve_variables(path_str, vars, sorted_keys);
+    let resolved_path_str = expand_env_vars(&resolve_variables(path_str, vars, sorted_keys));
     let path_str = resolved_path_str.trim();
 
     if path_str.starts_with('~') {

@@ -95,3 +95,54 @@ fn test_variable_expansion_in_source() {
     assert_eq!(binds.len(), 1);
     assert_eq!(binds[0].key.as_ref(), "V");
 }
+
+#[test]
+fn test_env_var_expansion_in_source_path() {
+    let _guard = lock_env();
+    let temp_dir = TempDir::new();
+
+    let main_conf = temp_dir.path.join("hyprland.conf");
+    let nested_dir = temp_dir.path.join("nested");
+    fs::create_dir(&nested_dir).expect("Failed to create nested dir");
+    let nested_conf = nested_dir.join("included.conf");
+
+    std::env::set_var("HYPRKCS_TEST_SOURCE_ROOT", &temp_dir.path);
+    fs::write(
+        &main_conf,
+        "source = $HYPRKCS_TEST_SOURCE_ROOT/nested/included.conf",
+    )
+    .expect("Failed to write main");
+    fs::write(&nested_conf, "bind = SUPER, H, exec, env_works").expect("Failed to write nested");
+
+    std::env::set_var("HYPRKCS_CONFIG", &temp_dir.path);
+
+    let binds = parse_config().expect("Failed to parse config");
+    assert_eq!(binds.len(), 1);
+    assert_eq!(binds[0].key.as_ref(), "H");
+}
+
+#[test]
+fn test_braced_env_var_expansion_in_source_path() {
+    let _guard = lock_env();
+    let temp_dir = TempDir::new();
+
+    let main_conf = temp_dir.path.join("hyprland.conf");
+    let nested_dir = temp_dir.path.join("nested");
+    fs::create_dir(&nested_dir).expect("Failed to create nested dir");
+    let nested_conf = nested_dir.join("included.conf");
+
+    std::env::set_var("HYPRKCS_TEST_SOURCE_ROOT_BRACED", &temp_dir.path);
+    fs::write(
+        &main_conf,
+        "source = ${HYPRKCS_TEST_SOURCE_ROOT_BRACED}/nested/included.conf",
+    )
+    .expect("Failed to write main");
+    fs::write(&nested_conf, "bind = SUPER, B, exec, braced_env_works")
+        .expect("Failed to write nested");
+
+    std::env::set_var("HYPRKCS_CONFIG", &temp_dir.path);
+
+    let binds = parse_config().expect("Failed to parse config");
+    assert_eq!(binds.len(), 1);
+    assert_eq!(binds[0].key.as_ref(), "B");
+}
